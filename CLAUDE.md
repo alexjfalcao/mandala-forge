@@ -13,11 +13,29 @@ sua suíte e seu documento de referência:
 | App | O que faz | Doc | Teste |
 |---|---|---|---|
 | `mandala-stl.html` | relevo por **campo escalar suave** em anéis concêntricos; modos relevo e vazado | `MANDALA-STL.md` | `teste.js` |
-| `mandala-cloisonne.html` | **cloisonné**: filete em alto-relevo represando poças rebaixadas de esmalte, motivos por distância assinada; exporta **3MF com peças por cor** (padrão), OBJ+MTL e STL | `MANDALA-CLOISONNE.md` | `teste-cloisonne.js` |
+| `mandala-cloisonne.html` | **cloisonné**: filete em alto-relevo represando poças rebaixadas de esmalte, motivos por distância assinada | `MANDALA-CLOISONNE.md` | `teste-cloisonne.js` |
 
 São irmãos independentes: compartilham a arquitetura (mesma separação em blocos, mesmo
 mesher polar, mesmas invariantes de estanqueidade) mas **nenhum código**. Uma correção de
 geometria num deles não se propaga sozinha para o outro — avalie se cabe nos dois.
+
+### A via por contorno (só do cloisonné)
+
+`amostrar.js` + `exportar.py` + `teste-contorno.py` são uma **segunda via de exportação**
+para o cloisonné, e a única parte do projeto com dependências (numpy, shapely, contourpy,
+trimesh). Existe porque a malha por grade sai com bordas em escada e com a cor assada por
+face; a via por contorno extrai curvas de nível sub-pixel e extruda um sólido por cor.
+
+**Ela não reimplementa a matemática**: `amostrar.js` carrega o mesmo bloco `mandala-core`
+em `vm` e só despeja o resultado. Se você mudar a geometria no HTML, ela acompanha sozinha.
+O que precisa acompanhar à mão é o **formato do `.bin`** (magic `MCR2`), que os dois lados
+conhecem.
+
+`exportar.py preset:<nome>` puxa os presets recortando o literal `var PRESETS` do bloco de
+UI — se esse bloco for renomeado ou reindentado, o regex quebra.
+
+`exportar.py` no macOS precisa achar o `node`, que com nvm é função de shell e não binário
+no PATH: ele procura em `~/.nvm/versions/node/*/bin/node` e aceita a variável `NODE`.
 
 `exemplo_mandala.jpg` é a foto de referência que originou o gerador cloisonné (o preset
 `incensário` é a tentativa de reproduzi-la).
@@ -29,8 +47,11 @@ modelo de dados e as armadilhas estão lá, não no código.
 
 ```bash
 node teste.js                 # suíte do gerador de relevo   (8 casos + qualidade máxima)
-node teste-cloisonne.js       # suíte do cloisonné           (8 casos + fuzz 40× + qualidade máxima)
+node teste-cloisonne.js       # suíte do cloisonné           (8 casos + fuzz 40× + exportação)
+python3 teste-contorno.py     # suíte da via por contorno     (5 presets, ~12 s)
 open mandala-stl.html         # abrir um app no navegador (é só o arquivo, não há servidor)
+
+python3 exportar.py preset:incenso saida.3mf   # exportação por contorno, bordas lisas
 ```
 
 Ambas as suítes saem com código 1 se algum caso falhar. Não há test runner: cada caso é

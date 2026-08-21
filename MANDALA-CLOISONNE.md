@@ -195,7 +195,68 @@ No vazado o fundo da placa some e sobra só o desenho: vira renda/suncatcher.
 
 ---
 
-## 6. Exportação
+## 6. Duas vias de exportação
+
+O app em HTML monta a peça **amostrando um campo de alturas numa grade polar**. Isso serve
+para desenhar e para o preview, mas na impressão traz dois problemas de uma vez: toda
+fronteira sai em escada, e a cor precisa ser assada por face — e é aí que o fatiador a
+agrupa como quiser.
+
+Existe uma segunda via, por **contorno**, que ataca a raiz: em vez de amostrar alturas,
+extrai a curva de nível de cada região e a extruda como sólido fechado.
+
+| | grade (HTML) | contorno (`exportar.py`) |
+|---|---|---|
+| bordas | escada de ~1 célula | **lisas** (contorno sub-pixel) |
+| triângulos (incensário) | 520 k a 1,6 M | **~200 k** |
+| peças | uma por cor, mas coladas | uma por cor, `manifold = yes` no Bambu |
+| dependências | nenhuma | numpy, shapely, contourpy, trimesh |
+| tempo | ~1 s | ~12 s |
+| onde roda | no navegador | linha de comando |
+
+O HTML continua sendo o lugar de desenhar e o dono da matemática. A via por contorno não
+reimplementa fórmula nenhuma: `amostrar.js` carrega o **mesmo** bloco `mandala-core` em
+`vm`, avalia o desenho e despeja um mapa de regiões; o Python só faz geometria.
+
+```bash
+pip install numpy shapely contourpy trimesh --break-system-packages
+
+python3 exportar.py preset:incenso mandala.3mf        # um preset do próprio HTML
+python3 exportar.py minha.json     mandala.3mf        # o .json salvo pelo app
+python3 exportar.py preset:incenso mandala.3mf --grade 2400 --sub 3   # mais fino
+python3 teste-contorno.py                             # teste de fumaça dos 5 presets
+```
+
+### Como funciona
+
+1. **`amostrar.js`** varre uma grade cartesiana com sub-amostragem (`--sub` por eixo) e,
+   para cada célula, guarda a **cobertura 0..255 de cada região**. Uma região é um par
+   (cor, altura). É a cobertura fracionária que permite o contorno sub-pixel depois.
+2. A altura, que é contínua por causa da borda macia do filete, volta a ser **discreta**:
+   cada região tem uma altura só, porque vira um prisma.
+3. **`exportar.py`** passa `contourpy` na cobertura de cada região no nível 0,5, monta
+   polígonos com furos no shapely, simplifica (`--tolerancia`, 0,015 mm), recorta no disco
+   de Ø exato e extruda com `trimesh.creation.extrude_polygon`.
+4. As regiões de mesma cor viram uma peça; cada peça vira um `<object>` e um extrusor no
+   `Metadata/model_settings.config`.
+
+### O que fica de fora e por quê
+
+- **O cone central não é região**: é curvo, então sai como sólido de revolução
+  (`trimesh.creation.revolve`), com o furo cego no perfil.
+- **A cor atravessa toda a espessura**, igual à via por grade: cada região é extrudada de
+  z=0 até a sua altura.
+- **As peças se tocam face a face** e os contornos de regiões vizinhas são extraídos
+  independentemente, então pode haver costura sub-pixel entre elas. Para o fatiador isso é
+  irrelevante (peças encostadas são o normal em multimaterial), mas não espere que a união
+  das peças seja uma malha 2-manifold perfeita.
+- **`node` precisa ser achável**. Com nvm ele é uma função do shell, não um binário no
+  PATH; `exportar.py` procura em `~/.nvm/versions/node/*/bin/node` e aceita a variável
+  `NODE`.
+
+---
+
+## 7. Exportação a partir do HTML
 
 | | OBJ + MTL | 3MF peça única | 3MF peças por cor | STL |
 |---|---|---|---|---|
@@ -370,7 +431,7 @@ todo em `corBase`** — é o verso da peça.
 
 ---
 
-## 7. Malha — as invariantes são as mesmas do gerador irmão
+## 8. Malha — as invariantes são as mesmas do gerador irmão
 
 Grade polar `NR × NT`; alturas nos **nós**, presença no **centro da célula**.
 
@@ -418,7 +479,7 @@ filete **não** resolve: acima de ~1,2 mm ele engole as poças e o desenho se pe
 
 ---
 
-## 8. Verificação
+## 9. Verificação
 
 ```bash
 node teste-cloisonne.js
@@ -453,7 +514,7 @@ print(m.is_watertight, m.is_winding_consistent, m.volume, m.euler_number)
 
 ---
 
-## 9. UI
+## 10. UI
 
 - **Painel por dados**: `CAM_FIELDS` declara os controles e quais aparecem por motivo
   (`para`/`nao`) e por preenchimento (`se`). Eventos por delegação lendo `data-g` (global)
@@ -473,7 +534,7 @@ print(m.is_watertight, m.is_winding_consistent, m.volume, m.euler_number)
 
 ---
 
-## 10. Ajustar um desenho sem se frustrar
+## 11. Ajustar um desenho sem se frustrar
 
 Três regras que economizam tempo:
 
@@ -487,7 +548,7 @@ Três regras que economizam tempo:
 
 ---
 
-## 11. Limitações conhecidas / próximos passos
+## 12. Limitações conhecidas / próximos passos
 
 1. **Sem chanfro nos filetes** — as laterais são verticais. Um bisel de 0,3 mm no topo
    imprimiria e pintaria melhor.
