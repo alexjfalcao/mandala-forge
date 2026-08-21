@@ -90,6 +90,8 @@ milímetros**. Confundir os dois é o erro mais fácil de cometer aqui.
 
   modo: 'placa',          // 'placa' | 'vazado'
   conn: 0, connW: 1.6,    // vazado: barras radiais de ligação
+  nivelUnico: true,       // todas as camadas no mesmo patamar
+  suave: true,            // borda macia do filete (antisserrilhado)
 
   corBase, corFio, luz, verniz,      // só preview
   camadas: [ ... ]
@@ -165,6 +167,15 @@ pontoint      : bolinha maciça no meio
 ```
 
 ### 5.3 Composição e altura
+
+Com **`nivelUnico`** (o padrão), `prepare` ignora o `nivel` de cada camada e usa 1 para
+todas: a mandala fica plana, com **um** patamar para as poças e **um** para o filete. Só o
+cone e o aro mantêm altura própria. É o desenho de esmalte clássico, e de quebra junta
+regiões na exportação por contorno — o incensário cai de 12 para 8 regiões e de 202 mil
+para 105 mil triângulos. Desligue para escalonar as camadas pelo campo `nivel`.
+
+Para deixar as poças rentes à chapa em vez de 0,5 mm acima dela, zere o `degrau`.
+
 
 `amostra` percorre as camadas **em ordem do array e a última que reivindica vence** — é
 pintura por cima, não soma. Por isso a ordem na pilha importa, e o painel tem ▲▼.

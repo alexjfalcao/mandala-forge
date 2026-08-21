@@ -163,6 +163,8 @@ Consequências práticas ao mexer:
   `pi·D/nt` e abaixo de ~3 células por filete a borda sai em escada. A qualidade `fino`
   (220×2880) troca resolução radial por angular e dá 6,9 células por filete com menos
   triângulos que `max`. Alargar o filete não resolve — acima de ~1,2 mm ele engole as poças.
+- `cfg.nivelUnico` (padrão ligado) faz `prepare` ignorar o `nivel` das camadas e usar 1 em
+  todas — mandala plana, só cone e aro com altura própria. `alturaMax` também respeita.
 - `filete()` devolve **fração 0..1** com borda macia dimensionada pela célula da grade, não
   0/1. Logo `altura` multiplica (`out.fio * fioH`) e a cor decide por `out.fio >= 0.5`.
 - `emitir()` é a única implementação da emissão de triângulos (recebe quais células entram
