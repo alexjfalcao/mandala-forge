@@ -222,6 +222,21 @@ async function checa3MF() {
   return falhas;
 }
 
+// a qualidade "fino" troca resolução radial por angular: precisa continuar
+// estanque, é ela que salva o filete do serrilhado
+{
+  const cfg = MC.defaults();
+  const res = MC.resolution(cfg, 'fino');
+  const mesh = MC.buildMesh(cfg, res);
+  const a = MC.audit(mesh);
+  const cel = Math.PI * cfg.diam / res.nt;
+  const ok = a.openEdges === 0 && a.degenerate === 0 && a.nonFinite === 0;
+  if (!ok) fail++;
+  console.log('\n' + (ok ? 'OK  ' : 'FALHA ') + 'qualidade fino: grade ' + res.nr + 'x' + res.nt +
+    ', célula no aro ' + cel.toFixed(3) + ' mm, ' + (cfg.fio / cel).toFixed(1) + ' células por filete, ' +
+    mesh.tris.toLocaleString('pt-BR') + ' tri, abertas=' + a.openEdges);
+}
+
 // fuzz: configurações aleatórias, inclusive inválidas de propósito
 {
   const rnd = (a, b) => a + Math.random() * (b - a);
@@ -270,7 +285,7 @@ async function checa3MF() {
 {
   const cfg = MC.defaults();
   let ruins = 0;
-  for (const q of ['teste', 'bom', 'alta', 'max']) {
+  for (const q of ['teste', 'bom', 'alta', 'max', 'fino']) {
     const g = MC.buildIndexed(cfg, MC.resolution(cfg, q), true);
     const o = MC.toOBJ(g, 'p');
     const vs = o.obj.split('\n').filter(L => L.startsWith('v '));
@@ -278,7 +293,7 @@ async function checa3MF() {
     if (set.size !== vs.length) { ruins++; console.log('  ' + q + ': ' + (vs.length - set.size) + ' vértices COLIDEM na exportação'); }
     else console.log('  ' + q.padEnd(6) + ' ' + String(vs.length).padStart(7) + ' vértices, todos distintos');
   }
-  console.log('precisão da exportação: ' + (ruins ? ruins + ' QUALIDADE(S) COM COLISÃO' : 'ok nas 4 qualidades'));
+  console.log('precisão da exportação: ' + (ruins ? ruins + ' QUALIDADE(S) COM COLISÃO' : 'ok nas 5 qualidades'));
   fail += ruins;
 }
 

@@ -269,6 +269,19 @@ vértices na fronteira entre materiais e depois se recusa a fundi-los, então re
 `is_watertight: False` num arquivo que está correto. Confie no Bambu (`--info` →
 `manifold = yes`), não nele, para esse ponto.
 
+### Borda macia do filete
+
+`filete()` devolve **0..1**, não 0/1. A faixa de transição acompanha a **célula da grade**
+(`P.celR`/`P.celT`, ~0,7 célula no raio local), porque antisserrilhado só funciona se a
+transição cobrir pelo menos uma célula. Com resposta binária, a fronteira do filete cai
+exatamente numa linha da grade e vira degrau vertical.
+
+`prepare(cfg, res)` recebe a grade para isso. Sem `res` — o preview pixel a pixel, bem mais
+fino que a grade — cai num valor pequeno e fixo. Desligável em `cfg.suave`.
+
+Consequências para quem for mexer: `out.fio` é fração, então `altura` faz
+`out.fio * cfg.fioH` (não um ternário) e a **cor** decide por `out.fio >= 0.5`.
+
 ### Precisão das coordenadas
 
 ⚠️ Coordenadas saem com **5 casas decimais**, não 3. No primeiro anel da grade os nós
@@ -355,11 +368,29 @@ Os degraus de altura (patamar → filete) viram rampas de uma célula. Não queb
 estanqueidade, mas **é a resolução angular que decide se o filete sobrevive**.
 
 ```js
-QUAL = { teste: [140,720], bom: [240,1080], alta: [340,1440], max: [440,1800] }
-nt = múltiplo de 4·sym, teto 2400
+QUAL = { teste: [140,720], bom: [240,1080], alta: [340,1440], max: [440,1800], fino: [220,2880] }
+nt = múltiplo de 4·sym, teto 3600
 ```
 
-Custo (Ø120, placa cheia): `bom` ≈ 0,9 M tri / 43 MB · `max` ≈ 1,59 M tri / 76 MB / 0,75 s.
+**`nt` é o que decide se o filete sobrevive.** A célula no aro mede `pi·D/nt`; abaixo de umas
+3 células por filete a borda sai em escada — o efeito de pente que aparece no fatiador.
+
+| qualidade | grade | célula no aro (Ø120) | células por filete de 0,8 mm | triângulos |
+|---|---|---|---|---|
+| teste | 140 × 720 | 0,52 mm | 1,7 | 203 k |
+| bom | 240 × 1080 | 0,35 mm | 2,6 | 521 k |
+| alta | 340 × 1440 | 0,26 mm | 3,4 | 982 k |
+| max | 440 × 1800 | 0,21 mm | 4,3 | 1,59 M |
+| **fino** | **220 × 2880** | **0,13 mm** | **6,9** | **1,27 M** |
+
+`fino` troca resolução radial (barata de sobra num campo de alturas) por angular: **menos**
+triângulos que `max` e menos da metade da célula no aro. É a qualidade certa para este
+desenho.
+
+⚠️ **O serrilhado é intrínseco a amostrar um campo de alturas numa grade.** Aumentar `nt`
+alivia, `filete()` com borda macia alivia, mas só some de vez com uma malha que siga as
+curvas de nível em vez de amostrar a grade (marching squares / dual contouring). Alargar o
+filete **não** resolve: acima de ~1,2 mm ele engole as poças e o desenho se perde.
 
 ---
 
@@ -405,7 +436,10 @@ print(m.is_watertight, m.is_winding_consistent, m.volume, m.euler_number)
   e `data-c` + `data-i` (camada). Cada card tem ▲▼ (ordem na pilha), duplicar e remover.
 - **Topo**: cor plana por poça + sombreamento pela derivada da altura. Exato.
 - **Relevo**: mesmo caminho, em tons de cinza por altura. Exato.
-- **3D**: rasteriza a **mesma grade polar do STL** com z-buffer, sem ordenar polígonos.
+- **3D**: rasteriza a **mesma grade da exportação** com z-buffer, sem ordenar polígonos —
+  é o único jeito de o preview mostrar o serrilhado que vai sair no arquivo. Tem teto de
+  ~300 mil células (acima disso o rasterizador em JS trava a aba); quando o teto morde, o
+  HUD mostra a grade do preview e a da exportação lado a lado.
   A primeira versão usava grade cartesiana com painter's algorithm e embolava — um filete
   de 0,8 mm não cabe numa célula de 0,5 mm. Vale lembrar disso antes de "simplificar" de
   volta.

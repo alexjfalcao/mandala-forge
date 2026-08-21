@@ -101,7 +101,7 @@
 <body>
 <div class="app">
   <aside class="panel">
-    <h1>Mandala Cloisonné<small>filete em relevo + poças de esmalte · exporta 3MF com cor</small></h1>
+    <h1>Mandala Cloisonné<small>filete em relevo + poças de esmalte · exporta com cor</small></h1>
     <div class="scroll" id="scroll">
 
       <fieldset>
@@ -119,7 +119,9 @@
         <div class="row"><label>Largura</label><input type="range" data-g="fio" min="0.3" max="3" step="0.05"><span class="num" data-v="fio"></span></div>
         <div class="row"><label>Altura</label><input type="range" data-g="fioH" min="0.2" max="4" step="0.05"><span class="num" data-v="fioH"></span></div>
         <div class="row"><label>Degrau</label><input type="range" data-g="degrau" min="0" max="3" step="0.05"><span class="num" data-v="degrau"></span></div>
+        <div class="row"><label>Suavizar</label><input type="checkbox" data-g="suave"><span class="num"></span></div>
         <p class="hint">O filete é a linha que sobe e represa o esmalte. O degrau é quanto cada nível de camada sobe em relação ao anterior.</p>
+        <p class="hint"><b>Suavizar</b> tira o serrilhado das bordas na malha exportada, trocando o degrau vertical por uma rampa de uma célula. Desligue só para comparar.</p>
       </fieldset>
 
       <fieldset>
@@ -195,6 +197,7 @@
         <option value="bom" selected>qualidade: boa</option>
         <option value="alta">qualidade: alta</option>
         <option value="max">qualidade: máxima</option>
+        <option value="fino">qualidade: filete fino</option>
       </select>
       <button class="btn ghost" id="save">salvar .json</button>
       <button class="btn ghost" id="load">abrir .json</button>
@@ -258,7 +261,7 @@ var MC = (function () {
       aro: 4, aroH: 1.2,
       fio: 0.9, fioH: 1.0, degrau: 0.7,
       cone: 22, coneH: 6, coneC: 0.75, furo: 3, furoP: 9,
-      modo: 'placa', conn: 0, connW: 1.6,
+      modo: 'placa', conn: 0, connW: 1.6, suave: true,
       corBase: '#5b2a7a', corFio: '#f6f2e8', luz: 315, verniz: 0.45,
       camadas: [
         camada({ motivo: 'anel', mult: 1, r0: 0.16, r1: 0.82, nivel: 0, preench: 'nenhum', cor: '#2b1330' }),
@@ -305,7 +308,7 @@ var MC = (function () {
   }
 
   /* ---- pré-processamento: uma entrada por camada ativa ---- */
-  function prepare(cfg) {
+  function prepare(cfg, res) {
     var out = [], i;
     var R = Math.max(1, cfg.diam / 2);
     for (i = 0; i < cfg.camadas.length; i++) {
@@ -338,7 +341,18 @@ var MC = (function () {
       g.lo = r0 - pad; g.hi = r1 + pad;
       out.push(g);
     }
-    return { cam: out, fioN: Math.max(1e-4, cfg.fio / R) };
+    /* Largura da faixa de transição do filete, em fração de raio.
+
+       Tem que acompanhar a CÉLULA da grade, não ser fixa: antisserrilhado só
+       funciona se a transição cobrir pelo menos uma célula. Com `res`, usa a
+       maior das duas dimensões da célula naquele raio (a radial é constante, a
+       angular cresce com r). Sem `res` — o preview pixel a pixel, que é bem
+       mais fino que a grade — cai num valor pequeno e fixo. */
+    var P = { cam: out, fioN: Math.max(1e-4, cfg.fio / R) };
+    if (cfg.suave === false) P.sw = 0;
+    else if (res) { P.celR = 0.7 / res.nr; P.celT = 0.7 * TAU / res.nt; P.sw = -1; }
+    else P.sw = 0.15 / R;
+    return P;
   }
 
   /* =======================================================================
@@ -372,35 +386,53 @@ var MC = (function () {
     }
   }
 
-  /* ---- o ponto cai num filete? devolve 0 = poça, 1 = filete; `o.banda` = faixa ---- */
-  function filete(g, d, o, fioN) {
+  /* -------------------------------------------------------------------------
+     O ponto cai num filete? Devolve 0..1, não 0/1: a borda tem uma faixa de
+     transição de `sw` (0,18 mm) onde o valor sobe suavemente.
+
+     Isso é o que tira o serrilhado da malha. Com resposta binária, a fronteira
+     do filete cai exatamente numa linha da grade e o degrau vertical vira uma
+     escada de meia largura de filete — o efeito de pente que aparece no
+     fatiador. Com a transição, o campo de altura é contínuo e a grade o
+     amostra como rampa, em qualquer resolução.
+
+     `o.banda` sai junto, para alternar cor nos contornos aninhados.
+     ------------------------------------------------------------------------- */
+  function filete(g, d, o, fioN, sw) {
     o.banda = 0;
-    if (g.borda && d < fioN) return 1;                                 // contorno externo
+    var v = 0, t;
+    function macio(x) {                                                // x > 0 = dentro
+      if (sw <= 0) return x > 0 ? 1 : 0;
+      t = x / sw + 0.5;
+      return t <= 0 ? 0 : (t >= 1 ? 1 : t);
+    }
+    if (g.borda) v = macio(fioN - d);                                  // contorno externo
     var k, resto, dl;
     switch (g.preench) {
       case 'contornos':
         k = Math.floor(d / g.passo);
         o.banda = k;
         resto = d - k * g.passo;
-        if (resto < fioN) return 1;
+        t = macio(fioN - resto); if (t > v) v = t;
+        t = macio(fioN - (g.passo - resto)); if (t > v) v = t;
         break;
       case 'nervuras':
-        if (g.espinha && Math.abs(o.lat) < fioN) return 1;
+        if (g.espinha) { t = macio(fioN - Math.abs(o.lat)); if (t > v) v = t; }
         var f = (o.t - g.incl * Math.abs(o.lat) / g.len) * g.linhas;   // cisalha em galão
         dl = Math.abs(f - Math.round(f)) * g.len / g.linhas;
-        if (f > 0 && f < g.linhas && dl < fioN) return 1;
+        if (f > 0 && f < g.linhas) { t = macio(fioN - dl); if (t > v) v = t; }
         break;
       case 'gotaint':                                                  // gota maciça acompanhando o eixo
         var w2 = perfil('gota', o.t, 0.5, 1.2);
-        if (0.45 * o.hw * w2 - Math.abs(o.lat) > 0) return 1;
+        t = macio(0.45 * o.hw * w2 - Math.abs(o.lat)); if (t > v) v = t;
         break;
       case 'pontoint':                                                 // bolinha maciça no meio
         var rc = g.r0 + 0.5 * g.len;
         var rad = 0.34 * Math.min(g.hw, g.half);
-        if (rad - polarDist(g.r0 + o.t * g.len, rc, o.lat / (rc + 1e-6)) > 0) return 1;
+        t = macio(rad - polarDist(g.r0 + o.t * g.len, rc, o.lat / (rc + 1e-6))); if (t > v) v = t;
         break;
     }
-    return 0;
+    return v;
   }
 
   /* =======================================================================
@@ -411,6 +443,8 @@ var MC = (function () {
   function amostra(P, r, th, out) {
     out.id = -1; out.nivel = 0; out.fio = 0; out.banda = 0; out.cor = null; out.cor2 = null;
     var C = P.cam, i, g, d;
+    var sw = P.sw;
+    if (sw < 0) { sw = P.celT * r; if (P.celR > sw) sw = P.celR; }     // célula local
     var o = out._o || (out._o = { t: 0, lat: 0, hw: 0, banda: 0 });
     for (i = 0; i < C.length; i++) {
       g = C[i];
@@ -418,7 +452,7 @@ var MC = (function () {
       d = dist(g, r, th, o);
       if (d <= 0) continue;
       out.id = g.idx; out.nivel = g.nivel;
-      out.fio = filete(g, d, o, P.fioN);
+      out.fio = filete(g, d, o, P.fioN, sw);
       out.banda = o.banda;
       out.cor = g.cor; out.cor2 = g.cor2;
     }
@@ -442,7 +476,12 @@ var MC = (function () {
     }
     amostra(P, rmm / R, th, out);
     if (out.id < 0) return cfg.base;
-    return cfg.base + out.nivel * cfg.degrau + (out.fio ? cfg.fioH : 0);
+    return cfg.base + out.nivel * cfg.degrau + out.fio * cfg.fioH;
+  }
+
+  /* ---- altura de um nó da grade (a suavização mora em filete(), não aqui) ---- */
+  function alturaNo(cfg, P, rmm, th, dr, dt, out) {
+    return altura(cfg, P, rmm, th, out);
   }
 
   /* ---- há material aqui? (rmm em MILÍMETROS) ---- */
@@ -472,13 +511,28 @@ var MC = (function () {
     return m;
   }
 
-  /* ---- resolução por qualidade (angular múltipla de 4× a simetria) ---- */
-  var QUAL = { teste: [140, 720], bom: [240, 1080], alta: [340, 1440], max: [440, 1800] };
+  /* -------------------------------------------------------------------------
+     Resolução por qualidade. `nt` (angular) é sempre múltiplo de 4× a simetria.
+
+     É `nt` que decide se o filete sobrevive: a célula no aro mede pi*D/nt, e o
+     filete tem tipicamente 0,8 mm. Abaixo de ~3 células por filete a borda sai
+     em escada. Daí o nível `fino`, que troca resolução radial (barata de
+     sobra) por angular, ficando com contagem de triângulos parecida com a de
+     `max` mas com célula menos da metade no aro:
+
+       qualidade   grade        célula no aro (D=120)   células por filete 0,8 mm
+       teste       140 x  720   0,52 mm                 1,5
+       bom         240 x 1080   0,35 mm                 2,3
+       alta        340 x 1440   0,26 mm                 3,1
+       max         440 x 1800   0,21 mm                 3,8
+       fino        220 x 2880   0,13 mm                 6,1
+     ------------------------------------------------------------------------- */
+  var QUAL = { teste: [140, 720], bom: [240, 1080], alta: [340, 1440], max: [440, 1800], fino: [220, 2880] };
   function resolution(cfg, q) {
     var p = QUAL[q] || QUAL.bom;
     var sym = Math.max(3, Math.round(cfg.sym)), m = sym * 4;
     var nt = Math.max(m * 3, Math.round(p[1] / m) * m);
-    return { nr: p[0], nt: Math.min(nt, 2400) };
+    return { nr: p[0], nt: Math.min(nt, 3600) };
   }
 
   /* ---- buffer de triângulos ---- */
@@ -515,7 +569,7 @@ var MC = (function () {
   function grade(cfg, res, comCor) {
     var R = cfg.diam / 2;
     var NR = res.nr, NT = res.nt;
-    var P = prepare(cfg);
+    var P = prepare(cfg, res);
     var i, j;
     var tmp = {};
 
@@ -524,9 +578,11 @@ var MC = (function () {
     var cs = new Float64Array(NT), sn = new Float64Array(NT), ths = new Float64Array(NT);
     for (j = 0; j < NT; j++) { ths[j] = TAU * j / NT; cs[j] = Math.cos(ths[j]); sn[j] = Math.sin(ths[j]); }
 
+    /* alturas nos nós (ver alturaNo: é ela que tira o serrilhado) */
     var z = new Float32Array((NR + 1) * NT);
+    var dr = (R / NR) * 0.34, dt = (TAU / NT) * 0.34;
     for (i = 0; i <= NR; i++)
-      for (j = 0; j < NT; j++) z[i * NT + j] = altura(cfg, P, rs[i], ths[j], tmp);
+      for (j = 0; j < NT; j++) z[i * NT + j] = alturaNo(cfg, P, rs[i], ths[j], dr, dt, tmp);
     var acc = 0;                                                       // nó central único
     for (j = 0; j < NT; j++) acc += z[j];
     acc /= NT; for (j = 0; j < NT; j++) z[j] = acc;
@@ -546,7 +602,7 @@ var MC = (function () {
         if (!comCor) continue;
         altura(cfg, P, rc, thc, tmp);                                  // preenche tmp com a amostra
         var hx = tmp.id < 0 ? cfg.corBase
-          : (tmp.fio ? cfg.corFio : (tmp.banda % 2 === 1 && tmp.cor2 ? tmp.cor2 : tmp.cor));
+          : (tmp.fio >= 0.5 ? cfg.corFio : (tmp.banda % 2 === 1 && tmp.cor2 ? tmp.cor2 : tmp.cor));
         if (!(hx in mapa)) { mapa[hx] = paleta.length; paleta.push(hx); }
         mat[i * NT + j] = mapa[hx];
       }
@@ -1021,7 +1077,7 @@ var MC = (function () {
     camada: camada, defaults: defaults, prepare: prepare,
     buildIndexed: buildIndexed, buildPartes: buildPartes,
     dist: dist, perfil: perfil, amostra: amostra, altura: altura, alturaMax: alturaMax,
-    solid: solid, resolution: resolution, buildMesh: buildMesh,
+    solid: solid, alturaNo: alturaNo, resolution: resolution, buildMesh: buildMesh,
     toSTL: toSTL, to3MF: to3MF, toOBJ: toOBJ, audit: audit, clamp: clamp
   };
 })();
@@ -1038,7 +1094,7 @@ var MC = (function () {
   var open = {};
   var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
   var hud = document.getElementById('hud');
-  var idleTimer = null, pending = false;
+  var idleTimer = null, pending = false, grade3D = '';
 
   /* ---------------- paletas e presets ---------------- */
   var C = MC.camada;
@@ -1056,7 +1112,7 @@ var MC = (function () {
         diam: 120, base: 3, sym: 10, rot: 0,
         aro: 3.5, aroH: 1.0, fio: 0.8, fioH: 0.9, degrau: 0.5,
         cone: 14, coneH: 5, coneC: 0.7, furo: 3, furoP: 8,
-        modo: 'placa', conn: 0, connW: 1.6,
+        modo: 'placa', conn: 0, connW: 1.6, suave: true,
         corBase: '#5b2a7a', corFio: '#f6f2e8', luz: 315, verniz: 0.35,
         camadas: [
           C({ motivo: 'anel', mult: 1, r0: 0.11, r1: 0.90, nivel: 0, borda: false, cor: '#2c1233' }),
@@ -1359,7 +1415,7 @@ var MC = (function () {
   /* cor da amostra: filete, poça, faixa alternada ou a própria placa */
   function corDe(o) {
     if (o.id < 0) return cfg.corBase;
-    if (o.fio) return cfg.corFio;
+    if (o.fio >= 0.5) return cfg.corFio;
     if (o.banda % 2 === 1 && o.cor2) return o.cor2;
     return o.cor;
   }
@@ -1439,11 +1495,27 @@ var MC = (function () {
      menos de 1 mm e a grade cartesiana não o resolvia. Aqui cada célula polar
      cai em 2 ou 3 pixels e o desenho sai nítido, sem ordenação.
      ======================================================================= */
-  function draw3D(NRq) {
+  function draw3D(cheia) {
     var W = cv.width, H = cv.height;
-    var P = MC.prepare(cfg), Rm = cfg.diam / 2;
-    var q = MC.resolution(cfg, NRq < 120 ? 'teste' : 'alta');
-    var NR = NRq, NT = Math.max(60, Math.round(q.nt * NRq / q.nr / 2) * 2);
+    var Rm = cfg.diam / 2;
+    // na passada final usa EXATAMENTE a grade da exportação: é o que faz o
+    // preview mostrar o que vai sair no arquivo, serrilhado inclusive
+    // Usa a grade da exportação para o preview ser fiel, mas com teto: acima de
+    // ~300 mil células o rasterizador em JS trava a aba. Quando o teto morde, o
+    // HUD avisa que o arquivo vai sair mais fino do que se vê aqui.
+    var q = MC.resolution(cfg, cheia ? document.getElementById('qual').value : 'teste');
+    var NR = q.nr, NT = q.nt;
+    if (!cheia) {
+      NR = Math.min(90, q.nr);
+      NT = Math.max(4 * cfg.sym, Math.round(q.nt / 3 / (4 * cfg.sym)) * 4 * cfg.sym);
+    } else if (NR * NT > 300000) {
+      var f = Math.sqrt(300000 / (NR * NT));
+      NR = Math.max(60, Math.round(NR * f));
+      var m = 4 * cfg.sym;
+      NT = Math.max(m, Math.round(NT * f / m) * m);
+    }
+    grade3D = NR + '×' + NT + (NR !== q.nr || NT !== q.nt ? ' (exporta ' + q.nr + '×' + q.nt + ')' : '');
+    var P = MC.prepare(cfg, { nr: NR, nt: NT });
     var i, j, o = {};
 
     var rs = new Float64Array(NR + 1), cs = new Float64Array(NT), sn = new Float64Array(NT), ths = new Float64Array(NT);
@@ -1451,7 +1523,9 @@ var MC = (function () {
     for (j = 0; j < NT; j++) { ths[j] = Math.PI * 2 * j / NT; cs[j] = Math.cos(ths[j]); sn[j] = Math.sin(ths[j]); }
 
     var z = new Float32Array((NR + 1) * NT);
-    for (i = 0; i <= NR; i++) for (j = 0; j < NT; j++) z[i * NT + j] = MC.altura(cfg, P, rs[i], ths[j], o);
+    var dr = (Rm / NR) * 0.34, dt = (Math.PI * 2 / NT) * 0.34;
+    for (i = 0; i <= NR; i++)
+      for (j = 0; j < NT; j++) z[i * NT + j] = MC.alturaNo(cfg, P, rs[i], ths[j], dr, dt, o);
     var pres = new Uint8Array(NR * NT), cor = new Array(NR * NT);
     var dth = Math.PI * 2 / NT;
     for (i = 0; i < NR; i++) {
@@ -1565,10 +1639,10 @@ var MC = (function () {
     fit();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, cv.width, cv.height);
-    if (tab === 'v3d') draw3D(scale < 1 ? 90 : 240);
+    if (tab === 'v3d') draw3D(scale >= 1);
     else drawTop(scale, tab === 'relevo');
     hud.textContent = tab === 'v3d'
-      ? 'arraste para girar · ' + Math.round(yaw * 180 / Math.PI) + '° / ' + Math.round(elev * 180 / Math.PI) + '°'
+      ? 'arraste para girar · ' + Math.round(yaw * 180 / Math.PI) + '° / ' + Math.round(elev * 180 / Math.PI) + '° · grade ' + grade3D
       : (tab === 'relevo' ? 'mapa de altura — claro é alto' : 'vista de topo · as cores são só para planejar a pintura');
   }
 
@@ -1716,7 +1790,7 @@ var MC = (function () {
     };
     rd.readAsText(f); e.target.value = '';
   });
-  document.getElementById('qual').addEventListener('change', updateStats);
+  document.getElementById('qual').addEventListener('change', function () { updateStats(); if (tab === 'v3d') schedule(); });
   document.getElementById('fmt').addEventListener('change', updateStats);
   window.addEventListener('resize', function () { schedule(); });
 

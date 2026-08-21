@@ -134,8 +134,16 @@ Consequências práticas ao mexer:
 - No motivo `arco`, `prepare` desconta a calota (`spanA`) para que `larg = 1` signifique
   "encosta no vizinho". Mexer nisso funde os arcos num anel contínuo.
 - Uma banda mais fina que `2 × fio` some — vira só filete, sem cor.
-- A vista 3D rasteriza a **grade polar** com z-buffer justamente porque grade cartesiana
-  com painter's algorithm não resolve um filete de menos de 1 mm. Não "simplifique" de volta.
+- A vista 3D rasteriza a **grade da exportação** com z-buffer (teto de ~300 mil células).
+  Grade cartesiana com painter's algorithm não resolve um filete de menos de 1 mm — não
+  "simplifique" de volta. E se o preview usar grade diferente da exportação, ele deixa de
+  mostrar o serrilhado que o usuário vai ver no fatiador.
+- **É `nt` (resolução angular) que decide se o filete sobrevive**: a célula no aro mede
+  `pi·D/nt` e abaixo de ~3 células por filete a borda sai em escada. A qualidade `fino`
+  (220×2880) troca resolução radial por angular e dá 6,9 células por filete com menos
+  triângulos que `max`. Alargar o filete não resolve — acima de ~1,2 mm ele engole as poças.
+- `filete()` devolve **fração 0..1** com borda macia dimensionada pela célula da grade, não
+  0/1. Logo `altura` multiplica (`out.fio * fioH`) e a cor decide por `out.fio >= 0.5`.
 - `emitir()` é a única implementação da emissão de triângulos (recebe quais células entram
   e fecha o sólido); `buildIndexed` passa a presença, `buildPartes` passa presença por cor,
   `buildMesh` só expande índices em sopa para o STL. `to3MF` é **assíncrono** (comprime com
