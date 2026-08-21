@@ -209,12 +209,18 @@ No vazado o fundo da placa some e sobra só o desenho: vira renda/suncatcher.
 **O padrão é 3MF · peças por cor** — é o único caminho *determinístico*: uma peça vira um
 extrusor, sem intermediários.
 
-⚠️ **O OBJ passa pelo agrupamento automático do Bambu e perde cor.** Ele chama
-`cluster_adaptive` (visível no binário, junto de `ColorDecomposeDialog` e
-`ColorDecomposeRecipeMode`), que decide **sozinho** quantos grupos criar. Num teste real com
-AMS de 4 slots, um desenho de 6 cores entrou com **2**. O diálogo aparece, mas o número de
-grupos não é o número de slots. Use OBJ para visualizador e para editar em ferramentas que
-não leem 3MF; para imprimir colorido, use o 3MF de peças.
+⚠️ **O OBJ passa pelo agrupamento de cores do Bambu.** Ao importar, ele abre o diálogo
+*Import Model* com um campo **Color Count** (atalhos 4 / 8 / 16 e um contador) e um botão
+*Apply*. O valor inicial vem do "Auto" (`cluster_adaptive` no binário), que **decide sozinho**
+quantos grupos criar — num caso real, com AMS de 4 slots, um desenho de 6 cores veio com
+`Color Count = 2`.
+
+O sintoma é característico: as cores que aparecem no *Filament Mapping* **não são as suas**,
+são centroides. Seis cores agrupadas em duas viraram `#65377B` e `#F8C370`, que não existem
+na paleta — são a média de {roxo, ameixa} e de {creme, laranja, amarelo, violeta}.
+
+Quem for usar OBJ tem que subir o Color Count para o número de cores do desenho e clicar
+*Apply*. Para imprimir colorido sem esse passo manual, use o 3MF de peças.
 
 O aviso de config do Bambu **é cosmético**: ele diz "load geometry data only", mas o
 `model_settings.config` é lido assim mesmo — a reexportação pelo CLI devolve as peças com

@@ -150,9 +150,11 @@ Consequências práticas ao mexer:
   `CompressionStream`) e aceita as duas formas.
 - **Fatiadores ignoram `basematerials`.** Cor no Bambu/Prusa só chega como *peça* (um objeto
   com vários `<component>` e o extrusor de cada um em `Metadata/model_settings.config`) ou
-  via OBJ colorido — mas o OBJ passa pelo `cluster_adaptive` do Bambu, que decide sozinho
-  quantos grupos criar e perde cores (6 viraram 2 num AMS de 4 slots). Para imprimir
-  colorido, o caminho determinístico é o 3MF de peças.
+  via OBJ colorido — mas aí o Bambu abre o diálogo *Import Model* e agrupa as cores no
+  **Color Count**, cujo valor inicial o "Auto" escolhe sozinho (6 cores viraram 2 num AMS de
+  4 slots). O sintoma é o *Filament Mapping* listar cores que não estão na paleta: são
+  centroides. Para imprimir colorido sem esse passo manual, o caminho determinístico é o
+  3MF de peças.
 - O Bambu avisa `The 3mf file has invalid config` em **qualquer** 3MF sem
   `Metadata/project_settings.config` — inclui os de Fusion e Blender. Não gere esse arquivo
   (são 74 kB de presets de máquina). O aviso é **cosmético**: o `model_settings.config` é
