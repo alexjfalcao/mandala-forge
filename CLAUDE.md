@@ -13,7 +13,7 @@ sua suíte e seu documento de referência:
 | App | O que faz | Doc | Teste |
 |---|---|---|---|
 | `mandala-stl.html` | relevo por **campo escalar suave** em anéis concêntricos; modos relevo e vazado | `MANDALA-STL.md` | `teste.js` |
-| `mandala-cloisonne.html` | **cloisonné**: filete em alto-relevo represando poças rebaixadas de esmalte, motivos por distância assinada | `MANDALA-CLOISONNE.md` | `teste-cloisonne.js` |
+| `mandala-cloisonne.html` | **cloisonné**: filete em alto-relevo represando poças rebaixadas de esmalte, motivos por distância assinada; exporta STL e **3MF com cor** | `MANDALA-CLOISONNE.md` | `teste-cloisonne.js` |
 
 São irmãos independentes: compartilham a arquitetura (mesma separação em blocos, mesmo
 mesher polar, mesmas invariantes de estanqueidade) mas **nenhum código**. Uma correção de
@@ -43,8 +43,13 @@ funcionar. O projeto continua sem dependências.
 Se precisar abrir um app com automação de navegador, `file://` costuma ser bloqueado;
 sirva com `python3 -m http.server` e acesse por `localhost`.
 
-Validação externa opcional (`pip install trimesh`): `m.is_watertight` e
-`m.is_winding_consistent` devem ser `True`.
+Validação externa opcional:
+
+- geometria — `pip install trimesh networkx`: `m.is_watertight` e `m.is_winding_consistent`
+  devem ser `True`;
+- **cor no 3MF** — `pip install lib3mf`. O `trimesh` **não serve**: o leitor de 3MF dele
+  ignora materiais e devolve tudo cinza, o que dá falso negativo. Receita completa na seção
+  6 do `MANDALA-CLOISONNE.md`.
 
 ## Arquitetura
 
@@ -128,6 +133,12 @@ Consequências práticas ao mexer:
 - Uma banda mais fina que `2 × fio` some — vira só filete, sem cor.
 - A vista 3D rasteriza a **grade polar** com z-buffer justamente porque grade cartesiana
   com painter's algorithm não resolve um filete de menos de 1 mm. Não "simplifique" de volta.
+- `buildIndexed` é a única implementação da geometria; `buildMesh` só expande índices em
+  sopa para o STL. O 3MF (`to3MF`) consome o indexado e é **assíncrono** (comprime com
+  `CompressionStream`).
+- No XML do 3MF, o `pid` precisa aparecer em **cada** `<triangle>` e o `p1` é índice
+  **0-based**. Errar qualquer um dos dois não gera erro de leitura — só faz a peça sair
+  numa cor só ou com todas as cores deslocadas.
 
 ### Adicionar um tipo de anel (`mandala-stl.html`)
 

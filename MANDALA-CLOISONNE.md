@@ -54,8 +54,10 @@ MC.altura(cfg, P, rmm, th, out)     // altura em MILÍMETROS (rmm em mm)
 MC.alturaMax(cfg)              // teto da peça, em mm
 MC.solid(cfg, P, rmm, th, out) // há material aqui?
 MC.resolution(cfg, q)          // { nr, nt } para 'teste'|'bom'|'alta'|'max'
-MC.buildMesh(cfg, res)         // { pos, n, tris, height, diam, parts }
-MC.toSTL(mesh, nome)           // ArrayBuffer (STL binário)
+MC.buildIndexed(cfg, res, cor) // geometria INDEXADA: { vx, nv, idx, tris, mat, paleta, ... }
+MC.buildMesh(cfg, res)         // sopa de triângulos: { pos, n, tris, height, diam, parts }
+MC.toSTL(mesh, nome)           // ArrayBuffer (STL binário, sem cor)
+MC.to3MF(g, nome)              // Promise<ArrayBuffer> (3MF com cor) — recebe o INDEXADO
 MC.audit(mesh)                 // { openEdges, degenerate, nonFinite, tris }
 ```
 
@@ -191,9 +193,63 @@ No vazado o fundo da placa some e sobra só o desenho: vira renda/suncatcher.
 
 ---
 
-## 6. Malha — as invariantes são as mesmas do gerador irmão
+## 6. Exportação
+
+| | STL | 3MF |
+|---|---|---|
+| cor | não | uma `base` por cor, apontada por triângulo |
+| tamanho | 100% | ~17% (XML deflatado) |
+| API | `toSTL(mesh)`, síncrona | `to3MF(g)`, **Promise** |
+
+O 3MF é ZIP + XML escrito à mão (`zipar`, `crc32`, `deflateRaw` via `CompressionStream`) —
+nenhuma dependência. Três entradas: `[Content_Types].xml`, `_rels/.rels`,
+`3D/3dmodel.model`.
+
+⚠️ **Duas armadilhas do 3MF, ambas descobertas com o `lib3mf` (implementação de
+referência do consórcio) e nenhuma delas gera erro de leitura:**
+
+1. **`pid` tem que ir em cada `<triangle>`.** Sem ele, o leitor descarta o `p1` e aplica a
+   propriedade do objeto — a peça inteira sai numa cor só, silenciosamente.
+2. **`p1` é índice 0-based dentro do grupo**, não o id do material. O `lib3mf` renumera para
+   1-based na leitura; escrever 1-based no XML desloca todas as cores em uma e joga a
+   última para fora do intervalo.
+
+Verificar cor com `trimesh` **não funciona**: o leitor de 3MF dele ignora materiais por
+completo e devolve tudo cinza. Use `lib3mf`:
+
+```bash
+pip install lib3mf --break-system-packages
+```
+
+```python
+import lib3mf, collections
+w = lib3mf.Wrapper(); m = w.CreateModel()
+m.QueryReader("3mf").ReadFromFile('mandala.3mf')
+it = m.GetBaseMaterialGroups(); it.MoveNext(); g = it.GetCurrent()
+cores = {p: g.GetDisplayColor(p) for p in g.GetAllPropertyIDs()}
+mi = m.GetMeshObjects(); mi.MoveNext(); o = mi.GetCurrentMeshObject()
+print(collections.Counter(t.PropertyIDs[0] for t in o.GetAllTriangleProperties()))
+```
+
+Espera-se **nenhum triângulo com `ResourceID == 0`** (sem propriedade) e a contagem
+distribuída entre todas as cores da paleta.
+
+### De onde vem a cor de cada triângulo
+
+`buildIndexed(cfg, res, true)` amostra o **centro de cada célula** e converte em índice de
+paleta pela mesma regra do preview (filete → `corFio`, poça → cor da camada, faixa ímpar →
+`cor2`, sem camada → `corBase`). Topo e paredes da célula herdam essa cor; o **fundo sai
+todo em `corBase`** — é o verso da peça.
+
+---
+
+## 7. Malha — as invariantes são as mesmas do gerador irmão
 
 Grade polar `NR × NT`; alturas nos **nós**, presença no **centro da célula**.
+
+`buildIndexed` é a **única** implementação da geometria; `buildMesh` só expande os índices
+em sopa de triângulos para o STL. Os vértices são numerados pela grade (o centro é um
+vértice só, compartilhado), então não há dedupe por hash em lugar nenhum.
 
 1. Os nós de `i=0` colapsam num ponto: altura mediada, **um** triângulo por célula, sem
    parede interna. (Não há furo passante neste gerador, então `rIn` é sempre 0.)
@@ -215,15 +271,15 @@ Custo (Ø120, placa cheia): `bom` ≈ 0,9 M tri / 43 MB · `max` ≈ 1,59 M tri 
 
 ---
 
-## 7. Verificação
+## 8. Verificação
 
 ```bash
 node teste-cloisonne.js
 ```
 
 8 casos (padrão, incensário com cone e furo cego, vazado com e sem conectores, todos os
-motivos, todos os preenchimentos, extremos, anel único) + **fuzz de 40 configurações
-aleatórias** — inclusive com `r0 > r1` de propósito, `larg` extremo e furo mais fundo que a
+motivos, todos os preenchimentos, extremos, anel único), **fuzz de 40 configurações
+aleatórias** e uma passada de **3MF** sobre os mesmos 8 casos — inclusive com `r0 > r1` de propósito, `larg` extremo e furo mais fundo que a
 peça. Cada caso confere:
 
 ```
@@ -232,7 +288,11 @@ tris do cabeçalho STL === mesh.tris · byteLength === 84 + 50·tris
 raio máximo ≤ diam/2 · z mínimo ≥ 0 · z máximo ≤ MC.alturaMax(cfg)
 ```
 
-Estado atual: **8/8 + 40/40 fuzz**.
+A passada de 3MF confere: mesmo número de triângulos do STL, todo índice dentro do
+intervalo, toda cor dentro da paleta, os vértices indexados reproduzindo a sopa
+exatamente, assinatura de ZIP e 3 entradas no diretório central.
+
+Estado atual: **8/8 + 40/40 fuzz + 8/8 no 3MF**.
 
 Validação externa, igual à do irmão:
 
@@ -244,7 +304,7 @@ print(m.is_watertight, m.is_winding_consistent, m.volume, m.euler_number)
 
 ---
 
-## 8. UI
+## 9. UI
 
 - **Painel por dados**: `CAM_FIELDS` declara os controles e quais aparecem por motivo
   (`para`/`nao`) e por preenchimento (`se`). Eventos por delegação lendo `data-g` (global)
@@ -261,7 +321,7 @@ print(m.is_watertight, m.is_winding_consistent, m.volume, m.euler_number)
 
 ---
 
-## 9. Ajustar um desenho sem se frustrar
+## 10. Ajustar um desenho sem se frustrar
 
 Três regras que economizam tempo:
 
@@ -275,15 +335,18 @@ Três regras que economizam tempo:
 
 ---
 
-## 10. Limitações conhecidas / próximos passos
+## 11. Limitações conhecidas / próximos passos
 
 1. **Sem chanfro nos filetes** — as laterais são verticais. Um bisel de 0,3 mm no topo
    imprimiria e pintaria melhor.
-2. **Sem exportação por cor** — o STL é uma peça só. Exportar um STL por camada de cor
-   (ou um 3MF multimaterial) seria o caminho natural para impressão colorida.
+2. **O 3MF é um objeto só com cor por triângulo** — é o que os fatiadores leem para
+   atribuir filamento por região. Exportar um objeto separado por cor (para quem prefere
+   montar as peças no fatiador) ainda não existe.
 3. **Sem SVG** — as curvas de nível existem; um SVG por poça serviria de máscara de pintura
    e para corte a laser.
-4. **`gotaint`/`pontoint` não têm cor própria** — saem na cor do filete. Um preenchimento
+4. **`gotaint`/`pontoint` não têm cor própria** — saem na cor do filete, no preview e no 3MF. Um preenchimento
    com cor independente exigiria um terceiro canal em `amostra`.
 5. **O 3D não tem sombra projetada nem oclusão** — a leitura do relevo depende só do Lambert.
-6. Motivos que faltam: entrelaçado, espiral, escama (telha), e um motivo "texto radial".
+6. **Sem OBJ/MTL** — o 3MF cobre fatiadores e a maioria dos visualizadores; um OBJ+MTL
+   seria útil para quem edita em ferramentas que não leem 3MF.
+7. Motivos que faltam: entrelaçado, espiral, escama (telha), e um motivo "texto radial".

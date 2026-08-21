@@ -183,6 +183,10 @@
       <span class="stat">malha <b id="s-tri"></b> · <b id="s-size"></b></span>
       <span class="badge ok" id="s-parts">1 peça</span>
       <span class="sp" style="flex:1"></span>
+      <select id="fmt" class="sel">
+        <option value="3mf" selected>3MF (com cor)</option>
+        <option value="stl">STL (sem cor)</option>
+      </select>
       <select id="qual" class="sel">
         <option value="teste">qualidade: teste</option>
         <option value="bom" selected>qualidade: boa</option>
@@ -191,7 +195,7 @@
       </select>
       <button class="btn ghost" id="save">salvar .json</button>
       <button class="btn ghost" id="load">abrir .json</button>
-      <button class="btn" id="dl">Baixar STL</button>
+      <button class="btn" id="dl">Baixar</button>
       <input type="file" id="file" accept=".json,application/json" hidden>
     </div>
   </main>
@@ -496,7 +500,16 @@ var MC = (function () {
        3. o fundo só vira leque único quando TODAS as células existem;
        4. cada aresta aparece exatamente duas vezes, com sentidos opostos.
      ======================================================================= */
-  function buildMesh(cfg, res) {
+  /* =======================================================================
+     Geometria INDEXADA. É a única implementação da malha: buildMesh() só
+     expande isto em sopa de triângulos para o STL. Índices existem porque o
+     3MF precisa deles — e, de quebra, o vértice do centro passa a ser um só.
+
+     Numeração dos vértices (NT por anel, mais o ponto único do centro):
+       topo  : i=0 → 0        · i>0 → 1 + (i-1)*NT + j
+       fundo : os mesmos, deslocados de nTopo
+     ======================================================================= */
+  function buildIndexed(cfg, res, comCor) {
     var R = cfg.diam / 2;
     var NR = res.nr, NT = res.nt;
     var P = prepare(cfg);
@@ -515,70 +528,110 @@ var MC = (function () {
     for (j = 0; j < NT; j++) acc += z[j];
     acc /= NT; for (j = 0; j < NT; j++) z[j] = acc;
 
+    /* presença e cor por célula (avaliadas no centro) */
     var pres = new Uint8Array(NR * NT);
+    var mat = comCor ? new Uint16Array(NR * NT) : null;
+    var paleta = [], mapa = null;
+    if (comCor) { mapa = {}; paleta.push(cfg.corBase); mapa[cfg.corBase] = 0; }
     var dth = TAU / NT;
     for (i = 0; i < NR; i++) {
       var rc = (rs[i] + rs[i + 1]) / 2;
-      for (j = 0; j < NT; j++) pres[i * NT + j] = solid(cfg, P, rc, ths[j] + dth / 2, tmp) ? 1 : 0;
+      for (j = 0; j < NT; j++) {
+        var thc = ths[j] + dth / 2;
+        if (!solid(cfg, P, rc, thc, tmp)) continue;
+        pres[i * NT + j] = 1;
+        if (!comCor) continue;
+        altura(cfg, P, rc, thc, tmp);                                  // preenche tmp com a amostra
+        var hx = tmp.id < 0 ? cfg.corBase
+          : (tmp.fio ? cfg.corFio : (tmp.banda % 2 === 1 && tmp.cor2 ? tmp.cor2 : tmp.cor));
+        if (!(hx in mapa)) { mapa[hx] = paleta.length; paleta.push(hx); }
+        mat[i * NT + j] = mapa[hx];
+      }
     }
 
-    var B = new Buf();
+    /* ---- vértices ---- */
+    var nTopo = 1 + NR * NT, nv = 2 * nTopo;
+    var vx = new Float32Array(nv * 3);
+    vx[0] = 0; vx[1] = 0; vx[2] = acc;                                 // centro do topo
+    vx[nTopo * 3] = 0; vx[nTopo * 3 + 1] = 0; vx[nTopo * 3 + 2] = 0;   // centro do fundo
+    for (i = 1; i <= NR; i++) for (j = 0; j < NT; j++) {
+      var t = (1 + (i - 1) * NT + j) * 3;
+      vx[t] = rs[i] * cs[j]; vx[t + 1] = rs[i] * sn[j]; vx[t + 2] = z[i * NT + j];
+      var b = (nTopo + 1 + (i - 1) * NT + j) * 3;
+      vx[b] = vx[t]; vx[b + 1] = vx[t + 1]; vx[b + 2] = 0;
+    }
+    function T(i, j) { return i === 0 ? 0 : 1 + (i - 1) * NT + j; }
+    function B(i, j) { return nTopo + T(i, j); }
+
+    /* ---- triângulos ---- */
+    var cap = 1 << 16, idx = new Uint32Array(cap * 3), tm = new Uint16Array(cap), nt = 0;
+    function push(a, b, c, m) {
+      if (nt === cap) {
+        cap *= 2;
+        var ni = new Uint32Array(cap * 3); ni.set(idx); idx = ni;
+        var nm = new Uint16Array(cap); nm.set(tm); tm = nm;
+      }
+      idx[nt * 3] = a; idx[nt * 3 + 1] = b; idx[nt * 3 + 2] = c;
+      tm[nt] = m; nt++;
+    }
+
     var full = true;
     for (i = 0; i < pres.length; i++) if (!pres[i]) { full = false; break; }
-    function X(i, j) { return rs[i] * cs[j]; }
-    function Y(i, j) { return rs[i] * sn[j]; }
-    function Z(i, j) { return z[i * NT + j]; }
+    var corFundo = 0;                                                  // o verso sai na cor da placa
 
     for (i = 0; i < NR; i++) {
       for (j = 0; j < NT; j++) {
         if (!pres[i * NT + j]) continue;
         var jp = (j + 1) % NT, jm = (j - 1 + NT) % NT;
-        var ax = X(i, j), ay = Y(i, j), az = Z(i, j);
-        var bx = X(i, jp), by = Y(i, jp), bz = Z(i, jp);
-        var cx = X(i + 1, jp), cy = Y(i + 1, jp), cz = Z(i + 1, jp);
-        var dx = X(i + 1, j), dy = Y(i + 1, j), dz = Z(i + 1, j);
+        var m = comCor ? mat[i * NT + j] : 0;
+        var a = T(i, j), b = T(i, jp), c = T(i + 1, jp), d = T(i + 1, j);
+        var a0 = B(i, j), b0 = B(i, jp), c0 = B(i + 1, jp), d0 = B(i + 1, j);
         var atCenter = (i === 0);
 
-        B.tri(ax, ay, az, dx, dy, dz, cx, cy, cz);
-        if (!atCenter) B.tri(ax, ay, az, cx, cy, cz, bx, by, bz);
-        if (!full) {
-          B.tri(ax, ay, 0, cx, cy, 0, dx, dy, 0);
-          if (!atCenter) B.tri(ax, ay, 0, bx, by, 0, cx, cy, 0);
+        push(a, d, c, m);                                              // topo
+        if (!atCenter) push(a, c, b, m);
+        if (!full) {                                                   // fundo
+          push(a0, c0, d0, corFundo);
+          if (!atCenter) push(a0, b0, c0, corFundo);
         }
-        if (!atCenter && !pres[(i - 1) * NT + j]) {                    // parede interna
-          B.tri(ax, ay, 0, bx, by, bz, bx, by, 0);
-          B.tri(ax, ay, 0, ax, ay, az, bx, by, bz);
+        if (!atCenter && !pres[(i - 1) * NT + j]) {                     // parede interna
+          push(a0, b, b0, m); push(a0, a, b, m);
         }
-        if (i === NR - 1 || !pres[(i + 1) * NT + j]) {                 // parede externa
-          B.tri(dx, dy, 0, cx, cy, 0, cx, cy, cz);
-          B.tri(dx, dy, 0, cx, cy, cz, dx, dy, dz);
+        if (i === NR - 1 || !pres[(i + 1) * NT + j]) {                  // parede externa
+          push(d0, c0, c, m); push(d0, c, d, m);
         }
-        if (!pres[i * NT + jm]) {                                      // parede no lado θ inferior
-          B.tri(ax, ay, 0, dx, dy, 0, dx, dy, dz);
-          B.tri(ax, ay, 0, dx, dy, dz, ax, ay, az);
-        }
-        if (!pres[i * NT + jp]) {                                      // parede no lado θ superior
-          B.tri(bx, by, 0, cx, cy, cz, cx, cy, 0);
-          B.tri(bx, by, 0, bx, by, bz, cx, cy, cz);
-        }
+        if (!pres[i * NT + jm]) { push(a0, d0, d, m); push(a0, d, a, m); }
+        if (!pres[i * NT + jp]) { push(b0, c, c0, m); push(b0, b, c, m); }
       }
     }
-
     if (full) {                                                        // fundo em leque
       for (j = 0; j < NT; j++) {
         var j2 = (j + 1) % NT;
-        var iax = X(0, j), iay = Y(0, j);
-        var ocx = X(NR, j2), ocy = Y(NR, j2), odx = X(NR, j), ody = Y(NR, j);
-        B.tri(iax, iay, 0, ocx, ocy, 0, odx, ody, 0);
+        push(B(0, j), B(NR, j2), B(NR, j), corFundo);
       }
     }
 
     var maxZ = 0;
     for (k = 0; k < z.length; k++) if (z[k] > maxZ) maxZ = z[k];
     return {
-      pos: B.a, n: B.n, tris: B.n / 9,
-      height: maxZ, diam: cfg.diam,
-      parts: components(pres, NR, NT)
+      vx: vx, nv: nv, idx: idx, tris: nt, mat: comCor ? tm : null, paleta: paleta,
+      height: maxZ, diam: cfg.diam, parts: components(pres, NR, NT)
+    };
+  }
+
+  /* ---- sopa de triângulos (o que o STL e a auditoria esperam) ---- */
+  function buildMesh(cfg, res) {
+    var g = buildIndexed(cfg, res, false);
+    var pos = new Float32Array(g.tris * 9), i, k;
+    for (i = 0; i < g.tris; i++) {
+      for (k = 0; k < 3; k++) {
+        var v = g.idx[i * 3 + k] * 3, o = i * 9 + k * 3;
+        pos[o] = g.vx[v]; pos[o + 1] = g.vx[v + 1]; pos[o + 2] = g.vx[v + 2];
+      }
+    }
+    return {
+      pos: pos, n: g.tris * 9, tris: g.tris,
+      height: g.height, diam: g.diam, parts: g.parts
     };
   }
 
@@ -627,6 +680,141 @@ var MC = (function () {
     return buf;
   }
 
+  /* =======================================================================
+     3MF — ZIP + XML, escrito à mão para não trazer dependência nenhuma.
+     Diferente do STL, guarda cor: uma `base` por cor da paleta e cada
+     triângulo aponta a sua com p1. É o que os fatiadores leem para atribuir
+     filamento por região. Devolve uma Promise (a compressão é assíncrona).
+     ======================================================================= */
+  var CRCT = null;
+  function crc32(b) {
+    if (!CRCT) {
+      CRCT = new Uint32Array(256);
+      for (var n = 0; n < 256; n++) {
+        var c = n;
+        for (var k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+        CRCT[n] = c >>> 0;
+      }
+    }
+    var r = 0xffffffff;
+    for (var i = 0; i < b.length; i++) r = CRCT[(r ^ b[i]) & 0xff] ^ (r >>> 8);
+    return (r ^ 0xffffffff) >>> 0;
+  }
+  function bytes(str) { return new TextEncoder().encode(str); }
+
+  function deflateRaw(u8) {
+    if (typeof CompressionStream === 'undefined') return Promise.resolve(null);
+    var st = new Blob([u8]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    return new Response(st).arrayBuffer().then(function (b) { return new Uint8Array(b); });
+  }
+
+  function zipar(entradas) {
+    var partes = [], centrais = [], off = 0, i = 0;
+    function proxima() {
+      if (i >= entradas.length) return Promise.resolve();
+      var e = entradas[i++], nome = bytes(e.nome), crc = crc32(e.dados);
+      return deflateRaw(e.dados).then(function (comp) {
+        var metodo = 8;
+        if (!comp || comp.length >= e.dados.length) { comp = e.dados; metodo = 0; }
+        var lh = new Uint8Array(30 + nome.length), dv = new DataView(lh.buffer);
+        dv.setUint32(0, 0x04034b50, true); dv.setUint16(4, 20, true); dv.setUint16(6, 0, true);
+        dv.setUint16(8, metodo, true); dv.setUint16(10, 0, true); dv.setUint16(12, 0x21, true);
+        dv.setUint32(14, crc, true); dv.setUint32(18, comp.length, true);
+        dv.setUint32(22, e.dados.length, true);
+        dv.setUint16(26, nome.length, true); dv.setUint16(28, 0, true);
+        lh.set(nome, 30);
+
+        var cd = new Uint8Array(46 + nome.length), cv = new DataView(cd.buffer);
+        cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true);
+        cv.setUint16(8, 0, true); cv.setUint16(10, metodo, true);
+        cv.setUint16(12, 0, true); cv.setUint16(14, 0x21, true);
+        cv.setUint32(16, crc, true); cv.setUint32(20, comp.length, true);
+        cv.setUint32(24, e.dados.length, true);
+        cv.setUint16(28, nome.length, true);
+        cv.setUint32(42, off, true);
+        cd.set(nome, 46);
+
+        partes.push(lh, comp); centrais.push(cd);
+        off += lh.length + comp.length;
+        return proxima();
+      });
+    }
+    return proxima().then(function () {
+      var tamC = 0, n;
+      for (n = 0; n < centrais.length; n++) tamC += centrais[n].length;
+      var eo = new Uint8Array(22), ev = new DataView(eo.buffer);
+      ev.setUint32(0, 0x06054b50, true);
+      ev.setUint16(8, centrais.length, true); ev.setUint16(10, centrais.length, true);
+      ev.setUint32(12, tamC, true); ev.setUint32(16, off, true);
+      var total = off + tamC + 22, buf = new Uint8Array(total), pos = 0;
+      for (n = 0; n < partes.length; n++) { buf.set(partes[n], pos); pos += partes[n].length; }
+      for (n = 0; n < centrais.length; n++) { buf.set(centrais[n], pos); pos += centrais[n].length; }
+      buf.set(eo, pos);
+      return buf.buffer;
+    });
+  }
+
+  var CT = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>' +
+    '</Types>';
+  var RELS = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rel0" Target="/3D/3dmodel.model" ' +
+    'Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>';
+
+  function num(v) { return String(Math.round(v * 1000) / 1000); }
+  function corHex(c) {
+    var h = (c || '#808080').replace('#', '').toUpperCase();
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    return '#' + h.slice(0, 6) + 'FF';
+  }
+
+  function to3MF(g, nome) {
+    var i, k;
+    // compacta: em vazado a maior parte dos nós da grade não é usada
+    var usado = new Uint8Array(g.nv), novo = new Int32Array(g.nv).fill(-1);
+    for (i = 0; i < g.tris * 3; i++) usado[g.idx[i]] = 1;
+    var nv = 0;
+    for (i = 0; i < g.nv; i++) if (usado[i]) novo[i] = nv++;
+
+    var out = [], buf = [];
+    function solta() { out.push(buf.join('')); buf.length = 0; }
+    buf.push('<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" ' +
+      'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n' +
+      '<metadata name="Application">Mandala Cloisonne</metadata>\n' +
+      '<metadata name="Title">' + String(nome || 'mandala').replace(/[<>&"]/g, '') + '</metadata>\n' +
+      '<resources>\n<basematerials id="1">\n');
+    var pal = (g.paleta && g.paleta.length) ? g.paleta : ['#cccccc'];
+    for (i = 0; i < pal.length; i++)
+      buf.push('<base name="cor' + i + '" displaycolor="' + corHex(pal[i]) + '"/>\n');
+    buf.push('</basematerials>\n<object id="2" type="model" pid="1" pindex="0">\n<mesh>\n<vertices>\n');
+    for (i = 0; i < g.nv; i++) {
+      if (!usado[i]) continue;
+      buf.push('<vertex x="' + num(g.vx[i * 3]) + '" y="' + num(g.vx[i * 3 + 1]) + '" z="' + num(g.vx[i * 3 + 2]) + '"/>\n');
+      if (buf.length > 40000) solta();
+    }
+    buf.push('</vertices>\n<triangles>\n');
+    for (i = 0; i < g.tris; i++) {
+      k = i * 3;
+      buf.push('<triangle v1="' + novo[g.idx[k]] + '" v2="' + novo[g.idx[k + 1]] + '" v3="' + novo[g.idx[k + 2]] + '"' +
+        // o pid TEM que ir em cada triângulo: sem ele o leitor de referência
+        // (lib3mf) descarta o p1 e usa a propriedade do objeto — tudo numa cor
+        // só. E o p1 é índice 0-based dentro do grupo, não o id do material.
+        (g.mat ? ' pid="1" p1="' + g.mat[i] + '"' : '') + '/>\n');
+      if (buf.length > 40000) solta();
+    }
+    buf.push('</triangles>\n</mesh>\n</object>\n</resources>\n<build><item objectid="2"/></build>\n</model>\n');
+    solta();
+
+    return zipar([
+      { nome: '[Content_Types].xml', dados: bytes(CT) },
+      { nome: '_rels/.rels', dados: bytes(RELS) },
+      { nome: '3D/3dmodel.model', dados: bytes(out.join('')) }
+    ]);
+  }
+
   /* ---- diagnóstico: malha fechada? (usado nos testes) ---- */
   function audit(mesh) {
     var p = mesh.pos, nt = mesh.tris, map = new Map(), i, k;
@@ -654,9 +842,10 @@ var MC = (function () {
   return {
     MOTIVOS: MOTIVOS, PREENCH: PREENCH,
     camada: camada, defaults: defaults, prepare: prepare,
+    buildIndexed: buildIndexed,
     dist: dist, perfil: perfil, amostra: amostra, altura: altura, alturaMax: alturaMax,
     solid: solid, resolution: resolution, buildMesh: buildMesh,
-    toSTL: toSTL, audit: audit, clamp: clamp
+    toSTL: toSTL, to3MF: to3MF, audit: audit, clamp: clamp
   };
 })();
 </script>
@@ -1222,10 +1411,13 @@ var MC = (function () {
     var parts = componentes(pres, NR, NT);
     var frac = count / (NR * NT);
     var estTri = Math.round(full.nr * full.nt * frac * (cfg.modo === 'placa' ? 3 : 4) * 1.15);
+    // o 3MF é XML comprimido: na prática sai perto de 1/25 do STL equivalente
+    var em3mf = document.getElementById('fmt').value === '3mf';
+    var estBytes = em3mf ? Math.round(estTri * 8.5) : 84 + estTri * 50;
     document.getElementById('s-diam').textContent = cfg.diam + ' mm';
     document.getElementById('s-h').textContent = MC.alturaMax(cfg).toFixed(1) + ' mm';
     document.getElementById('s-tri').textContent = fmtN(estTri) + ' tri (≈)';
-    document.getElementById('s-size').textContent = fmtB(84 + estTri * 50);
+    document.getElementById('s-size').textContent = fmtB(estBytes);
     var badge = document.getElementById('s-parts');
     badge.textContent = parts === 1 ? '1 peça' : parts + ' peças soltas';
     badge.className = 'badge ' + (parts === 1 ? 'ok' : 'warn');
@@ -1275,24 +1467,40 @@ var MC = (function () {
     setTimeout(function () { URL.revokeObjectURL(u); a.remove(); }, 500);
   }
   document.getElementById('dl').addEventListener('click', function () {
-    var btn = this; btn.disabled = true; btn.textContent = 'gerando…';
+    var btn = this, fmt = document.getElementById('fmt').value;
+    btn.disabled = true; btn.textContent = 'gerando…';
+    function pronto(bytes, parts, tris) {
+      document.getElementById('s-tri').textContent = fmtN(tris) + ' tri';
+      document.getElementById('s-size').textContent = fmtB(bytes);
+      var badge = document.getElementById('s-parts');
+      badge.textContent = parts === 1 ? '1 peça' : parts + ' peças soltas';
+      badge.className = 'badge ' + (parts === 1 ? 'ok' : 'warn');
+      btn.disabled = false; btn.textContent = 'Baixar';
+    }
+    function falhou(err) {
+      alert('Não consegui gerar o arquivo: ' + err.message + '\nTente uma qualidade menor.');
+      btn.disabled = false; btn.textContent = 'Baixar';
+    }
     setTimeout(function () {
+      var res = MC.resolution(cfg, document.getElementById('qual').value);
+      var nome = 'mandala_cloisonne_' + cfg.sym + 'x_' + cfg.diam + 'mm';
       try {
-        var res = MC.resolution(cfg, document.getElementById('qual').value);
-        var mesh = MC.buildMesh(cfg, res);
-        var buf = MC.toSTL(mesh, 'mandala');
-        baixar(new Blob([buf], { type: 'model/stl' }), 'mandala_cloisonne_' + cfg.sym + 'x_' + cfg.diam + 'mm.stl');
-        document.getElementById('s-tri').textContent = fmtN(mesh.tris) + ' tri';
-        document.getElementById('s-size').textContent = fmtB(buf.byteLength);
-        var badge = document.getElementById('s-parts');
-        badge.textContent = mesh.parts === 1 ? '1 peça' : mesh.parts + ' peças soltas';
-        badge.className = 'badge ' + (mesh.parts === 1 ? 'ok' : 'warn');
-      } catch (err) {
-        alert('Não consegui gerar a malha: ' + err.message + '\nTente uma qualidade menor.');
-      }
-      btn.disabled = false; btn.textContent = 'Baixar STL';
+        if (fmt === 'stl') {
+          var mesh = MC.buildMesh(cfg, res);
+          var buf = MC.toSTL(mesh, 'mandala');
+          baixar(new Blob([buf], { type: 'model/stl' }), nome + '.stl');
+          pronto(buf.byteLength, mesh.parts, mesh.tris);
+        } else {
+          var g = MC.buildIndexed(cfg, res, true);            // com cor
+          MC.to3MF(g, nome).then(function (buf) {
+            baixar(new Blob([buf], { type: 'model/3mf' }), nome + '.3mf');
+            pronto(buf.byteLength, g.parts, g.tris);
+          }).catch(falhou);
+        }
+      } catch (err) { falhou(err); }
     }, 30);
   });
+
   document.getElementById('save').addEventListener('click', function () {
     baixar(new Blob([JSON.stringify(cfg, null, 2)], { type: 'application/json' }), 'mandala-cloisonne.json');
   });
@@ -1312,6 +1520,7 @@ var MC = (function () {
     rd.readAsText(f); e.target.value = '';
   });
   document.getElementById('qual').addEventListener('change', updateStats);
+  document.getElementById('fmt').addEventListener('change', updateStats);
   window.addEventListener('resize', function () { schedule(); });
 
   cfg = Object.assign(MC.defaults(), PRESETS.incenso());

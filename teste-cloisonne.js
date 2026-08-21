@@ -6,7 +6,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, 'mandala-cloisonne.html'), 'utf8');
 const m = html.match(/<script id="mandala-core">([\s\S]*?)<\/script>/);
 if (!m) { console.error('núcleo não encontrado'); process.exit(1); }
-const ctx = { console };
+const ctx = { console, TextEncoder, Blob, Response, CompressionStream };
 vm.createContext(ctx);
 vm.runInContext(m[1] + '\nthis.MC = MC;', ctx);
 const MC = ctx.MC;
@@ -116,6 +116,59 @@ for (const [name, cfg] of cases) {
   );
 }
 
+// geometria indexada + 3MF: índices no intervalo, cor em todo triângulo,
+// zip legível e o mesmo número de triângulos do STL.
+async function checa3MF() {
+  let falhas = 0;
+  console.log('\ngeometria indexada + 3MF com cor:');
+  for (const [name, cfg] of cases) {
+    const res = MC.resolution(cfg, 'teste');
+    const g = MC.buildIndexed(clone(cfg), res, true);
+    const sopa = MC.buildMesh(clone(cfg), res);
+
+    let ok = g.tris === sopa.tris && g.paleta.length > 0;
+    // todo índice dentro do intervalo
+    let usados = new Uint8Array(g.nv);
+    for (let i = 0; i < g.tris * 3; i++) {
+      const v = g.idx[i];
+      if (v >= g.nv) { ok = false; break; }
+      usados[v] = 1;
+    }
+    // toda cor dentro da paleta
+    for (let i = 0; i < g.tris; i++) if (g.mat[i] >= g.paleta.length) { ok = false; break; }
+    // os vértices indexados reproduzem a sopa exatamente
+    for (let i = 0; i < Math.min(g.tris, 5000); i++) {
+      for (let k = 0; k < 3; k++) {
+        const v = g.idx[i * 3 + k] * 3, o = i * 9 + k * 3;
+        if (g.vx[v] !== sopa.pos[o] || g.vx[v + 1] !== sopa.pos[o + 1] || g.vx[v + 2] !== sopa.pos[o + 2]) { ok = false; }
+      }
+    }
+
+    const buf = await MC.to3MF(g, name);
+    const b = new Uint8Array(buf);
+    // assinatura de zip e fim do diretório central
+    const zipOk = b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
+    const dv = new DataView(buf);
+    let eocd = -1;
+    for (let i = b.length - 22; i >= 0 && i > b.length - 1024; i--)
+      if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    const tresEntradas = eocd >= 0 && dv.getUint16(eocd + 10, true) === 3;
+    if (!ok || !zipOk || !tresEntradas) falhas++;
+
+    let nUsados = 0;
+    for (let i = 0; i < g.nv; i++) if (usados[i]) nUsados++;
+    console.log(
+      ((ok && zipOk && tresEntradas) ? 'OK  ' : 'FALHA ') + name.padEnd(24) +
+      ' vért=' + String(nUsados).padStart(7) + '/' + String(g.nv).padStart(7) +
+      ' tri=' + String(g.tris).padStart(7) +
+      ' cores=' + String(g.paleta.length).padStart(2) +
+      ' 3mf=' + (buf.byteLength / 1048576).toFixed(2) + 'MB' +
+      ' (' + (100 * buf.byteLength / (84 + 50 * g.tris)).toFixed(1) + '% do STL)'
+    );
+  }
+  return falhas;
+}
+
 // fuzz: configurações aleatórias, inclusive inválidas de propósito
 {
   const rnd = (a, b) => a + Math.random() * (b - a);
@@ -171,5 +224,8 @@ for (const [name, cfg] of cases) {
     ((84 + 50 * mesh.tris) / 1048576).toFixed(1) + ' MB, ' + dt + ' ms, abertas=' + a.openEdges);
 }
 
-console.log(fail === 0 ? '\nTODOS OS TESTES PASSARAM' : '\n' + fail + ' CASO(S) COM FALHA');
-process.exit(fail ? 1 : 0);
+checa3MF().then(f => {
+  fail += f;
+  console.log(fail === 0 ? '\nTODOS OS TESTES PASSARAM' : '\n' + fail + ' CASO(S) COM FALHA');
+  process.exit(fail ? 1 : 0);
+});
