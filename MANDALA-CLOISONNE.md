@@ -206,8 +206,26 @@ No vazado o fundo da placa some e sobra só o desenho: vira renda/suncatcher.
 | triângulos | 1× | 1× | ~2,4× | 1× |
 | tamanho | ~35% do STL | ~17% | ~40% | 100% |
 
-**O padrão é OBJ + MTL.** É o único que não esbarra no aviso de config do Bambu, porque OBJ
-não é formato de projeto — não existe `Metadata/` para ele procurar.
+**O padrão é 3MF · peças por cor** — é o único caminho *determinístico*: uma peça vira um
+extrusor, sem intermediários.
+
+⚠️ **O OBJ passa pelo agrupamento automático do Bambu e perde cor.** Ele chama
+`cluster_adaptive` (visível no binário, junto de `ColorDecomposeDialog` e
+`ColorDecomposeRecipeMode`), que decide **sozinho** quantos grupos criar. Num teste real com
+AMS de 4 slots, um desenho de 6 cores entrou com **2**. O diálogo aparece, mas o número de
+grupos não é o número de slots. Use OBJ para visualizador e para editar em ferramentas que
+não leem 3MF; para imprimir colorido, use o 3MF de peças.
+
+O aviso de config do Bambu **é cosmético**: ele diz "load geometry data only", mas o
+`model_settings.config` é lido assim mesmo — a reexportação pelo CLI devolve as peças com
+`extruder` de 1 a N. Verificado, não deduzido.
+
+### Quantas cores o desenho pode ter
+
+Cada cor distinta vira uma peça e pede um filamento. O rodapé mostra a contagem e fica
+amarelo acima de 4 (o tamanho de um AMS). Acima do número de slots, alguém vai ter que
+juntar cores — melhor você, editando as cores das camadas, do que o fatiador escolhendo
+sozinho quais fundir.
 
 ### O aviso do Bambu Studio, em detalhe
 

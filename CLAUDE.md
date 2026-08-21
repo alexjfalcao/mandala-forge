@@ -13,7 +13,7 @@ sua suíte e seu documento de referência:
 | App | O que faz | Doc | Teste |
 |---|---|---|---|
 | `mandala-stl.html` | relevo por **campo escalar suave** em anéis concêntricos; modos relevo e vazado | `MANDALA-STL.md` | `teste.js` |
-| `mandala-cloisonne.html` | **cloisonné**: filete em alto-relevo represando poças rebaixadas de esmalte, motivos por distância assinada; exporta **OBJ+MTL** (padrão), 3MF com cor e STL | `MANDALA-CLOISONNE.md` | `teste-cloisonne.js` |
+| `mandala-cloisonne.html` | **cloisonné**: filete em alto-relevo represando poças rebaixadas de esmalte, motivos por distância assinada; exporta **3MF com peças por cor** (padrão), OBJ+MTL e STL | `MANDALA-CLOISONNE.md` | `teste-cloisonne.js` |
 
 São irmãos independentes: compartilham a arquitetura (mesma separação em blocos, mesmo
 mesher polar, mesmas invariantes de estanqueidade) mas **nenhum código**. Uma correção de
@@ -150,11 +150,14 @@ Consequências práticas ao mexer:
   `CompressionStream`) e aceita as duas formas.
 - **Fatiadores ignoram `basematerials`.** Cor no Bambu/Prusa só chega como *peça* (um objeto
   com vários `<component>` e o extrusor de cada um em `Metadata/model_settings.config`) ou
-  via **OBJ colorido**, que o Bambu importa oferecendo mapear cor → filamento.
+  via OBJ colorido — mas o OBJ passa pelo `cluster_adaptive` do Bambu, que decide sozinho
+  quantos grupos criar e perde cores (6 viraram 2 num AMS de 4 slots). Para imprimir
+  colorido, o caminho determinístico é o 3MF de peças.
 - O Bambu avisa `The 3mf file has invalid config` em **qualquer** 3MF sem
   `Metadata/project_settings.config` — inclui os de Fusion e Blender. Não gere esse arquivo
-  (são 74 kB de presets de máquina); com 3MF use Import, não Open Project. OBJ não tem esse
-  problema por não ser formato de projeto.
+  (são 74 kB de presets de máquina). O aviso é **cosmético**: o `model_settings.config` é
+  lido assim mesmo e as peças chegam com seus extrusores (verificado por reexportação no
+  CLI do Bambu).
 - Coordenadas exportadas usam **5 casas decimais**: com 3, vértices vizinhos perto do centro
   colidiam na qualidade máxima e viravam triângulo degenerado.
 - No XML do 3MF, o `pid` precisa aparecer em **cada** `<triangle>` e o `p1` é índice

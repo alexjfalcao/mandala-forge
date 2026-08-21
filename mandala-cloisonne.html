@@ -158,6 +158,7 @@
         <div class="row"><label>Brilho</label><input type="range" data-g="verniz" min="0" max="1" step="0.02"><span class="num" data-v="verniz"></span></div>
         <p class="hint">As cores valem para o preview <b>e para a exportação</b>: OBJ e 3MF as levam junto. O STL não guarda cor.</p>
         <p class="hint">O OBJ sai em <b>dois arquivos</b> (.obj e .mtl) que precisam ficar na mesma pasta — o navegador vai pedir permissão para baixar os dois.</p>
+        <p class="hint">Para imprimir colorido prefira o <b>3MF · peças por cor</b>: ele mapeia uma peça para cada extrusor, sem intermediários. O OBJ passa pelo agrupamento automático do Bambu, que decide sozinho quantas cores manter e costuma juntar demais.</p>
       </fieldset>
     </div>
   </aside>
@@ -185,10 +186,11 @@
       <span class="stat">Ø <b id="s-diam"></b> · altura <b id="s-h"></b></span>
       <span class="stat">malha <b id="s-tri"></b> · <b id="s-size"></b></span>
       <span class="badge ok" id="s-parts">1 peça</span>
+      <span class="badge ok" id="s-cores">1 cor</span>
       <span class="sp" style="flex:1"></span>
       <select id="fmt" class="sel">
-        <option value="obj" selected>OBJ + MTL · com cor</option>
-        <option value="partes">3MF · peças por cor</option>
+        <option value="partes" selected>3MF · peças por cor</option>
+        <option value="obj">OBJ + MTL · com cor</option>
         <option value="3mf">3MF · peça única</option>
         <option value="stl">STL · sem cor</option>
       </select>
@@ -1660,6 +1662,25 @@ var MC = (function () {
       }
     }
     var parts = componentes(pres, NR, NT);
+    // quantas cores distintas o desenho usa? é o número de filamentos que o
+    // 3MF de peças vai pedir — acima dos slots do AMS o fatiador tem que juntar
+    var vistas = {}, nCores = 0, o2 = {};
+    for (i = 0; i < NR; i += 2) {
+      var rr = Rm * (i + 0.5) / NR;
+      for (j = 0; j < NT; j += 2) {
+        var tt = Math.PI * 2 * (j + 0.5) / NT;
+        if (!MC.solid(cfg, P, rr, tt, o2)) continue;
+        MC.altura(cfg, P, rr, tt, o2);
+        var hx = corDe(o2);
+        if (!(hx in vistas)) { vistas[hx] = 1; nCores++; }
+      }
+    }
+    var bc = document.getElementById('s-cores');
+    bc.textContent = nCores + (nCores === 1 ? ' cor' : ' cores');
+    bc.className = 'badge ' + (nCores <= 4 ? 'ok' : 'warn');
+    bc.title = nCores <= 4
+      ? 'cabe num AMS de 4 filamentos'
+      : nCores + ' cores para ' + nCores + ' filamentos. Com menos slots, o fatiador junta as mais parecidas — junte você, editando as cores das camadas, para escolher quais.';
     var frac = count / (NR * NT);
     var estTri = Math.round(full.nr * full.nt * frac * (cfg.modo === 'placa' ? 3 : 4) * 1.15);
     // o 3MF é XML comprimido: na prática sai perto de 1/6 do STL equivalente.
