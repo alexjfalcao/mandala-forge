@@ -13,7 +13,7 @@ sua suíte e seu documento de referência:
 | App | O que faz | Doc | Teste |
 |---|---|---|---|
 | `mandala-stl.html` | relevo por **campo escalar suave** em anéis concêntricos; modos relevo e vazado | `MANDALA-STL.md` | `teste.js` |
-| `mandala-cloisonne.html` | **cloisonné**: filete em alto-relevo represando poças rebaixadas de esmalte, motivos por distância assinada; exporta STL e **3MF com cor** | `MANDALA-CLOISONNE.md` | `teste-cloisonne.js` |
+| `mandala-cloisonne.html` | **cloisonné**: filete em alto-relevo represando poças rebaixadas de esmalte, motivos por distância assinada; exporta STL e **3MF com cor** (peça única ou um sólido por cor, com extrusor) | `MANDALA-CLOISONNE.md` | `teste-cloisonne.js` |
 
 São irmãos independentes: compartilham a arquitetura (mesma separação em blocos, mesmo
 mesher polar, mesmas invariantes de estanqueidade) mas **nenhum código**. Uma correção de
@@ -48,8 +48,11 @@ Validação externa opcional:
 - geometria — `pip install trimesh networkx`: `m.is_watertight` e `m.is_winding_consistent`
   devem ser `True`;
 - **cor no 3MF** — `pip install lib3mf`. O `trimesh` **não serve**: o leitor de 3MF dele
-  ignora materiais e devolve tudo cinza, o que dá falso negativo. Receita completa na seção
-  6 do `MANDALA-CLOISONNE.md`.
+  ignora materiais e devolve tudo cinza, o que dá falso negativo;
+- **validação de ponta a ponta** — o Bambu Studio tem CLI em
+  `/Applications/3D Software/BambuStudio.app/Contents/MacOS/BambuStudio`. Reexportar o
+  arquivo (`--export-3mf`, com caminhos absolutos) e ler o `model_settings.config` da volta
+  mostra o que o fatiador entendeu. Receita completa na seção 6 do `MANDALA-CLOISONNE.md`.
 
 ## Arquitetura
 
@@ -133,9 +136,12 @@ Consequências práticas ao mexer:
 - Uma banda mais fina que `2 × fio` some — vira só filete, sem cor.
 - A vista 3D rasteriza a **grade polar** com z-buffer justamente porque grade cartesiana
   com painter's algorithm não resolve um filete de menos de 1 mm. Não "simplifique" de volta.
-- `buildIndexed` é a única implementação da geometria; `buildMesh` só expande índices em
-  sopa para o STL. O 3MF (`to3MF`) consome o indexado e é **assíncrono** (comprime com
-  `CompressionStream`).
+- `emitir()` é a única implementação da emissão de triângulos (recebe quais células entram
+  e fecha o sólido); `buildIndexed` passa a presença, `buildPartes` passa presença por cor,
+  `buildMesh` só expande índices em sopa para o STL. `to3MF` é **assíncrono** (comprime com
+  `CompressionStream`) e aceita as duas formas.
+- **Fatiadores ignoram `basematerials`.** Cor no Bambu/Prusa só chega como *peça*: um objeto
+  com vários `<component>` e o extrusor de cada um em `Metadata/model_settings.config`.
 - No XML do 3MF, o `pid` precisa aparecer em **cada** `<triangle>` e o `p1` é índice
   **0-based**. Errar qualquer um dos dois não gera erro de leitura — só faz a peça sair
   numa cor só ou com todas as cores deslocadas.

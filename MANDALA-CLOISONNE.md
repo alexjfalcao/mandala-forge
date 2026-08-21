@@ -54,7 +54,8 @@ MC.altura(cfg, P, rmm, th, out)     // altura em MILÍMETROS (rmm em mm)
 MC.alturaMax(cfg)              // teto da peça, em mm
 MC.solid(cfg, P, rmm, th, out) // há material aqui?
 MC.resolution(cfg, q)          // { nr, nt } para 'teste'|'bom'|'alta'|'max'
-MC.buildIndexed(cfg, res, cor) // geometria INDEXADA: { vx, nv, idx, tris, mat, paleta, ... }
+MC.buildIndexed(cfg, res, cor) // um sólido só: { vx, nv, idx, tris, mat, paleta, ... }
+MC.buildPartes(cfg, res)       // um sólido FECHADO por cor: { vx, nv, pecas: [...], ... }
 MC.buildMesh(cfg, res)         // sopa de triângulos: { pos, n, tris, height, diam, parts }
 MC.toSTL(mesh, nome)           // ArrayBuffer (STL binário, sem cor)
 MC.to3MF(g, nome)              // Promise<ArrayBuffer> (3MF com cor) — recebe o INDEXADO
@@ -195,27 +196,65 @@ No vazado o fundo da placa some e sobra só o desenho: vira renda/suncatcher.
 
 ## 6. Exportação
 
-| | STL | 3MF |
-|---|---|---|
-| cor | não | uma `base` por cor, apontada por triângulo |
-| tamanho | 100% | ~17% (XML deflatado) |
-| API | `toSTL(mesh)`, síncrona | `to3MF(g)`, **Promise** |
+| | STL | 3MF peça única | 3MF peças por cor |
+|---|---|---|---|
+| cor | não | por triângulo | **um sólido por cor, um extrusor cada** |
+| serve para | pintar à mão | visualizadores | **imprimir colorido** |
+| triângulos | 1× | 1× | ~2,4× |
+| tamanho | 100% | ~17% | ~40% |
+| API | `toSTL(mesh)` | `to3MF(buildIndexed(…, true))` | `to3MF(buildPartes(…))` |
 
 O 3MF é ZIP + XML escrito à mão (`zipar`, `crc32`, `deflateRaw` via `CompressionStream`) —
-nenhuma dependência. Três entradas: `[Content_Types].xml`, `_rels/.rels`,
-`3D/3dmodel.model`.
+nenhuma dependência.
 
-⚠️ **Duas armadilhas do 3MF, ambas descobertas com o `lib3mf` (implementação de
-referência do consórcio) e nenhuma delas gera erro de leitura:**
+### Por que existe o modo "peças por cor"
+
+O Bambu Studio (e o PrusaSlicer) **ignoram `basematerials`**. Um 3MF de peça única com cor
+por triângulo abre colorido num visualizador, mas entra cinza no fatiador. O que o fatiador
+entende é **peça**: um objeto com vários `<component>`, cada um com seu extrusor declarado
+em `Metadata/model_settings.config`.
+
+`buildPartes` gera um sólido fechado por cor. Juntos eles ladrilham o disco sem sobrepor —
+o volume da união bate com o da peça única. O custo é que as paredes internas aparecem duas
+vezes, uma de cada lado da fronteira, daí os ~2,4× triângulos.
+
+⚠️ **A cor atravessa toda a espessura.** Numa impressora com AMS isso significa troca de
+filamento em todas as camadas da chapa, não só nas do relevo. Chapa fina (`base`) reduz o
+desperdício de purga.
+
+### Estrutura do pacote
+
+```
+[Content_Types].xml
+_rels/.rels
+3D/3dmodel.model                 basematerials + um <object> por cor + <object> raiz com <components>
+Metadata/model_settings.config   de-para peça → extrusor      (só no modo peças)
+```
+
+Sem **nenhum** arquivo `Metadata/*.config`, o Bambu Studio mostra
+`The 3mf file has invalid config, load geometry data only` (string confirmada no binário) e
+descarta a cor, ficando só com a geometria.
+
+⚠️ Esse aviso também aparece ao abrir o arquivo como **projeto** (File → Open Project), que
+espera `Metadata/project_settings.config` — 74 kB de presets de impressora e filamento.
+**Não gere esse arquivo**: forçaria um perfil de máquina no usuário. O caminho certo é
+File → Import → Import 3MF.
+
+### Armadilhas do XML
+
+Ambas descobertas com o `lib3mf` (implementação de referência do consórcio) e **nenhuma
+delas gera erro de leitura**:
 
 1. **`pid` tem que ir em cada `<triangle>`.** Sem ele, o leitor descarta o `p1` e aplica a
    propriedade do objeto — a peça inteira sai numa cor só, silenciosamente.
 2. **`p1` é índice 0-based dentro do grupo**, não o id do material. O `lib3mf` renumera para
-   1-based na leitura; escrever 1-based no XML desloca todas as cores em uma e joga a
-   última para fora do intervalo.
+   1-based na leitura; escrever 1-based desloca todas as cores em uma e joga a última para
+   fora do intervalo.
+
+### Como verificar
 
 Verificar cor com `trimesh` **não funciona**: o leitor de 3MF dele ignora materiais por
-completo e devolve tudo cinza. Use `lib3mf`:
+completo e devolve tudo cinza.
 
 ```bash
 pip install lib3mf --break-system-packages
@@ -231,12 +270,27 @@ mi = m.GetMeshObjects(); mi.MoveNext(); o = mi.GetCurrentMeshObject()
 print(collections.Counter(t.PropertyIDs[0] for t in o.GetAllTriangleProperties()))
 ```
 
-Espera-se **nenhum triângulo com `ResourceID == 0`** (sem propriedade) e a contagem
-distribuída entre todas as cores da paleta.
+Espera-se **nenhum triângulo com `ResourceID == 0`** e a contagem distribuída entre as cores.
+
+**O melhor validador é o próprio Bambu Studio**, que tem CLI:
+
+```bash
+B="/Applications/3D Software/BambuStudio.app/Contents/MacOS/BambuStudio"
+"$B" mandala.3mf --info                                   # geometria
+"$B" /caminho/abs/mandala.3mf --export-3mf volta.3mf --outputdir /caminho/abs/saida
+```
+
+Reexportar é o teste definitivo: o `Metadata/model_settings.config` do arquivo de volta
+mostra o que o Bambu **entendeu**. Esperado — uma `<part>` por cor, `extruder` de 1 a N, e
+`mesh_stat` com `edges_fixed="0" degenerate_facets="0" facets_reversed="0"` em todas.
+
+Obs.: no modo peças, `--info` reporta `manifold = no` e centenas de `number_of_parts`. Isso
+é esperado e não é defeito: ele funde tudo antes de medir, então vê as faces coincidentes
+entre peças vizinhas e conta cada ilha (os 10 pontos, as 10 pétalas…) como uma peça.
 
 ### De onde vem a cor de cada triângulo
 
-`buildIndexed(cfg, res, true)` amostra o **centro de cada célula** e converte em índice de
+`buildIndexed(cfg, res, true)` e `buildPartes` amostram o **centro de cada célula** e converte em índice de
 paleta pela mesma regra do preview (filete → `corFio`, poça → cor da camada, faixa ímpar →
 `cor2`, sem camada → `corBase`). Topo e paredes da célula herdam essa cor; o **fundo sai
 todo em `corBase`** — é o verso da peça.
@@ -247,8 +301,10 @@ todo em `corBase`** — é o verso da peça.
 
 Grade polar `NR × NT`; alturas nos **nós**, presença no **centro da célula**.
 
-`buildIndexed` é a **única** implementação da geometria; `buildMesh` só expande os índices
-em sopa de triângulos para o STL. Os vértices são numerados pela grade (o centro é um
+`emitir(G, pertence, …)` é a **única** implementação da emissão de triângulos: recebe quais
+células entram e fecha o sólido com paredes em toda fronteira com quem ficou de fora. A peça
+inteira passa `presença`; cada peça de cor passa `presença && cor == k`. `buildMesh` só
+expande os índices em sopa para o STL. Os vértices são numerados pela grade (o centro é um
 vértice só, compartilhado), então não há dedupe por hash em lugar nenhum.
 
 1. Os nós de `i=0` colapsam num ponto: altura mediada, **um** triângulo por célula, sem
@@ -289,8 +345,10 @@ raio máximo ≤ diam/2 · z mínimo ≥ 0 · z máximo ≤ MC.alturaMax(cfg)
 ```
 
 A passada de 3MF confere: mesmo número de triângulos do STL, todo índice dentro do
-intervalo, toda cor dentro da paleta, os vértices indexados reproduzindo a sopa
-exatamente, assinatura de ZIP e 3 entradas no diretório central.
+intervalo, toda cor dentro da paleta, os vértices indexados reproduzindo a sopa exatamente,
+assinatura de ZIP e 3 entradas no diretório central. E, para o modo peças, **audita cada
+sólido de cor isoladamente** (`openEdges === 0`) e confere que o `model_settings.config` foi
+para dentro do pacote.
 
 Estado atual: **8/8 + 40/40 fuzz + 8/8 no 3MF**.
 
@@ -339,9 +397,9 @@ Três regras que economizam tempo:
 
 1. **Sem chanfro nos filetes** — as laterais são verticais. Um bisel de 0,3 mm no topo
    imprimiria e pintaria melhor.
-2. **O 3MF é um objeto só com cor por triângulo** — é o que os fatiadores leem para
-   atribuir filamento por região. Exportar um objeto separado por cor (para quem prefere
-   montar as peças no fatiador) ainda não existe.
+2. **A cor atravessa toda a espessura no modo peças.** Cortar as peças no topo da chapa
+   (chapa inteira numa cor, relevo colorido por cima) economizaria muita purga, mas exige
+   tratar as células onde o relevo tem altura zero, que gerariam triângulos degenerados.
 3. **Sem SVG** — as curvas de nível existem; um SVG por poça serviria de máscara de pintura
    e para corte a laser.
 4. **`gotaint`/`pontoint` não têm cor própria** — saem na cor do filete, no preview e no 3MF. Um preenchimento

@@ -101,7 +101,7 @@
 <body>
 <div class="app">
   <aside class="panel">
-    <h1>Mandala Cloisonné<small>filete em relevo + poças de esmalte · exporta STL</small></h1>
+    <h1>Mandala Cloisonné<small>filete em relevo + poças de esmalte · exporta 3MF com cor</small></h1>
     <div class="scroll" id="scroll">
 
       <fieldset>
@@ -183,9 +183,10 @@
       <span class="stat">malha <b id="s-tri"></b> · <b id="s-size"></b></span>
       <span class="badge ok" id="s-parts">1 peça</span>
       <span class="sp" style="flex:1"></span>
-      <select id="fmt" class="sel">
-        <option value="3mf" selected>3MF (com cor)</option>
-        <option value="stl">STL (sem cor)</option>
+      <select id="fmt" class="sel" title="3MF guarda cor; STL não">
+        <option value="partes" selected>3MF · peças por cor</option>
+        <option value="3mf">3MF · peça única</option>
+        <option value="stl">STL · sem cor</option>
       </select>
       <select id="qual" class="sel">
         <option value="teste">qualidade: teste</option>
@@ -509,11 +510,11 @@ var MC = (function () {
        topo  : i=0 → 0        · i>0 → 1 + (i-1)*NT + j
        fundo : os mesmos, deslocados de nTopo
      ======================================================================= */
-  function buildIndexed(cfg, res, comCor) {
+  function grade(cfg, res, comCor) {
     var R = cfg.diam / 2;
     var NR = res.nr, NT = res.nt;
     var P = prepare(cfg);
-    var i, j, k;
+    var i, j;
     var tmp = {};
 
     var rs = new Float64Array(NR + 1);
@@ -560,62 +561,105 @@ var MC = (function () {
       var b = (nTopo + 1 + (i - 1) * NT + j) * 3;
       vx[b] = vx[t]; vx[b + 1] = vx[t + 1]; vx[b + 2] = 0;
     }
-    function T(i, j) { return i === 0 ? 0 : 1 + (i - 1) * NT + j; }
-    function B(i, j) { return nTopo + T(i, j); }
+    var maxZ = 0;
+    for (i = 0; i < z.length; i++) if (z[i] > maxZ) maxZ = z[i];
+    return {
+      NR: NR, NT: NT, nTopo: nTopo, nv: nv, vx: vx,
+      pres: pres, mat: mat, paleta: paleta,
+      height: maxZ, diam: cfg.diam,
+      T: function (i, j) { return i === 0 ? 0 : 1 + (i - 1) * NT + j; },
+      B: function (i, j) { return nTopo + (i === 0 ? 0 : 1 + (i - 1) * NT + j); }
+    };
+  }
 
-    /* ---- triângulos ---- */
-    var cap = 1 << 16, idx = new Uint32Array(cap * 3), tm = new Uint16Array(cap), nt = 0;
-    function push(a, b, c, m) {
-      if (nt === cap) {
-        cap *= 2;
-        var ni = new Uint32Array(cap * 3); ni.set(idx); idx = ni;
-        var nm = new Uint16Array(cap); nm.set(tm); tm = nm;
-      }
-      idx[nt * 3] = a; idx[nt * 3 + 1] = b; idx[nt * 3 + 2] = c;
-      tm[nt] = m; nt++;
+  /* ---- buffer de índices ---- */
+  function BufI() { this.i = new Uint32Array(1 << 16); this.m = new Uint16Array(1 << 14); this.n = 0; }
+  BufI.prototype.tri = function (a, b, c, mm) {
+    if (this.n * 3 + 3 > this.i.length) {
+      var ni = new Uint32Array(this.i.length * 2); ni.set(this.i); this.i = ni;
+      var nm = new Uint16Array(this.m.length * 2); nm.set(this.m); this.m = nm;
     }
+    this.i[this.n * 3] = a; this.i[this.n * 3 + 1] = b; this.i[this.n * 3 + 2] = c;
+    this.m[this.n] = mm; this.n++;
+  };
 
-    var full = true;
-    for (i = 0; i < pres.length; i++) if (!pres[i]) { full = false; break; }
-    var corFundo = 0;                                                  // o verso sai na cor da placa
+  /* -------------------------------------------------------------------------
+     Emite um grupo de células como sólido fechado. `pertence` decide o que
+     entra; as paredes sobem em toda fronteira com quem está fora. Serve tanto
+     para a peça inteira (pertence = presença) quanto para uma peça por cor.
+     ------------------------------------------------------------------------- */
+  function emitir(G, pertence, corDe, leque) {
+    var NR = G.NR, NT = G.NT, T = G.T, B = G.B, i, j;
+    var out = new BufI();
+    var todas = true;
+    for (i = 0; i < pertence.length; i++) if (!pertence[i]) { todas = false; break; }
+    todas = todas && !!leque;
 
     for (i = 0; i < NR; i++) {
       for (j = 0; j < NT; j++) {
-        if (!pres[i * NT + j]) continue;
+        if (!pertence[i * NT + j]) continue;
         var jp = (j + 1) % NT, jm = (j - 1 + NT) % NT;
-        var m = comCor ? mat[i * NT + j] : 0;
+        var m = corDe ? corDe(i, j) : 0;
         var a = T(i, j), b = T(i, jp), c = T(i + 1, jp), d = T(i + 1, j);
         var a0 = B(i, j), b0 = B(i, jp), c0 = B(i + 1, jp), d0 = B(i + 1, j);
-        var atCenter = (i === 0);
+        var noCentro = (i === 0);
 
-        push(a, d, c, m);                                              // topo
-        if (!atCenter) push(a, c, b, m);
-        if (!full) {                                                   // fundo
-          push(a0, c0, d0, corFundo);
-          if (!atCenter) push(a0, b0, c0, corFundo);
+        out.tri(a, d, c, m);                                           // topo
+        if (!noCentro) out.tri(a, c, b, m);
+        if (!todas) {                                                  // fundo
+          out.tri(a0, c0, d0, m);
+          if (!noCentro) out.tri(a0, b0, c0, m);
         }
-        if (!atCenter && !pres[(i - 1) * NT + j]) {                     // parede interna
-          push(a0, b, b0, m); push(a0, a, b, m);
+        if (!noCentro && !pertence[(i - 1) * NT + j]) {                // parede interna
+          out.tri(a0, b, b0, m); out.tri(a0, a, b, m);
         }
-        if (i === NR - 1 || !pres[(i + 1) * NT + j]) {                  // parede externa
-          push(d0, c0, c, m); push(d0, c, d, m);
+        if (i === NR - 1 || !pertence[(i + 1) * NT + j]) {             // parede externa
+          out.tri(d0, c0, c, m); out.tri(d0, c, d, m);
         }
-        if (!pres[i * NT + jm]) { push(a0, d0, d, m); push(a0, d, a, m); }
-        if (!pres[i * NT + jp]) { push(b0, c, c0, m); push(b0, b, c, m); }
+        if (!pertence[i * NT + jm]) { out.tri(a0, d0, d, m); out.tri(a0, d, a, m); }
+        if (!pertence[i * NT + jp]) { out.tri(b0, c, c0, m); out.tri(b0, b, c, m); }
       }
     }
-    if (full) {                                                        // fundo em leque
-      for (j = 0; j < NT; j++) {
-        var j2 = (j + 1) % NT;
-        push(B(0, j), B(NR, j2), B(NR, j), corFundo);
-      }
+    if (todas) {                                                       // fundo em leque
+      for (j = 0; j < NT; j++) out.tri(B(0, j), B(NR, (j + 1) % NT), B(NR, j), 0);
     }
+    return { idx: out.i, mat: out.m, tris: out.n };
+  }
 
-    var maxZ = 0;
-    for (k = 0; k < z.length; k++) if (z[k] > maxZ) maxZ = z[k];
+  /* ---- peça inteira, um sólido só ---- */
+  function buildIndexed(cfg, res, comCor) {
+    var G = grade(cfg, res, comCor);
+    var e = emitir(G, G.pres, comCor ? function (i, j) { return G.mat[i * G.NT + j]; } : null, true);
     return {
-      vx: vx, nv: nv, idx: idx, tris: nt, mat: comCor ? tm : null, paleta: paleta,
-      height: maxZ, diam: cfg.diam, parts: components(pres, NR, NT)
+      vx: G.vx, nv: G.nv, idx: e.idx, tris: e.tris,
+      mat: comCor ? e.mat : null, paleta: G.paleta,
+      height: G.height, diam: G.diam, parts: components(G.pres, G.NR, G.NT)
+    };
+  }
+
+  /* -------------------------------------------------------------------------
+     Uma peça FECHADA por cor. Cada peça é um prisma da base até o topo, e
+     juntas ladrilham o disco sem sobrepor — é o que o fatiador espera para
+     atribuir um filamento por peça.
+
+     Consequência: a cor atravessa toda a espessura. Numa impressora com AMS
+     isso significa troca de filamento em todas as camadas da chapa, não só nas
+     do relevo. Chapa fina (`base`) reduz o desperdício.
+     ------------------------------------------------------------------------- */
+  function buildPartes(cfg, res) {
+    var G = grade(cfg, res, true);
+    var NR = G.NR, NT = G.NT, n = NR * NT, i;
+    var pecas = [];
+    for (var k = 0; k < G.paleta.length; k++) {
+      var grupo = new Uint8Array(n), tem = 0;
+      for (i = 0; i < n; i++) if (G.pres[i] && G.mat[i] === k) { grupo[i] = 1; tem++; }
+      if (!tem) continue;
+      var e = emitir(G, grupo, null, false);
+      pecas.push({ cor: G.paleta[k], indice: k, idx: e.idx, tris: e.tris, celulas: tem });
+    }
+    return {
+      vx: G.vx, nv: G.nv, pecas: pecas, paleta: G.paleta,
+      height: G.height, diam: G.diam, parts: components(G.pres, NR, NT)
     };
   }
 
@@ -758,6 +802,7 @@ var MC = (function () {
     '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
     '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
     '<Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>' +
+    '<Default Extension="config" ContentType="text/xml"/>' +
     '</Types>';
   var RELS = '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
@@ -771,48 +816,98 @@ var MC = (function () {
     return '#' + h.slice(0, 6) + 'FF';
   }
 
-  function to3MF(g, nome) {
-    var i, k;
-    // compacta: em vazado a maior parte dos nós da grade não é usada
-    var usado = new Uint8Array(g.nv), novo = new Int32Array(g.nv).fill(-1);
-    for (i = 0; i < g.tris * 3; i++) usado[g.idx[i]] = 1;
-    var nv = 0;
-    for (i = 0; i < g.nv; i++) if (usado[i]) novo[i] = nv++;
+  /* -------------------------------------------------------------------------
+     Escreve um <object> com malha própria, compactando os vértices usados.
+     ------------------------------------------------------------------------- */
+  function objetoXML(vx, nv, idx, tris, mat, id, pindex, buf, solta) {
+    var usado = new Uint8Array(nv), novo = new Int32Array(nv), i, k;
+    for (i = 0; i < nv; i++) novo[i] = -1;
+    for (i = 0; i < tris * 3; i++) usado[idx[i]] = 1;
+    var n = 0;
+    for (i = 0; i < nv; i++) if (usado[i]) novo[i] = n++;
 
-    var out = [], buf = [];
-    function solta() { out.push(buf.join('')); buf.length = 0; }
-    buf.push('<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" ' +
-      'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n' +
-      '<metadata name="Application">Mandala Cloisonne</metadata>\n' +
-      '<metadata name="Title">' + String(nome || 'mandala').replace(/[<>&"]/g, '') + '</metadata>\n' +
-      '<resources>\n<basematerials id="1">\n');
-    var pal = (g.paleta && g.paleta.length) ? g.paleta : ['#cccccc'];
-    for (i = 0; i < pal.length; i++)
-      buf.push('<base name="cor' + i + '" displaycolor="' + corHex(pal[i]) + '"/>\n');
-    buf.push('</basematerials>\n<object id="2" type="model" pid="1" pindex="0">\n<mesh>\n<vertices>\n');
-    for (i = 0; i < g.nv; i++) {
+    buf.push('<object id="' + id + '" type="model" pid="1" pindex="' + pindex + '">\n<mesh>\n<vertices>\n');
+    for (i = 0; i < nv; i++) {
       if (!usado[i]) continue;
-      buf.push('<vertex x="' + num(g.vx[i * 3]) + '" y="' + num(g.vx[i * 3 + 1]) + '" z="' + num(g.vx[i * 3 + 2]) + '"/>\n');
+      buf.push('<vertex x="' + num(vx[i * 3]) + '" y="' + num(vx[i * 3 + 1]) + '" z="' + num(vx[i * 3 + 2]) + '"/>\n');
       if (buf.length > 40000) solta();
     }
     buf.push('</vertices>\n<triangles>\n');
-    for (i = 0; i < g.tris; i++) {
+    for (i = 0; i < tris; i++) {
       k = i * 3;
-      buf.push('<triangle v1="' + novo[g.idx[k]] + '" v2="' + novo[g.idx[k + 1]] + '" v3="' + novo[g.idx[k + 2]] + '"' +
+      buf.push('<triangle v1="' + novo[idx[k]] + '" v2="' + novo[idx[k + 1]] + '" v3="' + novo[idx[k + 2]] + '"' +
         // o pid TEM que ir em cada triângulo: sem ele o leitor de referência
         // (lib3mf) descarta o p1 e usa a propriedade do objeto — tudo numa cor
         // só. E o p1 é índice 0-based dentro do grupo, não o id do material.
-        (g.mat ? ' pid="1" p1="' + g.mat[i] + '"' : '') + '/>\n');
+        (mat ? ' pid="1" p1="' + mat[i] + '"' : '') + '/>\n');
       if (buf.length > 40000) solta();
     }
-    buf.push('</triangles>\n</mesh>\n</object>\n</resources>\n<build><item objectid="2"/></build>\n</model>\n');
+    buf.push('</triangles>\n</mesh>\n</object>\n');
+  }
+
+  /* -------------------------------------------------------------------------
+     3MF. Aceita as duas formas de geometria:
+       buildIndexed(...) → um objeto só, com cor por triângulo
+       buildPartes(...)  → um objeto por cor, montados como componentes
+
+     A forma com peças é a que serve para imprimir colorido: o fatiador vê uma
+     peça por filamento. O Metadata/model_settings.config faz o de-para
+     cor → extrusor; sem nenhum arquivo .config o Bambu Studio avisa
+     "The 3mf file has invalid config, load geometry data only" e joga a cor
+     fora, ficando só com a geometria.
+     ------------------------------------------------------------------------- */
+  function to3MF(g, nome) {
+    var out = [], buf = [], i;
+    function solta() { out.push(buf.join('')); buf.length = 0; }
+    var titulo = String(nome || 'mandala').replace(/[<>&"']/g, '');
+    var pal = (g.paleta && g.paleta.length) ? g.paleta : ['#cccccc'];
+    var pecas = g.pecas || null;
+
+    buf.push('<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" ' +
+      'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n' +
+      '<metadata name="Application">Mandala Cloisonne</metadata>\n' +
+      '<metadata name="Title">' + titulo + '</metadata>\n' +
+      '<resources>\n<basematerials id="1">\n');
+    for (i = 0; i < pal.length; i++)
+      buf.push('<base name="cor' + i + '" displaycolor="' + corHex(pal[i]) + '"/>\n');
+    buf.push('</basematerials>\n');
+
+    var raiz, cfgXML = null;
+    if (pecas) {
+      for (i = 0; i < pecas.length; i++)
+        objetoXML(g.vx, g.nv, pecas[i].idx, pecas[i].tris, null, 2 + i, pecas[i].indice, buf, solta);
+      raiz = 2 + pecas.length;
+      buf.push('<object id="' + raiz + '" type="model">\n<components>\n');
+      for (i = 0; i < pecas.length; i++)
+        buf.push('<component objectid="' + (2 + i) + '"/>\n');
+      buf.push('</components>\n</object>\n');
+
+      var c = ['<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <object id="' + raiz + '">\n' +
+        '    <metadata key="name" value="' + titulo + '"/>\n' +
+        '    <metadata key="extruder" value="1"/>\n'];
+      for (i = 0; i < pecas.length; i++) {
+        c.push('    <part id="' + (2 + i) + '" subtype="normal_part">\n' +
+          '      <metadata key="name" value="' + titulo + ' ' + pecas[i].cor + '"/>\n' +
+          '      <metadata key="extruder" value="' + (i + 1) + '"/>\n' +
+          '      <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>\n' +
+          '    </part>\n');
+      }
+      c.push('  </object>\n</config>\n');
+      cfgXML = c.join('');
+    } else {
+      objetoXML(g.vx, g.nv, g.idx, g.tris, g.mat, 2, 0, buf, solta);
+      raiz = 2;
+    }
+    buf.push('</resources>\n<build><item objectid="' + raiz + '"/></build>\n</model>\n');
     solta();
 
-    return zipar([
+    var entradas = [
       { nome: '[Content_Types].xml', dados: bytes(CT) },
       { nome: '_rels/.rels', dados: bytes(RELS) },
       { nome: '3D/3dmodel.model', dados: bytes(out.join('')) }
-    ]);
+    ];
+    if (cfgXML) entradas.push({ nome: 'Metadata/model_settings.config', dados: bytes(cfgXML) });
+    return zipar(entradas);
   }
 
   /* ---- diagnóstico: malha fechada? (usado nos testes) ---- */
@@ -842,7 +937,7 @@ var MC = (function () {
   return {
     MOTIVOS: MOTIVOS, PREENCH: PREENCH,
     camada: camada, defaults: defaults, prepare: prepare,
-    buildIndexed: buildIndexed,
+    buildIndexed: buildIndexed, buildPartes: buildPartes,
     dist: dist, perfil: perfil, amostra: amostra, altura: altura, alturaMax: alturaMax,
     solid: solid, resolution: resolution, buildMesh: buildMesh,
     toSTL: toSTL, to3MF: to3MF, audit: audit, clamp: clamp
@@ -1411,9 +1506,13 @@ var MC = (function () {
     var parts = componentes(pres, NR, NT);
     var frac = count / (NR * NT);
     var estTri = Math.round(full.nr * full.nt * frac * (cfg.modo === 'placa' ? 3 : 4) * 1.15);
-    // o 3MF é XML comprimido: na prática sai perto de 1/25 do STL equivalente
-    var em3mf = document.getElementById('fmt').value === '3mf';
-    var estBytes = em3mf ? Math.round(estTri * 8.5) : 84 + estTri * 50;
+    // o 3MF é XML comprimido: na prática sai perto de 1/6 do STL equivalente.
+    // Em peças por cor a contagem de triângulos ~2,4× (paredes internas
+    // duplicadas, uma de cada lado da fronteira entre cores).
+    var f = document.getElementById('fmt').value;
+    var estBytes = f === 'stl' ? 84 + estTri * 50
+      : Math.round(estTri * 8.5 * (f === 'partes' ? 2.4 : 1));
+    if (f === 'partes') estTri = Math.round(estTri * 2.4);
     document.getElementById('s-diam').textContent = cfg.diam + ' mm';
     document.getElementById('s-h').textContent = MC.alturaMax(cfg).toFixed(1) + ' mm';
     document.getElementById('s-tri').textContent = fmtN(estTri) + ' tri (≈)';
@@ -1490,13 +1589,17 @@ var MC = (function () {
           var buf = MC.toSTL(mesh, 'mandala');
           baixar(new Blob([buf], { type: 'model/stl' }), nome + '.stl');
           pronto(buf.byteLength, mesh.parts, mesh.tris);
-        } else {
-          var g = MC.buildIndexed(cfg, res, true);            // com cor
-          MC.to3MF(g, nome).then(function (buf) {
-            baixar(new Blob([buf], { type: 'model/3mf' }), nome + '.3mf');
-            pronto(buf.byteLength, g.parts, g.tris);
-          }).catch(falhou);
+          return;
         }
+        // peças por cor: um sólido fechado por cor, cada um num extrusor.
+        // peça única: um sólido só, com cor por triângulo (visualizadores).
+        var g = fmt === 'partes' ? MC.buildPartes(cfg, res) : MC.buildIndexed(cfg, res, true);
+        var tris = g.tris;
+        if (g.pecas) { tris = 0; for (var q = 0; q < g.pecas.length; q++) tris += g.pecas[q].tris; }
+        MC.to3MF(g, nome).then(function (buf) {
+          baixar(new Blob([buf], { type: 'model/3mf' }), nome + '.3mf');
+          pronto(buf.byteLength, g.parts, tris);
+        }).catch(falhou);
       } catch (err) { falhou(err); }
     }, 30);
   });

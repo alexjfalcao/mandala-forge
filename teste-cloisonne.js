@@ -6,7 +6,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, 'mandala-cloisonne.html'), 'utf8');
 const m = html.match(/<script id="mandala-core">([\s\S]*?)<\/script>/);
 if (!m) { console.error('núcleo não encontrado'); process.exit(1); }
-const ctx = { console, TextEncoder, Blob, Response, CompressionStream };
+const ctx = { console, TextEncoder, TextDecoder, Blob, Response, CompressionStream };
 vm.createContext(ctx);
 vm.runInContext(m[1] + '\nthis.MC = MC;', ctx);
 const MC = ctx.MC;
@@ -120,7 +120,7 @@ for (const [name, cfg] of cases) {
 // zip legível e o mesmo número de triângulos do STL.
 async function checa3MF() {
   let falhas = 0;
-  console.log('\ngeometria indexada + 3MF com cor:');
+  console.log('\ngeometria indexada + 3MF (peça única e peças por cor):');
   for (const [name, cfg] of cases) {
     const res = MC.resolution(cfg, 'teste');
     const g = MC.buildIndexed(clone(cfg), res, true);
@@ -144,6 +144,30 @@ async function checa3MF() {
       }
     }
 
+    // peças por cor: cada uma tem que ser um sólido fechado por si só, e
+    // juntas têm que somar exatamente as células presentes (ladrilham o disco)
+    const pt = MC.buildPartes(clone(cfg), res);
+    let trisPecas = 0, pecasOk = true;
+    for (const p of pt.pecas) {
+      const pos = new Float32Array(p.tris * 9);
+      for (let i = 0; i < p.tris; i++) for (let k = 0; k < 3; k++) {
+        const v = p.idx[i * 3 + k] * 3, o = i * 9 + k * 3;
+        pos[o] = pt.vx[v]; pos[o + 1] = pt.vx[v + 1]; pos[o + 2] = pt.vx[v + 2];
+      }
+      const a = MC.audit({ pos, tris: p.tris });
+      if (a.openEdges || a.degenerate || a.nonFinite) pecasOk = false;
+      trisPecas += p.tris;
+    }
+    if (!pecasOk || pt.pecas.length === 0) ok = false;
+
+    const bufP = await MC.to3MF(pt, name);
+    const bp = new Uint8Array(bufP);
+    // o 3MF de peças precisa carregar o model_settings.config, senão o Bambu
+    // Studio descarta a cor com "The 3mf file has invalid config"
+    const txt = new TextDecoder().decode(bp);
+    const temConfig = txt.indexOf('model_settings.config') >= 0;
+    if (!temConfig) ok = false;
+
     const buf = await MC.to3MF(g, name);
     const b = new Uint8Array(buf);
     // assinatura de zip e fim do diretório central
@@ -163,7 +187,10 @@ async function checa3MF() {
       ' tri=' + String(g.tris).padStart(7) +
       ' cores=' + String(g.paleta.length).padStart(2) +
       ' 3mf=' + (buf.byteLength / 1048576).toFixed(2) + 'MB' +
-      ' (' + (100 * buf.byteLength / (84 + 50 * g.tris)).toFixed(1) + '% do STL)'
+      ' (' + (100 * buf.byteLength / (84 + 50 * g.tris)).toFixed(1) + '% do STL)' +
+      ' | peças=' + String(pt.pecas.length).padStart(2) +
+      ' ' + String(trisPecas).padStart(7) + 'tri' +
+      ' ' + (bufP.byteLength / 1048576).toFixed(2) + 'MB'
     );
   }
   return falhas;
