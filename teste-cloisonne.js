@@ -134,8 +134,9 @@ async function checa3MF() {
       if (v >= g.nv) { ok = false; break; }
       usados[v] = 1;
     }
-    // toda cor dentro da paleta
-    for (let i = 0; i < g.tris; i++) if (g.mat[i] >= g.paleta.length) { ok = false; break; }
+    // toda cor dentro da paleta — negado assim de propósito: `undefined >= n`
+    // é false e deixaria passar um material que nunca foi escrito no buffer
+    for (let i = 0; i < g.tris; i++) if (!(g.mat[i] < g.paleta.length)) { ok = false; break; }
     // os vértices indexados reproduzem a sopa exatamente
     for (let i = 0; i < Math.min(g.tris, 5000); i++) {
       for (let k = 0; k < 3; k++) {
@@ -168,6 +169,29 @@ async function checa3MF() {
     const temConfig = txt.indexOf('model_settings.config') >= 0;
     if (!temConfig) ok = false;
 
+    // OBJ + MTL: toda face tem que levar usemtl (o Bambu recusa
+    // "some_face_no_color"), todo índice tem que estar no intervalo e o número
+    // de materiais no .mtl tem que cobrir os usemtl do .obj
+    const o = MC.toOBJ(g, name);
+    const linhas = o.obj.split('\n');
+    let nv = 0, nf = 0, matAtual = -1, semCor = 0;
+    const matsUsados = new Set();
+    for (const L of linhas) {
+      if (L.startsWith('v ')) nv++;
+      else if (L.startsWith('usemtl ')) { matAtual = L.slice(7); matsUsados.add(matAtual); }
+      else if (L.startsWith('f ')) {
+        nf++;
+        if (matAtual === -1) semCor++;
+        const vs = L.slice(2).split(' ').map(Number);
+        if (vs.length !== 3 || vs.some(v => !(v >= 1 && v <= nv))) semCor++;
+      }
+    }
+    const matsDeclarados = new Set((o.mtl.match(/newmtl (\S+)/g) || []).map(x => x.slice(7)));
+    let objOk = nf === g.tris && semCor === 0 && matsUsados.size > 0 &&
+      o.obj.indexOf('mtllib ./' + o.nome + '.mtl') >= 0;
+    for (const m of matsUsados) if (!matsDeclarados.has(m)) objOk = false;
+    if (!objOk) ok = false;
+
     const buf = await MC.to3MF(g, name);
     const b = new Uint8Array(buf);
     // assinatura de zip e fim do diretório central
@@ -190,7 +214,9 @@ async function checa3MF() {
       ' (' + (100 * buf.byteLength / (84 + 50 * g.tris)).toFixed(1) + '% do STL)' +
       ' | peças=' + String(pt.pecas.length).padStart(2) +
       ' ' + String(trisPecas).padStart(7) + 'tri' +
-      ' ' + (bufP.byteLength / 1048576).toFixed(2) + 'MB'
+      ' ' + (bufP.byteLength / 1048576).toFixed(2) + 'MB' +
+      ' | obj=' + (o.obj.length / 1048576).toFixed(2) + 'MB' +
+      ' ' + matsUsados.size + 'mat'
     );
   }
   return falhas;
@@ -236,6 +262,24 @@ async function checa3MF() {
   }
   console.log('\nfuzz: ' + (40 - bad) + '/40 sem arestas abertas');
   if (bad) fail += bad;
+}
+
+// precisão da exportação: perto do centro os nós ficam a menos de 0,0005 mm
+// um do outro na qualidade máxima. Se o formatador arredondar demais, eles
+// colidem e viram triângulo degenerado no arquivo.
+{
+  const cfg = MC.defaults();
+  let ruins = 0;
+  for (const q of ['teste', 'bom', 'alta', 'max']) {
+    const g = MC.buildIndexed(cfg, MC.resolution(cfg, q), true);
+    const o = MC.toOBJ(g, 'p');
+    const vs = o.obj.split('\n').filter(L => L.startsWith('v '));
+    const set = new Set(vs);
+    if (set.size !== vs.length) { ruins++; console.log('  ' + q + ': ' + (vs.length - set.size) + ' vértices COLIDEM na exportação'); }
+    else console.log('  ' + q.padEnd(6) + ' ' + String(vs.length).padStart(7) + ' vértices, todos distintos');
+  }
+  console.log('precisão da exportação: ' + (ruins ? ruins + ' QUALIDADE(S) COM COLISÃO' : 'ok nas 4 qualidades'));
+  fail += ruins;
 }
 
 // custo na qualidade máxima

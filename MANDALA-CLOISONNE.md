@@ -58,7 +58,8 @@ MC.buildIndexed(cfg, res, cor) // um sólido só: { vx, nv, idx, tris, mat, pale
 MC.buildPartes(cfg, res)       // um sólido FECHADO por cor: { vx, nv, pecas: [...], ... }
 MC.buildMesh(cfg, res)         // sopa de triângulos: { pos, n, tris, height, diam, parts }
 MC.toSTL(mesh, nome)           // ArrayBuffer (STL binário, sem cor)
-MC.to3MF(g, nome)              // Promise<ArrayBuffer> (3MF com cor) — recebe o INDEXADO
+MC.to3MF(g, nome)              // Promise<ArrayBuffer> (3MF com cor)
+MC.toOBJ(g, nome)              // { nome, obj, mtl } — DOIS arquivos, com cor
 MC.audit(mesh)                 // { openEdges, degenerate, nonFinite, tris }
 ```
 
@@ -196,16 +197,29 @@ No vazado o fundo da placa some e sobra só o desenho: vira renda/suncatcher.
 
 ## 6. Exportação
 
-| | STL | 3MF peça única | 3MF peças por cor |
-|---|---|---|---|
-| cor | não | por triângulo | **um sólido por cor, um extrusor cada** |
-| serve para | pintar à mão | visualizadores | **imprimir colorido** |
-| triângulos | 1× | 1× | ~2,4× |
-| tamanho | 100% | ~17% | ~40% |
-| API | `toSTL(mesh)` | `to3MF(buildIndexed(…, true))` | `to3MF(buildPartes(…))` |
+| | OBJ + MTL | 3MF peça única | 3MF peças por cor | STL |
+|---|---|---|---|---|
+| cor | por face, via `usemtl` | por triângulo | um sólido por cor | não |
+| arquivos | **dois** (lado a lado) | um | um | um |
+| Bambu Studio | importa e oferece mapear cor → filamento | ignora a cor | lê as peças e os extrusores | sem cor |
+| aviso de config | **nunca** | sim | sim | não |
+| triângulos | 1× | 1× | ~2,4× | 1× |
+| tamanho | ~35% do STL | ~17% | ~40% | 100% |
 
-O 3MF é ZIP + XML escrito à mão (`zipar`, `crc32`, `deflateRaw` via `CompressionStream`) —
-nenhuma dependência.
+**O padrão é OBJ + MTL.** É o único que não esbarra no aviso de config do Bambu, porque OBJ
+não é formato de projeto — não existe `Metadata/` para ele procurar.
+
+### O aviso do Bambu Studio, em detalhe
+
+A string está no binário: `The 3mf file has invalid config, load geometry data only`. Ela
+dispara ao abrir **qualquer** 3MF que não tenha `Metadata/project_settings.config` — o que
+inclui os 3MF de Fusion, Blender e qualquer outro gerador que não seja o próprio Bambu.
+
+`project_settings.config` são ~74 kB de presets de impressora e filamento. **Não gere esse
+arquivo**: ele forçaria um perfil de máquina no usuário, o que é pior que o aviso.
+
+Com 3MF, o caminho é **File → Import → Import 3MF** (não Open Project). Com OBJ o problema
+não existe.
 
 ### Por que existe o modo "peças por cor"
 
@@ -239,6 +253,28 @@ descarta a cor, ficando só com a geometria.
 espera `Metadata/project_settings.config` — 74 kB de presets de impressora e filamento.
 **Não gere esse arquivo**: forçaria um perfil de máquina no usuário. O caminho certo é
 File → Import → Import 3MF.
+
+### OBJ + MTL
+
+O `.obj` referencia o `.mtl` por nome relativo (`mtllib ./nome.mtl`), então **os dois
+precisam cair na mesma pasta**. É o custo do formato; em troca, o Bambu tem um caminho
+dedicado para OBJ colorido (`obj_color_deal_algo`, `ColorDecomposeDialog` no binário) que
+agrupa as cores e oferece mapear cada uma para um filamento.
+
+⚠️ **Toda face precisa de `usemtl`.** Sem isso o Bambu recusa com
+`error:some_face_no_color, please check mtl file and obj file`.
+
+Obs.: o `trimesh` **lê** cor de OBJ (ao contrário do 3MF), mas ao carregar ele duplica os
+vértices na fronteira entre materiais e depois se recusa a fundi-los, então reporta
+`is_watertight: False` num arquivo que está correto. Confie no Bambu (`--info` →
+`manifold = yes`), não nele, para esse ponto.
+
+### Precisão das coordenadas
+
+⚠️ Coordenadas saem com **5 casas decimais**, não 3. No primeiro anel da grade os nós
+angulares vizinhos ficam a 0,00048 mm um do outro na qualidade máxima; com 3 casas, 1000
+vértices colidiam e viravam triângulo degenerado no arquivo exportado. A suíte checa isso
+nas quatro qualidades.
 
 ### Armadilhas do XML
 
@@ -344,7 +380,7 @@ tris do cabeçalho STL === mesh.tris · byteLength === 84 + 50·tris
 raio máximo ≤ diam/2 · z mínimo ≥ 0 · z máximo ≤ MC.alturaMax(cfg)
 ```
 
-A passada de 3MF confere: mesmo número de triângulos do STL, todo índice dentro do
+A passada de exportação confere: mesmo número de triângulos do STL, todo índice dentro do
 intervalo, toda cor dentro da paleta, os vértices indexados reproduzindo a sopa exatamente,
 assinatura de ZIP e 3 entradas no diretório central. E, para o modo peças, **audita cada
 sólido de cor isoladamente** (`openEdges === 0`) e confere que o `model_settings.config` foi
@@ -405,6 +441,6 @@ Três regras que economizam tempo:
 4. **`gotaint`/`pontoint` não têm cor própria** — saem na cor do filete, no preview e no 3MF. Um preenchimento
    com cor independente exigiria um terceiro canal em `amostra`.
 5. **O 3D não tem sombra projetada nem oclusão** — a leitura do relevo depende só do Lambert.
-6. **Sem OBJ/MTL** — o 3MF cobre fatiadores e a maioria dos visualizadores; um OBJ+MTL
-   seria útil para quem edita em ferramentas que não leem 3MF.
+6. **O OBJ sai em dois arquivos** — o navegador dispara dois downloads. Um .zip resolveria,
+   mas obrigaria a descompactar antes de importar.
 7. Motivos que faltam: entrelaçado, espiral, escama (telha), e um motivo "texto radial".
