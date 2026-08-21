@@ -1,0 +1,175 @@
+// Testa o núcleo cloisonné extraído do HTML: malha estanque, sem NaN, sem degenerados.
+const fs = require('fs');
+const vm = require('vm');
+const path = require('path');
+
+const html = fs.readFileSync(path.join(__dirname, 'mandala-cloisonne.html'), 'utf8');
+const m = html.match(/<script id="mandala-core">([\s\S]*?)<\/script>/);
+if (!m) { console.error('núcleo não encontrado'); process.exit(1); }
+const ctx = { console };
+vm.createContext(ctx);
+vm.runInContext(m[1] + '\nthis.MC = MC;', ctx);
+const MC = ctx.MC;
+const C = MC.camada;
+
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+const cases = [];
+
+// 1) padrão
+cases.push(['padrão', MC.defaults()]);
+
+// 2) incensário: cone + furo cego + muitas camadas sobrepostas
+{ const c = Object.assign(MC.defaults(), {
+    sym: 10, aro: 3.5, aroH: 1, fio: 0.8, fioH: 0.9, degrau: 0.5,
+    cone: 14, coneH: 5, coneC: 0.7, furo: 3, furoP: 8,
+    camadas: [
+      C({ motivo: 'anel', mult: 1, r0: 0.11, r1: 0.90, nivel: 0, borda: false }),
+      C({ motivo: 'cunha', mult: 1, r0: 0.68, r1: 1.00, larg: 0.8, nivel: 1, preench: 'nervuras', linhas: 4, incl: 0.45 }),
+      C({ motivo: 'folha', mult: 1, fase: 18, r0: 0.40, r1: 0.92, larg: 1.05, nivel: 1, preench: 'nervuras', linhas: 5, incl: 0.8 }),
+      C({ motivo: 'arco', mult: 1, fase: 18, r0: 0.52, r1: 0.575, larg: 1, nivel: 2 }),
+      C({ motivo: 'arco', mult: 1, r0: 0.36, r1: 0.435, larg: 1, nivel: 2, preench: 'contornos', passo: 1.6 }),
+      C({ motivo: 'gota', mult: 2, r0: 0.12, r1: 0.232, larg: 0.92, base: 0.45, ponta: 1.15, nivel: 3 })
+    ] });
+  cases.push(['incensário', c]); }
+
+// 3) vazado com conectores (fundo desaparece, só o desenho fica)
+{ const c = MC.defaults();
+  c.modo = 'vazado'; c.conn = 12; c.connW = 1.8; c.aro = 4; c.cone = 0; c.furo = 0;
+  c.camadas = c.camadas.filter(x => x.motivo !== 'anel');
+  cases.push(['vazado + conectores', c]); }
+
+// 4) vazado sem aro nem conectores (deve avisar peças soltas, mas continuar estanque)
+{ const c = MC.defaults();
+  c.modo = 'vazado'; c.conn = 0; c.aro = 0; c.cone = 0; c.furo = 0;
+  c.camadas = c.camadas.filter(x => x.motivo !== 'anel');
+  cases.push(['vazado solto', c]); }
+
+// 5) todos os motivos de uma vez, em níveis diferentes
+{ const c = MC.defaults(); c.sym = 9; c.cone = 10; c.furo = 2;
+  const mot = ['folha', 'gota', 'arco', 'ponto', 'cunha', 'losango', 'anel'];
+  c.camadas = mot.map((mo, i) => C({
+    motivo: mo, mult: [0.5, 1, 2][i % 3], fase: i * 7,
+    r0: 0.10 + 0.115 * i, r1: 0.10 + 0.115 * (i + 1),
+    larg: 0.6 + 0.12 * (i % 4), base: 0.4 + 0.2 * (i % 3), ponta: 0.8 + 0.3 * (i % 3),
+    nivel: i % 5, borda: i % 2 === 0
+  }));
+  cases.push(['todos os motivos', c]); }
+
+// 6) todos os preenchimentos
+{ const c = MC.defaults(); c.sym = 12; c.cone = 0; c.furo = 0;
+  const pre = ['nenhum', 'contornos', 'nervuras', 'gotaint', 'pontoint'];
+  c.camadas = pre.map((p, i) => C({
+    motivo: i % 2 ? 'arco' : 'folha', mult: 1, fase: i * 6,
+    r0: 0.08 + 0.17 * i, r1: 0.08 + 0.17 * (i + 1),
+    preench: p, passo: 1.4 + 0.3 * i, linhas: 2 + i, incl: 0.3 * i, nivel: 1 + (i % 3)
+  }));
+  cases.push(['todos os preenchimentos', c]); }
+
+// 7) extremos: filete grosso, degrau zero, furo mais fundo que a peça
+{ const c = MC.defaults();
+  c.diam = 60; c.base = 1.2; c.fio = 2.5; c.fioH = 3; c.degrau = 0;
+  c.cone = 20; c.coneH = 12; c.furo = 6; c.furoP = 40; c.aro = 0;
+  cases.push(['extremos', c]); }
+
+// 8) sem cone, sem furo, sem aro, camada única cobrindo tudo
+{ const c = MC.defaults();
+  c.cone = 0; c.furo = 0; c.aro = 0; c.sym = 36;
+  c.camadas = [C({ motivo: 'anel', mult: 1, r0: 0, r1: 1, nivel: 2, preench: 'contornos', passo: 1.2 })];
+  cases.push(['anel único / sym 36', c]); }
+
+let fail = 0;
+for (const [name, cfg] of cases) {
+  const res = MC.resolution(cfg, 'teste');
+  const t0 = Date.now();
+  const mesh = MC.buildMesh(clone(cfg), res);
+  const dt = Date.now() - t0;
+  const a = MC.audit(mesh);
+  const stl = MC.toSTL(mesh, name);
+  const nt = new DataView(stl).getUint32(80, true);
+
+  let maxR = 0, minZ = Infinity, maxZ = -Infinity;
+  for (let i = 0; i < mesh.n; i += 3) {
+    const r = Math.hypot(mesh.pos[i], mesh.pos[i + 1]);
+    if (r > maxR) maxR = r;
+    if (mesh.pos[i + 2] < minZ) minZ = mesh.pos[i + 2];
+    if (mesh.pos[i + 2] > maxZ) maxZ = mesh.pos[i + 2];
+  }
+
+  const ok = a.openEdges === 0 && a.nonFinite === 0 && a.degenerate === 0 &&
+    nt === mesh.tris && stl.byteLength === 84 + 50 * mesh.tris &&
+    maxR <= cfg.diam / 2 + 1e-3 && minZ >= -1e-6 &&
+    maxZ <= MC.alturaMax(cfg) + 1e-3;
+
+  if (!ok) fail++;
+  console.log(
+    (ok ? 'OK  ' : 'FALHA ') + name.padEnd(24) +
+    ' tri=' + String(mesh.tris).padStart(7) +
+    ' abertas=' + String(a.openEdges).padStart(5) +
+    ' degen=' + String(a.degenerate).padStart(4) +
+    ' NaN=' + a.nonFinite +
+    ' peças=' + String(mesh.parts).padStart(3) +
+    ' Ømax=' + (maxR * 2).toFixed(2) +
+    ' z=[' + minZ.toFixed(2) + ',' + maxZ.toFixed(2) + ']' +
+    ' teto=' + MC.alturaMax(cfg).toFixed(2) +
+    ' ' + dt + 'ms'
+  );
+}
+
+// fuzz: configurações aleatórias, inclusive inválidas de propósito
+{
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const pick = a => a[(Math.random() * a.length) | 0];
+  let bad = 0;
+  for (let k = 0; k < 40; k++) {
+    const c = MC.defaults();
+    c.diam = rnd(40, 240); c.base = rnd(0.8, 8); c.sym = 3 + ((Math.random() * 30) | 0);
+    c.fio = rnd(0.3, 3); c.fioH = rnd(0, 4); c.degrau = rnd(0, 2.5);
+    c.aro = rnd(0, 12); c.aroH = rnd(0, 5);
+    c.cone = Math.random() < 0.5 ? rnd(0, c.diam * 0.6) : 0;
+    c.coneH = rnd(0, 15); c.coneC = rnd(0.3, 3);
+    c.furo = Math.random() < 0.5 ? rnd(0, Math.max(1, c.cone)) : 0;
+    c.furoP = rnd(1, 30);
+    c.modo = Math.random() < 0.3 ? 'vazado' : 'placa';
+    c.conn = (Math.random() * 20) | 0; c.connW = rnd(0.6, 5);
+    const n = 1 + ((Math.random() * 6) | 0);
+    c.camadas = [];
+    for (let i = 0; i < n; i++) {
+      const a = Math.random(), b = Math.random();
+      c.camadas.push(C({
+        motivo: pick(['folha', 'gota', 'arco', 'ponto', 'cunha', 'losango', 'anel']),
+        mult: pick([0.25, 0.5, 1, 2, 3]), fase: rnd(0, 360),
+        r0: a, r1: b,                                   // de propósito fora de ordem às vezes
+        larg: rnd(0.05, 2.2), base: rnd(0.2, 3), ponta: rnd(0.2, 3),
+        nivel: (Math.random() * 6) | 0, borda: Math.random() < 0.8,
+        preench: pick(['nenhum', 'contornos', 'nervuras', 'gotaint', 'pontoint']),
+        passo: rnd(0.3, 8), linhas: 1 + ((Math.random() * 14) | 0), incl: rnd(0, 1.6),
+        espinha: Math.random() < 0.5
+      }));
+    }
+    const mesh = MC.buildMesh(c, MC.resolution(c, 'teste'));
+    const au = MC.audit(mesh);
+    if (au.openEdges || au.nonFinite || au.degenerate) {
+      bad++;
+      console.log('  fuzz #' + k + ' falhou:', JSON.stringify(au));
+    }
+  }
+  console.log('\nfuzz: ' + (40 - bad) + '/40 sem arestas abertas');
+  if (bad) fail += bad;
+}
+
+// custo na qualidade máxima
+{
+  const cfg = MC.defaults();
+  const res = MC.resolution(cfg, 'max');
+  const t0 = Date.now();
+  const mesh = MC.buildMesh(cfg, res);
+  const dt = Date.now() - t0;
+  const a = MC.audit(mesh);
+  console.log('qualidade máxima: grade ' + res.nr + 'x' + res.nt +
+    ' → ' + mesh.tris.toLocaleString('pt-BR') + ' tri, ' +
+    ((84 + 50 * mesh.tris) / 1048576).toFixed(1) + ' MB, ' + dt + ' ms, abertas=' + a.openEdges);
+}
+
+console.log(fail === 0 ? '\nTODOS OS TESTES PASSARAM' : '\n' + fail + ' CASO(S) COM FALHA');
+process.exit(fail ? 1 : 0);

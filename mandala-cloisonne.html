@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mandala Cloisonné — gerador de mandala em filete e esmalte</title>
+<style>
+  :root{
+    --bg:#0f1116; --panel:#171a22; --panel2:#1e222c; --line:#2a2f3c;
+    --txt:#e6e9f0; --dim:#98a0b3; --acc:#c07ad8; --acc2:#7cc4d8;
+    --ok:#6ec48b; --warn:#e0a458; --bad:#e06a5a;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg); color:var(--txt);
+    font:13px/1.45 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    overflow:hidden;
+  }
+  .app{display:flex;height:100vh}
+
+  /* ---------- painel ---------- */
+  .panel{
+    width:352px;flex:0 0 352px;background:var(--panel);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;
+  }
+  .panel h1{
+    font-size:14px;margin:0;padding:14px 16px;border-bottom:1px solid var(--line);
+    letter-spacing:.04em;text-transform:uppercase;font-weight:600;
+  }
+  .panel h1 small{display:block;text-transform:none;letter-spacing:0;color:var(--dim);font-weight:400;font-size:11px;margin-top:3px}
+  .scroll{overflow-y:auto;flex:1;padding:10px 12px 40px}
+  .scroll::-webkit-scrollbar{width:10px}
+  .scroll::-webkit-scrollbar-thumb{background:#2c3240;border-radius:6px}
+
+  fieldset{border:1px solid var(--line);border-radius:8px;margin:0 0 12px;padding:8px 10px 10px;background:var(--panel2)}
+  legend{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);padding:0 5px}
+  .row{display:flex;align-items:center;gap:8px;margin:6px 0}
+  .row>label{flex:0 0 92px;color:var(--dim);font-size:11.5px}
+  .row input[type=range]{flex:1;min-width:0;accent-color:var(--acc);height:18px}
+  .row .num{flex:0 0 58px;text-align:right;font-variant-numeric:tabular-nums;font-size:11.5px}
+  .row select,.row input[type=number]{
+    flex:1;background:#12151c;color:var(--txt);border:1px solid var(--line);border-radius:5px;padding:4px 6px;font:inherit;font-size:12px;
+  }
+  .row input[type=color]{width:34px;height:24px;padding:1px;background:#12151c;border:1px solid var(--line);border-radius:5px}
+  .row.seg{gap:4px}
+  .seg button{
+    flex:1;background:#12151c;border:1px solid var(--line);color:var(--dim);border-radius:5px;padding:5px 4px;font:inherit;font-size:11.5px;cursor:pointer;
+  }
+  .seg button.on{background:var(--acc);border-color:var(--acc);color:#1b0f22;font-weight:600}
+  .hint{color:var(--dim);font-size:11px;margin:6px 2px 0}
+  .swatches{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 2px}
+
+  /* ---------- camadas ---------- */
+  .cam{border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:var(--panel2);overflow:hidden}
+  .cam.off{opacity:.45}
+  .chead{display:flex;align-items:center;gap:7px;padding:7px 9px;cursor:pointer;user-select:none;background:#1b1f29}
+  .chead .sw{width:11px;height:11px;border-radius:3px;flex:0 0 11px;border:1px solid rgba(255,255,255,.25)}
+  .chead .name{flex:1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chead .meta{color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+  .chead .chev{color:var(--dim);transition:transform .15s;font-size:10px}
+  .cam.open .chev{transform:rotate(90deg)}
+  .cbody{display:none;padding:4px 9px 9px;border-top:1px solid var(--line)}
+  .cam.open .cbody{display:block}
+  .icon{background:none;border:none;color:var(--dim);cursor:pointer;font-size:12px;padding:0 2px;line-height:1}
+  .icon:hover{color:var(--txt)}
+  .addcam{width:100%;background:#12151c;border:1px dashed var(--line);color:var(--dim);border-radius:8px;padding:8px;cursor:pointer;font:inherit}
+  .addcam:hover{color:var(--txt);border-color:var(--acc)}
+
+  /* ---------- área principal ---------- */
+  main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+  .bar .sp{flex:1}
+  .tab{background:#12151c;border:1px solid var(--line);color:var(--dim);border-radius:5px;padding:5px 12px;cursor:pointer;font:inherit;font-size:12px}
+  .tab.on{background:var(--panel2);color:var(--txt);border-color:var(--acc)}
+  .preset{background:#12151c;border:1px solid var(--line);color:var(--dim);border-radius:99px;padding:4px 11px;cursor:pointer;font:inherit;font-size:11.5px}
+  .preset:hover{color:var(--txt);border-color:var(--acc2)}
+  .stage{flex:1;position:relative;background:radial-gradient(circle at 50% 45%, #1b1f29 0%, #0d0f14 70%);min-height:0}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
+  canvas.drag{cursor:grabbing}
+  .foot{display:flex;align-items:center;gap:12px;padding:9px 14px;border-top:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+  .stat{color:var(--dim);font-size:11.5px;font-variant-numeric:tabular-nums}
+  .stat b{color:var(--txt);font-weight:600}
+  .badge{padding:2px 8px;border-radius:99px;font-size:11px;border:1px solid}
+  .badge.ok{color:var(--ok);border-color:#2f4f3c;background:#152119}
+  .badge.warn{color:var(--warn);border-color:#4f402a;background:#211b12}
+  .btn{background:var(--acc);color:#1b0f22;border:none;border-radius:6px;padding:8px 16px;font:inherit;font-weight:600;cursor:pointer}
+  .btn:hover{filter:brightness(1.08)}
+  .btn:disabled{opacity:.6;cursor:progress}
+  .btn.ghost{background:#12151c;color:var(--dim);border:1px solid var(--line);font-weight:400}
+  .btn.ghost:hover{color:var(--txt)}
+  select.sel{background:#12151c;color:var(--txt);border:1px solid var(--line);border-radius:5px;padding:6px 8px;font:inherit;font-size:12px}
+  .hud{position:absolute;left:12px;bottom:10px;color:var(--dim);font-size:11px;background:rgba(12,14,19,.65);padding:4px 9px;border-radius:5px;pointer-events:none}
+  @media (max-width:860px){
+    .app{flex-direction:column}
+    .panel{width:100%;flex:0 0 46vh}
+    main{flex:1}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="panel">
+    <h1>Mandala Cloisonné<small>filete em relevo + poças de esmalte · exporta STL</small></h1>
+    <div class="scroll" id="scroll">
+
+      <fieldset>
+        <legend>Placa</legend>
+        <div class="row"><label>Diâmetro</label><input type="range" data-g="diam" min="50" max="300" step="1"><span class="num" data-v="diam"></span></div>
+        <div class="row"><label>Base</label><input type="range" data-g="base" min="1" max="10" step="0.1"><span class="num" data-v="base"></span></div>
+        <div class="row"><label>Simetria</label><input type="range" data-g="sym" min="3" max="36" step="1"><span class="num" data-v="sym"></span></div>
+        <div class="row"><label>Rotação</label><input type="range" data-g="rot" min="0" max="360" step="1"><span class="num" data-v="rot"></span></div>
+        <div class="row"><label>Aro</label><input type="range" data-g="aro" min="0" max="20" step="0.5"><span class="num" data-v="aro"></span></div>
+        <div class="row"><label>Altura do aro</label><input type="range" data-g="aroH" min="0" max="6" step="0.1"><span class="num" data-v="aroH"></span></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Filete</legend>
+        <div class="row"><label>Largura</label><input type="range" data-g="fio" min="0.3" max="3" step="0.05"><span class="num" data-v="fio"></span></div>
+        <div class="row"><label>Altura</label><input type="range" data-g="fioH" min="0.2" max="4" step="0.05"><span class="num" data-v="fioH"></span></div>
+        <div class="row"><label>Degrau</label><input type="range" data-g="degrau" min="0" max="3" step="0.05"><span class="num" data-v="degrau"></span></div>
+        <p class="hint">O filete é a linha que sobe e represa o esmalte. O degrau é quanto cada nível de camada sobe em relação ao anterior.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Centro</legend>
+        <div class="row"><label>Cone</label><input type="range" data-g="cone" min="0" max="70" step="0.5"><span class="num" data-v="cone"></span></div>
+        <div class="row" data-only="cone"><label>Altura</label><input type="range" data-g="coneH" min="0" max="20" step="0.2"><span class="num" data-v="coneH"></span></div>
+        <div class="row" data-only="cone"><label>Curvatura</label><input type="range" data-g="coneC" min="0.3" max="3" step="0.05"><span class="num" data-v="coneC"></span></div>
+        <div class="row"><label>Furo</label><input type="range" data-g="furo" min="0" max="30" step="0.5"><span class="num" data-v="furo"></span></div>
+        <div class="row" data-only="furo"><label>Profundidade</label><input type="range" data-g="furoP" min="1" max="30" step="0.5"><span class="num" data-v="furoP"></span></div>
+        <p class="hint" data-only="furo">Furo cego, para vareta de incenso. Sempre sobra pelo menos 0,8 mm de fundo.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Corpo</legend>
+        <div class="row seg">
+          <button data-modo="placa">Placa cheia</button>
+          <button data-modo="vazado">Vazado</button>
+        </div>
+        <div class="row" data-only="vazado"><label>Conectores</label><input type="range" data-g="conn" min="0" max="36" step="1"><span class="num" data-v="conn"></span></div>
+        <div class="row" data-only="vazado"><label>Largura</label><input type="range" data-g="connW" min="0.6" max="6" step="0.1"><span class="num" data-v="connW"></span></div>
+        <p class="hint" data-only="vazado">No vazado só fica material onde alguma camada desenha. O aro e os conectores é que seguram a peça inteira.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Camadas <span style="color:var(--dim);font-size:10px;text-transform:none;letter-spacing:0">(de baixo para cima)</span></legend>
+        <div id="cams"></div>
+        <button class="addcam" id="addcam">+ adicionar camada</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>Cores</legend>
+        <div class="row"><label>Placa</label><input type="color" data-g="corBase"><label style="flex:0 0 auto">Filete</label><input type="color" data-g="corFio"></div>
+        <div class="row"><label>Luz</label><input type="range" data-g="luz" min="0" max="360" step="1"><span class="num" data-v="luz"></span></div>
+        <div class="row"><label>Brilho</label><input type="range" data-g="verniz" min="0" max="1" step="0.02"><span class="num" data-v="verniz"></span></div>
+        <p class="hint">As cores são só do preview — o STL não guarda cor. Servem para planejar a pintura.</p>
+      </fieldset>
+    </div>
+  </aside>
+
+  <main>
+    <div class="bar">
+      <button class="tab on" data-tab="topo">Topo</button>
+      <button class="tab" data-tab="v3d">3D</button>
+      <button class="tab" data-tab="relevo">Relevo</button>
+      <span class="sp"></span>
+      <button class="preset" data-preset="incenso">incensário</button>
+      <button class="preset" data-preset="lotus">lótus</button>
+      <button class="preset" data-preset="talavera">talavera</button>
+      <button class="preset" data-preset="renda">renda</button>
+      <button class="preset" data-preset="sol">sol</button>
+      <button class="preset" data-preset="aleatorio">aleatório</button>
+    </div>
+
+    <div class="stage">
+      <canvas id="cv"></canvas>
+      <div class="hud" id="hud"></div>
+    </div>
+
+    <div class="foot">
+      <span class="stat">Ø <b id="s-diam"></b> · altura <b id="s-h"></b></span>
+      <span class="stat">malha <b id="s-tri"></b> · <b id="s-size"></b></span>
+      <span class="badge ok" id="s-parts">1 peça</span>
+      <span class="sp" style="flex:1"></span>
+      <select id="qual" class="sel">
+        <option value="teste">qualidade: teste</option>
+        <option value="bom" selected>qualidade: boa</option>
+        <option value="alta">qualidade: alta</option>
+        <option value="max">qualidade: máxima</option>
+      </select>
+      <button class="btn ghost" id="save">salvar .json</button>
+      <button class="btn ghost" id="load">abrir .json</button>
+      <button class="btn" id="dl">Baixar STL</button>
+      <input type="file" id="file" accept=".json,application/json" hidden>
+    </div>
+  </main>
+</div>
+
+<script id="mandala-core">
+/* =========================================================================
+   NÚCLEO — mandala em cloisonné: cada motivo é uma região com distância
+   assinada; a borda dessa região (e as linhas internas) viram FILETE, que
+   sobe acima do patamar da camada. O miolo fica rebaixado — a poça de
+   esmalte. Sem qualquer dependência de DOM (é testável fora do navegador).
+   ========================================================================= */
+var MC = (function () {
+  'use strict';
+  var TAU = Math.PI * 2, PI = Math.PI;
+
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+  /* Motivos: o contorno externo de uma peça do desenho. */
+  var MOTIVOS = [
+    ['folha', 'Folha'], ['gota', 'Gota'], ['arco', 'Arco'], ['ponto', 'Ponto'],
+    ['cunha', 'Cunha'], ['losango', 'Losango'], ['anel', 'Anel']
+  ];
+  /* Preenchimentos: o que acontece DENTRO do motivo. */
+  var PREENCH = [
+    ['nenhum', 'Liso'], ['contornos', 'Contornos'], ['nervuras', 'Nervuras'],
+    ['gotaint', 'Gota interna'], ['pontoint', 'Ponto interno']
+  ];
+
+  function camada(o) {
+    var c = {
+      on: true,
+      motivo: 'folha',
+      mult: 1,                 // n = round(sym * mult)
+      r0: 0.35, r1: 0.85,      // faixa radial, fração do raio
+      larg: 0.9,               // largura relativa ao setor disponível
+      base: 0.8,               // expoente da extremidade interna (baixo = redonda)
+      ponta: 1.0,              // expoente da extremidade externa (alto = afilada)
+      fase: 0,                 // graus
+      nivel: 1,                // patamar (altura = nivel * degrau)
+      borda: true,             // desenha o filete de contorno externo?
+      preench: 'nenhum',
+      passo: 2.2,              // mm — espaçamento dos contornos internos
+      linhas: 5,               // nº de nervuras
+      incl: 0.7,               // inclinação das nervuras (0 = galões retos)
+      espinha: true,           // nervura central
+      cor: '#e8862a',
+      cor2: '#f4e9d8'
+    };
+    for (var k in (o || {})) c[k] = o[k];
+    return c;
+  }
+
+  function defaults() {
+    return {
+      diam: 120, base: 3, sym: 10, rot: 0,
+      aro: 4, aroH: 1.2,
+      fio: 0.9, fioH: 1.0, degrau: 0.7,
+      cone: 22, coneH: 6, coneC: 0.75, furo: 3, furoP: 9,
+      modo: 'placa', conn: 0, connW: 1.6,
+      corBase: '#5b2a7a', corFio: '#f6f2e8', luz: 315, verniz: 0.45,
+      camadas: [
+        camada({ motivo: 'anel', mult: 1, r0: 0.16, r1: 0.82, nivel: 0, preench: 'nenhum', cor: '#2b1330' }),
+        camada({ motivo: 'folha', mult: 1, r0: 0.40, r1: 0.92, larg: 1.0, base: 0.8, ponta: 1.0, nivel: 1, preench: 'nervuras', linhas: 5, incl: 0.75, cor: '#ee8a2b' }),
+        camada({ motivo: 'arco', mult: 1, r0: 0.44, r1: 0.60, larg: 0.5, nivel: 2, preench: 'contornos', passo: 2.0, cor: '#b06fd0', cor2: '#f6f2e8' }),
+        camada({ motivo: 'ponto', mult: 1, fase: 18, r0: 0.60, r1: 0.72, larg: 0.34, nivel: 1, cor: '#f2d02c' }),
+        camada({ motivo: 'arco', mult: 1, r0: 0.24, r1: 0.40, larg: 0.52, nivel: 2, preench: 'contornos', passo: 1.8, cor: '#ee8a2b', cor2: '#f6f2e8' }),
+        camada({ motivo: 'gota', mult: 2, r0: 0.10, r1: 0.22, larg: 0.8, base: 0.45, ponta: 1.2, nivel: 3, cor: '#b06fd0' })
+      ]
+    };
+  }
+
+  /* ---- deslocamento angular até o eixo de repetição mais próximo ---- */
+  function angOff(a, n) {
+    var p = TAU / n;
+    return a - Math.floor(a / p + 0.5) * p;                            // ∈ [-p/2, p/2]
+  }
+  /* distância no plano entre (r,0) e (rc,da) em coordenadas polares */
+  function polarDist(r, rc, da) {
+    return Math.sqrt(Math.max(0, r * r + rc * rc - 2 * r * rc * Math.cos(da)));
+  }
+
+  /* -------------------------------------------------------------------------
+     Perfil de meia-largura ao longo do eixo do motivo, w(t) ∈ 0..1.
+
+     `base` e `ponta` são os expoentes de cada extremidade:
+       expoente < 0,6  → extremidade arredondada (derivada infinita)
+       expoente ≈ 1    → extremidade em bico de ~60°
+       expoente > 1,5  → extremidade bem afilada
+     A barriga cai sozinha em t = base/(base+ponta), então gota (base 0,45 /
+     ponta 1,2) fica gorda embaixo e fina na ponta, e folha (0,8 / 0,9) sai
+     ogival. Normalizado para que o máximo seja sempre 1.
+     ------------------------------------------------------------------------- */
+  function perfil(motivo, t, base, ponta) {
+    if (t <= 0 || t >= 1) return 0;
+    if (motivo === 'losango') return 1 - Math.abs(2 * t - 1);
+    if (motivo === 'cunha') {                                          // lados retos, ponta reta
+      var tm = clamp(1 - base * 0.5, 0.05, 0.9);
+      return t < tm ? (0.45 + 0.55 * t / tm) : (1 - t) / (1 - tm);
+    }
+    var ts = base / (base + ponta);                                    // posição da barriga
+    var m = Math.pow(ts, base) * Math.pow(1 - ts, ponta);
+    return Math.pow(t, base) * Math.pow(1 - t, ponta) / m;
+  }
+
+  /* ---- pré-processamento: uma entrada por camada ativa ---- */
+  function prepare(cfg) {
+    var out = [], i;
+    var R = Math.max(1, cfg.diam / 2);
+    for (i = 0; i < cfg.camadas.length; i++) {
+      var c = cfg.camadas[i];
+      if (!c.on) continue;
+      var r0 = Math.min(c.r0, c.r1), r1 = Math.max(c.r0, c.r1);
+      if (r1 - r0 < 1e-3) continue;
+      var n = Math.max(1, Math.round(cfg.sym * c.mult));
+      var mid = (r0 + r1) / 2, half = (r1 - r0) / 2;
+      var setor = PI * mid / n;                                        // meia-largura do setor em mid
+      var g = {
+        idx: i, motivo: c.motivo, n: n,
+        ph: (c.fase + cfg.rot) * PI / 180,
+        r0: r0, r1: r1, mid: mid, half: half, len: r1 - r0,
+        hw: Math.max(0.004, c.larg * setor),
+        base: clamp(c.base, 0.15, 4), ponta: clamp(c.ponta, 0.15, 4),
+        nivel: c.nivel,
+        borda: c.borda !== false,
+        preench: c.preench,
+        passo: Math.max(0.3, c.passo) / R,                             // mm → fração de raio
+        linhas: Math.max(1, Math.round(c.linhas)),
+        incl: c.incl, espinha: !!c.espinha,
+        cor: c.cor, cor2: c.cor2
+      };
+      if (g.motivo === 'ponto') g.rad = Math.min(half, g.hw);
+      // no arco a calota arredondada soma a espessura: desconta, para que
+      // larg = 1 signifique "encosta no vizinho" e não "invade o vizinho"
+      if (g.motivo === 'arco') g.spanA = Math.max(0, c.larg * PI / n - half / mid);
+      var pad = 0.004;
+      g.lo = r0 - pad; g.hi = r1 + pad;
+      out.push(g);
+    }
+    return { cam: out, fioN: Math.max(1e-4, cfg.fio / R) };
+  }
+
+  /* =======================================================================
+     Distância assinada de um ponto ao motivo (positiva dentro), em fração
+     do raio da placa. `o` recebe as coordenadas locais para o preenchimento.
+     ======================================================================= */
+  function dist(g, r, th, o) {
+    var a = angOff(th + g.ph, g.n), lat = a * r, d, over, w, t;
+    switch (g.motivo) {
+      case 'anel':
+        o.t = (r - g.r0) / g.len; o.lat = lat; o.hw = g.hw;
+        return Math.min(r - g.r0, g.r1 - r);
+      case 'arco':
+        over = Math.max(0, Math.abs(a) - g.spanA) * r;
+        d = g.half - Math.sqrt((r - g.mid) * (r - g.mid) + over * over);
+        o.t = (r - g.r0) / g.len; o.lat = lat; o.hw = g.hw;
+        return d;
+      case 'ponto':
+        d = g.rad - polarDist(r, g.mid, a);
+        o.t = (r - g.r0) / g.len; o.lat = lat; o.hw = g.rad;
+        return d;
+      default:                                                         // folha, gota, cunha, losango
+        t = (r - g.r0) / g.len;
+        w = perfil(g.motivo, t, g.base, g.ponta);
+        o.t = t; o.lat = lat; o.hw = g.hw * w;
+        if (w <= 0) return -1;
+        d = g.hw * w - Math.abs(lat);
+        if (d > r - g.r0) d = r - g.r0;
+        if (d > g.r1 - r) d = g.r1 - r;
+        return d;
+    }
+  }
+
+  /* ---- o ponto cai num filete? devolve 0 = poça, 1 = filete; `o.banda` = faixa ---- */
+  function filete(g, d, o, fioN) {
+    o.banda = 0;
+    if (g.borda && d < fioN) return 1;                                 // contorno externo
+    var k, resto, dl;
+    switch (g.preench) {
+      case 'contornos':
+        k = Math.floor(d / g.passo);
+        o.banda = k;
+        resto = d - k * g.passo;
+        if (resto < fioN) return 1;
+        break;
+      case 'nervuras':
+        if (g.espinha && Math.abs(o.lat) < fioN) return 1;
+        var f = (o.t - g.incl * Math.abs(o.lat) / g.len) * g.linhas;   // cisalha em galão
+        dl = Math.abs(f - Math.round(f)) * g.len / g.linhas;
+        if (f > 0 && f < g.linhas && dl < fioN) return 1;
+        break;
+      case 'gotaint':                                                  // gota maciça acompanhando o eixo
+        var w2 = perfil('gota', o.t, 0.5, 1.2);
+        if (0.45 * o.hw * w2 - Math.abs(o.lat) > 0) return 1;
+        break;
+      case 'pontoint':                                                 // bolinha maciça no meio
+        var rc = g.r0 + 0.5 * g.len;
+        var rad = 0.34 * Math.min(g.hw, g.half);
+        if (rad - polarDist(g.r0 + o.t * g.len, rc, o.lat / (rc + 1e-6)) > 0) return 1;
+        break;
+    }
+    return 0;
+  }
+
+  /* =======================================================================
+     Amostra: qual camada reivindica este ponto, em que patamar, filete ou
+     poça. `out` é reaproveitado entre chamadas (evita lixo no preview).
+     id = -1 fundo da placa · -2 cone · -3 aro
+     ======================================================================= */
+  function amostra(P, r, th, out) {
+    out.id = -1; out.nivel = 0; out.fio = 0; out.banda = 0; out.cor = null; out.cor2 = null;
+    var C = P.cam, i, g, d;
+    var o = out._o || (out._o = { t: 0, lat: 0, hw: 0, banda: 0 });
+    for (i = 0; i < C.length; i++) {
+      g = C[i];
+      if (r < g.lo || r > g.hi) continue;
+      d = dist(g, r, th, o);
+      if (d <= 0) continue;
+      out.id = g.idx; out.nivel = g.nivel;
+      out.fio = filete(g, d, o, P.fioN);
+      out.banda = o.banda;
+      out.cor = g.cor; out.cor2 = g.cor2;
+    }
+    return out;
+  }
+
+  /* ---- altura em mm no ponto (rmm em MILÍMETROS) ---- */
+  function altura(cfg, P, rmm, th, out) {
+    var R = cfg.diam / 2;
+    out = out || {};
+    if (cfg.cone > 0 && rmm < cfg.cone / 2) {
+      out.id = -2; out.fio = 0; out.nivel = 0;
+      if (cfg.furo > 0 && rmm < cfg.furo / 2)
+        return Math.max(0.8, cfg.base + cfg.coneH - cfg.furoP);
+      var u = rmm / (cfg.cone / 2);
+      return cfg.base + cfg.coneH * Math.pow(1 - u, Math.max(0.1, cfg.coneC));
+    }
+    if (cfg.aro > 0 && rmm > R - cfg.aro) {
+      out.id = -3; out.fio = 0; out.nivel = 0;
+      return cfg.base + cfg.aroH;
+    }
+    amostra(P, rmm / R, th, out);
+    if (out.id < 0) return cfg.base;
+    return cfg.base + out.nivel * cfg.degrau + (out.fio ? cfg.fioH : 0);
+  }
+
+  /* ---- há material aqui? (rmm em MILÍMETROS) ---- */
+  function solid(cfg, P, rmm, th, out) {
+    var R = cfg.diam / 2;
+    if (rmm > R) return false;
+    if (cfg.modo === 'placa') return true;
+    if (cfg.cone > 0 && rmm < cfg.cone / 2 + 0.6) return true;
+    if (cfg.aro > 0 && rmm >= R - cfg.aro) return true;
+    if (cfg.conn > 0 && cfg.connW > 0) {
+      var n = Math.max(1, Math.round(cfg.conn));
+      if (Math.abs(angOff(th + cfg.rot * PI / 180, n)) * rmm < cfg.connW / 2) return true;
+    }
+    amostra(P, rmm / R, th, out || {});
+    return (out || {}).id >= 0;
+  }
+
+  /* ---- altura máxima possível (para normalizar o preview) ---- */
+  function alturaMax(cfg) {
+    var m = cfg.base + cfg.aroH, i;
+    for (i = 0; i < cfg.camadas.length; i++) {
+      if (!cfg.camadas[i].on) continue;
+      var z = cfg.base + cfg.camadas[i].nivel * cfg.degrau + cfg.fioH;
+      if (z > m) m = z;
+    }
+    if (cfg.cone > 0) m = Math.max(m, cfg.base + cfg.coneH);
+    return m;
+  }
+
+  /* ---- resolução por qualidade (angular múltipla de 4× a simetria) ---- */
+  var QUAL = { teste: [140, 720], bom: [240, 1080], alta: [340, 1440], max: [440, 1800] };
+  function resolution(cfg, q) {
+    var p = QUAL[q] || QUAL.bom;
+    var sym = Math.max(3, Math.round(cfg.sym)), m = sym * 4;
+    var nt = Math.max(m * 3, Math.round(p[1] / m) * m);
+    return { nr: p[0], nt: Math.min(nt, 2400) };
+  }
+
+  /* ---- buffer de triângulos ---- */
+  function Buf() { this.a = new Float32Array(1 << 17); this.n = 0; }
+  Buf.prototype.tri = function (x1, y1, z1, x2, y2, z2, x3, y3, z3) {
+    if (this.n + 9 > this.a.length) {
+      var b = new Float32Array(this.a.length * 2); b.set(this.a); this.a = b;
+    }
+    var a = this.a, n = this.n;
+    a[n] = x1; a[n + 1] = y1; a[n + 2] = z1;
+    a[n + 3] = x2; a[n + 4] = y2; a[n + 5] = z2;
+    a[n + 6] = x3; a[n + 7] = y3; a[n + 8] = z3;
+    this.n = n + 9;
+  };
+
+  /* =======================================================================
+     Malha: grade polar NR x NT. Alturas nos nós, presença no centro da
+     célula. Topo + fundo em z=0 + paredes em toda fronteira. As mesmas
+     quatro invariantes do gerador de relevo valem aqui:
+       1. os nós de i=0 colapsam num ponto (altura mediada, 1 triângulo);
+       2. as paredes usam as alturas dos nós compartilhados;
+       3. o fundo só vira leque único quando TODAS as células existem;
+       4. cada aresta aparece exatamente duas vezes, com sentidos opostos.
+     ======================================================================= */
+  function buildMesh(cfg, res) {
+    var R = cfg.diam / 2;
+    var NR = res.nr, NT = res.nt;
+    var P = prepare(cfg);
+    var i, j, k;
+    var tmp = {};
+
+    var rs = new Float64Array(NR + 1);
+    for (i = 0; i <= NR; i++) rs[i] = R * i / NR;
+    var cs = new Float64Array(NT), sn = new Float64Array(NT), ths = new Float64Array(NT);
+    for (j = 0; j < NT; j++) { ths[j] = TAU * j / NT; cs[j] = Math.cos(ths[j]); sn[j] = Math.sin(ths[j]); }
+
+    var z = new Float32Array((NR + 1) * NT);
+    for (i = 0; i <= NR; i++)
+      for (j = 0; j < NT; j++) z[i * NT + j] = altura(cfg, P, rs[i], ths[j], tmp);
+    var acc = 0;                                                       // nó central único
+    for (j = 0; j < NT; j++) acc += z[j];
+    acc /= NT; for (j = 0; j < NT; j++) z[j] = acc;
+
+    var pres = new Uint8Array(NR * NT);
+    var dth = TAU / NT;
+    for (i = 0; i < NR; i++) {
+      var rc = (rs[i] + rs[i + 1]) / 2;
+      for (j = 0; j < NT; j++) pres[i * NT + j] = solid(cfg, P, rc, ths[j] + dth / 2, tmp) ? 1 : 0;
+    }
+
+    var B = new Buf();
+    var full = true;
+    for (i = 0; i < pres.length; i++) if (!pres[i]) { full = false; break; }
+    function X(i, j) { return rs[i] * cs[j]; }
+    function Y(i, j) { return rs[i] * sn[j]; }
+    function Z(i, j) { return z[i * NT + j]; }
+
+    for (i = 0; i < NR; i++) {
+      for (j = 0; j < NT; j++) {
+        if (!pres[i * NT + j]) continue;
+        var jp = (j + 1) % NT, jm = (j - 1 + NT) % NT;
+        var ax = X(i, j), ay = Y(i, j), az = Z(i, j);
+        var bx = X(i, jp), by = Y(i, jp), bz = Z(i, jp);
+        var cx = X(i + 1, jp), cy = Y(i + 1, jp), cz = Z(i + 1, jp);
+        var dx = X(i + 1, j), dy = Y(i + 1, j), dz = Z(i + 1, j);
+        var atCenter = (i === 0);
+
+        B.tri(ax, ay, az, dx, dy, dz, cx, cy, cz);
+        if (!atCenter) B.tri(ax, ay, az, cx, cy, cz, bx, by, bz);
+        if (!full) {
+          B.tri(ax, ay, 0, cx, cy, 0, dx, dy, 0);
+          if (!atCenter) B.tri(ax, ay, 0, bx, by, 0, cx, cy, 0);
+        }
+        if (!atCenter && !pres[(i - 1) * NT + j]) {                    // parede interna
+          B.tri(ax, ay, 0, bx, by, bz, bx, by, 0);
+          B.tri(ax, ay, 0, ax, ay, az, bx, by, bz);
+        }
+        if (i === NR - 1 || !pres[(i + 1) * NT + j]) {                 // parede externa
+          B.tri(dx, dy, 0, cx, cy, 0, cx, cy, cz);
+          B.tri(dx, dy, 0, cx, cy, cz, dx, dy, dz);
+        }
+        if (!pres[i * NT + jm]) {                                      // parede no lado θ inferior
+          B.tri(ax, ay, 0, dx, dy, 0, dx, dy, dz);
+          B.tri(ax, ay, 0, dx, dy, dz, ax, ay, az);
+        }
+        if (!pres[i * NT + jp]) {                                      // parede no lado θ superior
+          B.tri(bx, by, 0, cx, cy, cz, cx, cy, 0);
+          B.tri(bx, by, 0, bx, by, bz, cx, cy, cz);
+        }
+      }
+    }
+
+    if (full) {                                                        // fundo em leque
+      for (j = 0; j < NT; j++) {
+        var j2 = (j + 1) % NT;
+        var iax = X(0, j), iay = Y(0, j);
+        var ocx = X(NR, j2), ocy = Y(NR, j2), odx = X(NR, j), ody = Y(NR, j);
+        B.tri(iax, iay, 0, ocx, ocy, 0, odx, ody, 0);
+      }
+    }
+
+    var maxZ = 0;
+    for (k = 0; k < z.length; k++) if (z[k] > maxZ) maxZ = z[k];
+    return {
+      pos: B.a, n: B.n, tris: B.n / 9,
+      height: maxZ, diam: cfg.diam,
+      parts: components(pres, NR, NT)
+    };
+  }
+
+  /* ---- quantas peças separadas? (aviso de impressão) ---- */
+  function components(pres, NR, NT) {
+    var seen = new Uint8Array(NR * NT), stack = [], count = 0, i, j;
+    for (i = 0; i < NR; i++) for (j = 0; j < NT; j++) {
+      var s = i * NT + j;
+      if (!pres[s] || seen[s]) continue;
+      count++; seen[s] = 1; stack.push(s);
+      while (stack.length) {
+        var c = stack.pop(), ci = (c / NT) | 0, cj = c % NT, nb, t;
+        nb = [ci * NT + (cj + 1) % NT, ci * NT + (cj - 1 + NT) % NT];
+        if (ci > 0) nb.push((ci - 1) * NT + cj);
+        if (ci < NR - 1) nb.push((ci + 1) * NT + cj);
+        if (ci === 0) for (t = 0; t < NT; t++) nb.push(t);             // tudo se toca no centro
+        for (t = 0; t < nb.length; t++) if (pres[nb[t]] && !seen[nb[t]]) { seen[nb[t]] = 1; stack.push(nb[t]); }
+      }
+    }
+    return count;
+  }
+
+  /* ---- STL binário ---- */
+  function toSTL(mesh, name) {
+    var nt = mesh.tris, buf = new ArrayBuffer(84 + 50 * nt), dv = new DataView(buf);
+    var head = 'mandala cloisonne — ' + (name || '') + ' — ' + mesh.diam + 'mm';
+    for (var c = 0; c < 80; c++) dv.setUint8(c, c < head.length ? head.charCodeAt(c) & 0x7f : 32);
+    dv.setUint32(80, nt, true);
+    var p = mesh.pos, off = 84;
+    for (var i = 0; i < nt; i++) {
+      var o = i * 9;
+      var x1 = p[o], y1 = p[o + 1], z1 = p[o + 2];
+      var x2 = p[o + 3], y2 = p[o + 4], z2 = p[o + 5];
+      var x3 = p[o + 6], y3 = p[o + 7], z3 = p[o + 8];
+      var ux = x2 - x1, uy = y2 - y1, uz = z2 - z1;
+      var vx = x3 - x1, vy = y3 - y1, vz = z3 - z1;
+      var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      var L = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+      dv.setFloat32(off, nx / L, true); dv.setFloat32(off + 4, ny / L, true); dv.setFloat32(off + 8, nz / L, true);
+      dv.setFloat32(off + 12, x1, true); dv.setFloat32(off + 16, y1, true); dv.setFloat32(off + 20, z1, true);
+      dv.setFloat32(off + 24, x2, true); dv.setFloat32(off + 28, y2, true); dv.setFloat32(off + 32, z2, true);
+      dv.setFloat32(off + 36, x3, true); dv.setFloat32(off + 40, y3, true); dv.setFloat32(off + 44, z3, true);
+      dv.setUint16(off + 48, 0, true);
+      off += 50;
+    }
+    return buf;
+  }
+
+  /* ---- diagnóstico: malha fechada? (usado nos testes) ---- */
+  function audit(mesh) {
+    var p = mesh.pos, nt = mesh.tris, map = new Map(), i, k;
+    var open = 0, degen = 0, bad = 0;
+    function key(o) {
+      return (Math.round(p[o] * 1e4) / 1e4) + ',' + (Math.round(p[o + 1] * 1e4) / 1e4) + ',' + (Math.round(p[o + 2] * 1e4) / 1e4);
+    }
+    for (i = 0; i < nt; i++) {
+      var o = i * 9, a = key(o), b = key(o + 3), c = key(o + 6);
+      if (!isFinite(p[o]) || !isFinite(p[o + 1]) || !isFinite(p[o + 2])) bad++;
+      var ux = p[o + 3] - p[o], uy = p[o + 4] - p[o + 1], uz = p[o + 5] - p[o + 2];
+      var vx = p[o + 6] - p[o], vy = p[o + 7] - p[o + 1], vz = p[o + 8] - p[o + 2];
+      var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      if (Math.sqrt(nx * nx + ny * ny + nz * nz) < 1e-12) degen++;
+      var e = [[a, b], [b, c], [c, a]];
+      for (k = 0; k < 3; k++) {
+        var f = e[k][0] + '|' + e[k][1], rv = e[k][1] + '|' + e[k][0];
+        if (map.get(rv)) map.set(rv, map.get(rv) - 1); else map.set(f, (map.get(f) || 0) + 1);
+      }
+    }
+    map.forEach(function (v) { open += v; });
+    return { openEdges: open, degenerate: degen, nonFinite: bad, tris: nt };
+  }
+
+  return {
+    MOTIVOS: MOTIVOS, PREENCH: PREENCH,
+    camada: camada, defaults: defaults, prepare: prepare,
+    dist: dist, perfil: perfil, amostra: amostra, altura: altura, alturaMax: alturaMax,
+    solid: solid, resolution: resolution, buildMesh: buildMesh,
+    toSTL: toSTL, audit: audit, clamp: clamp
+  };
+})();
+</script>
+
+<script id="mandala-ui">
+(function () {
+  'use strict';
+  if (typeof document === 'undefined') return;
+
+  var cfg = MC.defaults();
+  var tab = 'topo';
+  var yaw = -0.6, elev = 0.95;
+  var open = {};
+  var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  var hud = document.getElementById('hud');
+  var idleTimer = null, pending = false;
+
+  /* ---------------- paletas e presets ---------------- */
+  var C = MC.camada;
+  var PALETAS = [
+    { base: '#5b2a7a', fio: '#f6f2e8', fundo: '#2c1233', cores: ['#ee8a2b', '#f2d02c', '#b06fd0', '#e8536f'] },
+    { base: '#12556b', fio: '#f4efe2', fundo: '#082b38', cores: ['#e8a33d', '#4fb3a5', '#e2604a', '#f2d886'] },
+    { base: '#7d1f2e', fio: '#f7f1e1', fundo: '#3a0d16', cores: ['#e8a33d', '#2f8f8a', '#dcd0b0', '#c9563f'] },
+    { base: '#1d3b2a', fio: '#f2efe4', fundo: '#0d2118', cores: ['#d9a441', '#7fbf6a', '#e0705a', '#bfd8a0'] },
+    { base: '#2b2f6b', fio: '#f4f2ea', fundo: '#141637', cores: ['#f0c34a', '#e2725b', '#8fb8e8', '#c9a0dc'] }
+  ];
+
+  var PRESETS = {
+    incenso: function () {
+      return {
+        diam: 120, base: 3, sym: 10, rot: 0,
+        aro: 3.5, aroH: 1.0, fio: 0.8, fioH: 0.9, degrau: 0.5,
+        cone: 14, coneH: 5, coneC: 0.7, furo: 3, furoP: 8,
+        modo: 'placa', conn: 0, connW: 1.6,
+        corBase: '#5b2a7a', corFio: '#f6f2e8', luz: 315, verniz: 0.35,
+        camadas: [
+          C({ motivo: 'anel', mult: 1, r0: 0.11, r1: 0.90, nivel: 0, borda: false, cor: '#2c1233' }),
+          C({ motivo: 'cunha', mult: 1, fase: 0, r0: 0.68, r1: 1.00, larg: 0.80, base: 1.0, nivel: 1, preench: 'nervuras', linhas: 4, incl: 0.45, espinha: true, cor: '#f2d02c' }),
+          C({ motivo: 'folha', mult: 1, fase: 18, r0: 0.40, r1: 0.92, larg: 1.05, base: 0.75, ponta: 0.95, nivel: 1, preench: 'nervuras', linhas: 5, incl: 0.8, espinha: true, cor: '#ee8a2b' }),
+          C({ motivo: 'ponto', mult: 1, fase: 0, r0: 0.58, r1: 0.68, larg: 0.24, nivel: 1, cor: '#f2d02c' }),
+          C({ motivo: 'arco', mult: 1, fase: 18, r0: 0.520, r1: 0.575, larg: 1.00, nivel: 2, cor: '#b06fd0' }),
+          C({ motivo: 'ponto', mult: 1, fase: 18, r0: 0.44, r1: 0.50, larg: 0.22, nivel: 1, cor: '#f2d02c' }),
+          C({ motivo: 'arco', mult: 1, fase: 0, r0: 0.360, r1: 0.435, larg: 1.00, nivel: 2, preench: 'contornos', passo: 1.6, cor: '#ee8a2b', cor2: '#f6f2e8' }),
+          C({ motivo: 'gota', mult: 1, fase: 0, r0: 0.368, r1: 0.428, larg: 0.34, base: 0.5, ponta: 1.2, nivel: 3, cor: '#f6f2e8' }),
+          C({ motivo: 'arco', mult: 1, fase: 18, r0: 0.290, r1: 0.352, larg: 1.00, nivel: 2, cor: '#f2d02c' }),
+          C({ motivo: 'gota', mult: 2, fase: 9, r0: 0.235, r1: 0.310, larg: 0.80, base: 0.45, ponta: 1.15, nivel: 3, cor: '#b06fd0' }),
+          C({ motivo: 'gota', mult: 2, fase: 0, r0: 0.120, r1: 0.232, larg: 0.92, base: 0.45, ponta: 1.15, nivel: 3, cor: '#b06fd0' })
+        ]
+      };
+    },
+    lotus: function () {
+      var c = MC.defaults();
+      c.sym = 8; c.cone = 0; c.furo = 0; c.aro = 5; c.aroH = 1.4; c.degrau = 0.6;
+      c.camadas = [
+        C({ motivo: 'anel', mult: 1, r0: 0, r1: 0.92, nivel: 0, borda: false, cor: '#1d3b2a' }),
+        C({ motivo: 'folha', mult: 1, fase: 22.5, r0: 0.20, r1: 0.94, larg: 1.05, base: 0.7, ponta: 1.3, nivel: 1, preench: 'contornos', passo: 3.2, cor: '#d9a441', cor2: '#7fbf6a' }),
+        C({ motivo: 'folha', mult: 1, fase: 0, r0: 0.14, r1: 0.70, larg: 1.05, base: 0.7, ponta: 1.2, nivel: 2, preench: 'nervuras', linhas: 4, incl: 0.9, espinha: true, cor: '#e0705a' }),
+        C({ motivo: 'gota', mult: 1, fase: 22.5, r0: 0.08, r1: 0.34, larg: 0.9, base: 0.45, ponta: 1.2, nivel: 3, cor: '#bfd8a0' }),
+        C({ motivo: 'ponto', mult: 1, fase: 0, r0: 0, r1: 0.13, larg: 2.0, nivel: 4, preench: 'contornos', passo: 2.4, cor: '#d9a441', cor2: '#f2efe4' })
+      ];
+      c.corBase = '#1d3b2a'; c.corFio = '#f2efe4';
+      return c;
+    },
+    talavera: function () {
+      var c = MC.defaults();
+      c.sym = 12; c.cone = 0; c.furo = 0; c.aro = 4; c.aroH = 1.2; c.degrau = 0.45; c.fio = 0.75;
+      c.camadas = [
+        C({ motivo: 'anel', mult: 1, r0: 0, r1: 0.92, nivel: 0, borda: false, cor: '#f4f2ea' }),
+        C({ motivo: 'cunha', mult: 1, fase: 0, r0: 0.60, r1: 0.95, larg: 0.9, base: 1.2, nivel: 1, preench: 'nervuras', linhas: 3, incl: 0, espinha: false, cor: '#2b2f6b' }),
+        C({ motivo: 'arco', mult: 1, fase: 15, r0: 0.62, r1: 0.72, larg: 1.0, nivel: 1, cor: '#f0c34a' }),
+        C({ motivo: 'losango', mult: 1, fase: 15, r0: 0.30, r1: 0.62, larg: 0.95, nivel: 2, preench: 'contornos', passo: 2.6, cor: '#8fb8e8', cor2: '#2b2f6b' }),
+        C({ motivo: 'ponto', mult: 1, fase: 0, r0: 0.34, r1: 0.46, larg: 0.3, nivel: 2, cor: '#e2725b' }),
+        C({ motivo: 'folha', mult: 1, fase: 0, r0: 0.10, r1: 0.34, larg: 1.0, base: 0.6, ponta: 1.1, nivel: 3, cor: '#2b2f6b' }),
+        C({ motivo: 'ponto', mult: 1, fase: 0, r0: 0, r1: 0.11, larg: 2.0, nivel: 4, cor: '#f0c34a' })
+      ];
+      c.corBase = '#f4f2ea'; c.corFio = '#141637';
+      return c;
+    },
+    renda: function () {
+      var c = MC.defaults();
+      c.sym = 16; c.modo = 'vazado'; c.conn = 16; c.connW = 1.6;
+      c.cone = 0; c.furo = 0; c.aro = 4; c.aroH = 0.8; c.base = 2; c.fio = 1.0; c.fioH = 0.8; c.degrau = 0.3;
+      c.camadas = [
+        C({ motivo: 'arco', mult: 1, fase: 0, r0: 0.74, r1: 0.90, larg: 1.0, nivel: 1, cor: '#e8a33d' }),
+        C({ motivo: 'folha', mult: 1, fase: 11.25, r0: 0.40, r1: 0.86, larg: 0.95, base: 0.7, ponta: 1.2, nivel: 1, preench: 'nervuras', linhas: 3, incl: 0.8, espinha: true, cor: '#4fb3a5' }),
+        C({ motivo: 'arco', mult: 1, fase: 0, r0: 0.44, r1: 0.56, larg: 1.0, nivel: 1, cor: '#e2604a' }),
+        C({ motivo: 'gota', mult: 1, fase: 11.25, r0: 0.14, r1: 0.44, larg: 0.9, base: 0.45, ponta: 1.2, nivel: 1, cor: '#f2d886' }),
+        C({ motivo: 'ponto', mult: 1, fase: 0, r0: 0, r1: 0.16, larg: 2.0, nivel: 1, preench: 'contornos', passo: 2.4, cor: '#e8a33d', cor2: '#f4efe2' })
+      ];
+      c.corBase = '#12556b'; c.corFio = '#f4efe2';
+      return c;
+    },
+    sol: function () {
+      var c = MC.defaults();
+      c.sym = 18; c.cone = 20; c.coneH = 7; c.coneC = 1.4; c.furo = 0; c.aro = 3; c.degrau = 0.55;
+      c.camadas = [
+        C({ motivo: 'anel', mult: 1, r0: 0, r1: 0.92, nivel: 0, borda: false, cor: '#3a0d16' }),
+        C({ motivo: 'cunha', mult: 1, fase: 0, r0: 0.46, r1: 0.94, larg: 0.85, base: 1.4, nivel: 1, preench: 'nervuras', linhas: 5, incl: 0.3, espinha: true, cor: '#e8a33d' }),
+        C({ motivo: 'gota', mult: 1, fase: 10, r0: 0.34, r1: 0.66, larg: 0.8, base: 0.45, ponta: 1.3, nivel: 2, cor: '#c9563f' }),
+        C({ motivo: 'arco', mult: 1, fase: 0, r0: 0.26, r1: 0.34, larg: 1.0, nivel: 2, cor: '#dcd0b0' }),
+        C({ motivo: 'gota', mult: 1, fase: 0, r0: 0.17, r1: 0.26, larg: 0.9, base: 0.45, ponta: 1.1, nivel: 3, cor: '#2f8f8a' })
+      ];
+      c.corBase = '#7d1f2e'; c.corFio = '#f7f1e1';
+      return c;
+    },
+    aleatorio: function () {
+      var c = MC.defaults();
+      var P = PALETAS[(Math.random() * PALETAS.length) | 0];
+      var pick = function (a) { return a[(Math.random() * a.length) | 0]; };
+      c.sym = pick([8, 9, 10, 10, 12, 12, 14, 16, 18]);
+      c.corBase = P.base; c.corFio = P.fio;
+      c.fio = 0.7 + Math.random() * 0.5;
+      c.fioH = 0.7 + Math.random() * 0.6;
+      c.degrau = 0.3 + Math.random() * 0.45;
+      c.aro = 3 + Math.random() * 3;
+      var comCone = Math.random() < 0.5;
+      c.cone = comCone ? 12 + Math.random() * 10 : 0;
+      c.furo = comCone && Math.random() < 0.7 ? 3 : 0;
+      var meio = Math.PI / c.sym * 180 / Math.PI;             // meio passo, em graus
+      var cams = [C({ motivo: 'anel', mult: 1, r0: comCone ? c.cone / c.diam : 0, r1: 0.92, nivel: 0, borda: false, cor: P.fundo })];
+      var r = comCone ? c.cone / c.diam + 0.02 : 0.06, nivel = 1, alt = 0;
+      while (r < 0.9) {
+        var esp = 0.08 + Math.random() * 0.16;
+        var r1 = Math.min(0.95, r + esp);
+        var mot = pick(['folha', 'gota', 'arco', 'ponto', 'cunha', 'losango', 'arco', 'gota']);
+        var pre = pick(['nenhum', 'nenhum', 'contornos', 'nervuras']);
+        if (mot === 'ponto') pre = 'nenhum';
+        cams.push(C({
+          motivo: mot, mult: pick([1, 1, 1, 2]), fase: (alt++ % 2) ? meio : 0,
+          r0: r, r1: r1,
+          larg: mot === 'ponto' ? 0.22 + Math.random() * 0.2 : 0.8 + Math.random() * 0.3,
+          base: 0.45 + Math.random() * 0.5, ponta: 0.9 + Math.random() * 0.6,
+          nivel: nivel, preench: pre,
+          passo: 1.6 + Math.random() * 1.6, linhas: 3 + ((Math.random() * 4) | 0),
+          incl: Math.random() < 0.4 ? 0 : 0.4 + Math.random() * 0.6,
+          cor: pick(P.cores), cor2: P.fio
+        }));
+        r = r1 - 0.01 + Math.random() * 0.04;
+        nivel = Math.min(4, nivel + (Math.random() < 0.45 ? 1 : 0));
+      }
+      c.camadas = cams;
+      return c;
+    }
+  };
+
+  /* ---------------- construção do painel ---------------- */
+  function pct(v) { return Math.round(v * 100) + '%'; }
+  function deg(v) { return Math.round(v) + '°'; }
+  function mm(v) { return v.toFixed(1) + ' mm'; }
+  function num(v) { return (+v).toFixed(2); }
+
+  var CAM_FIELDS = [
+    { k: 'mult', t: 'sel', label: 'Repetições', num: true,
+      opts: [[0.25, '¼ da simetria'], [0.5, '½ da simetria'], [1, '× 1'], [2, '× 2'], [3, '× 3'], [4, '× 4']] },
+    { k: 'r0', t: 'rng', label: 'Raio interno', min: 0, max: 1, step: 0.002, fmt: pct },
+    { k: 'r1', t: 'rng', label: 'Raio externo', min: 0, max: 1, step: 0.002, fmt: pct },
+    { k: 'larg', t: 'rng', label: 'Largura', min: 0.05, max: 2, step: 0.01, fmt: pct, nao: ['anel'] },
+    { k: 'base', t: 'rng', label: 'Base', min: 0.2, max: 3, step: 0.05, fmt: num, para: ['folha', 'gota', 'cunha'] },
+    { k: 'ponta', t: 'rng', label: 'Ponta', min: 0.2, max: 3, step: 0.05, fmt: num, para: ['folha', 'gota'] },
+    { k: 'fase', t: 'rng', label: 'Fase', min: 0, max: 360, step: 0.5, fmt: deg, nao: ['anel'] },
+    { k: 'nivel', t: 'rng', label: 'Nível', min: 0, max: 6, step: 1, fmt: function (v) { return v + '×'; } },
+    { k: 'preench', t: 'sel', label: 'Interior', opts: null },
+    { k: 'passo', t: 'rng', label: 'Passo', min: 0.6, max: 8, step: 0.1, fmt: mm, se: ['contornos'] },
+    { k: 'linhas', t: 'rng', label: 'Nervuras', min: 1, max: 14, step: 1, fmt: function (v) { return v + '×'; }, se: ['nervuras'] },
+    { k: 'incl', t: 'rng', label: 'Inclinação', min: 0, max: 1.6, step: 0.02, fmt: num, se: ['nervuras'] }
+  ];
+
+  function nomeMotivo(m) {
+    for (var i = 0; i < MC.MOTIVOS.length; i++) if (MC.MOTIVOS[i][0] === m) return MC.MOTIVOS[i][1];
+    return m;
+  }
+  function visivel(F, c) {
+    if (F.para && F.para.indexOf(c.motivo) < 0) return false;
+    if (F.nao && F.nao.indexOf(c.motivo) >= 0) return false;
+    if (F.se && F.se.indexOf(c.preench) < 0) return false;
+    return true;
+  }
+
+  function camHTML(c, i) {
+    var h = '<div class="cam' + (open[i] ? ' open' : '') + (c.on ? '' : ' off') + '" data-i="' + i + '">';
+    h += '<div class="chead" data-toggle="' + i + '">' +
+      '<span class="chev">&#9654;</span>' +
+      '<span class="sw" style="background:' + c.cor + '"></span>' +
+      '<span class="name">' + nomeMotivo(c.motivo) + '</span>' +
+      '<span class="meta">' + Math.round(cfg.sym * c.mult) + '× · n' + c.nivel + '</span>' +
+      '<button class="icon" data-act="up" data-i="' + i + '" title="descer na pilha">&#9650;</button>' +
+      '<button class="icon" data-act="down" data-i="' + i + '" title="subir na pilha">&#9660;</button>' +
+      '<button class="icon" data-act="dup" data-i="' + i + '" title="duplicar">&#10697;</button>' +
+      '<button class="icon" data-act="del" data-i="' + i + '" title="remover">&times;</button>' +
+      '<input type="checkbox" data-c="on" data-i="' + i + '"' + (c.on ? ' checked' : '') + '>' +
+      '</div><div class="cbody">';
+
+    h += '<div class="row"><label>Motivo</label><select data-c="motivo" data-i="' + i + '">';
+    for (var t = 0; t < MC.MOTIVOS.length; t++)
+      h += '<option value="' + MC.MOTIVOS[t][0] + '"' + (c.motivo === MC.MOTIVOS[t][0] ? ' selected' : '') + '>' + MC.MOTIVOS[t][1] + '</option>';
+    h += '</select></div>';
+
+    for (var f = 0; f < CAM_FIELDS.length; f++) {
+      var F = CAM_FIELDS[f];
+      if (!visivel(F, c)) continue;
+      h += '<div class="row"><label>' + F.label + '</label>';
+      if (F.t === 'rng') {
+        h += '<input type="range" data-c="' + F.k + '" data-i="' + i + '" min="' + F.min + '" max="' + F.max + '" step="' + F.step + '" value="' + c[F.k] + '">' +
+          '<span class="num">' + F.fmt(c[F.k]) + '</span>';
+      } else if (F.k === 'preench') {
+        h += '<select data-c="preench" data-i="' + i + '">';
+        for (var p = 0; p < MC.PREENCH.length; p++)
+          h += '<option value="' + MC.PREENCH[p][0] + '"' + (c.preench === MC.PREENCH[p][0] ? ' selected' : '') + '>' + MC.PREENCH[p][1] + '</option>';
+        h += '</select>';
+      } else {
+        h += '<select data-c="' + F.k + '" data-i="' + i + '"' + (F.num ? ' data-num="1"' : '') + '>';
+        for (var o = 0; o < F.opts.length; o++)
+          h += '<option value="' + F.opts[o][0] + '"' + (String(c[F.k]) === String(F.opts[o][0]) ? ' selected' : '') + '>' + F.opts[o][1] + '</option>';
+        h += '</select>';
+      }
+      h += '</div>';
+    }
+    if (c.preench === 'nervuras')
+      h += '<div class="row"><label>Espinha</label><input type="checkbox" data-c="espinha" data-i="' + i + '"' + (c.espinha ? ' checked' : '') + '></div>';
+    h += '<div class="row"><label>Contorno</label><input type="checkbox" data-c="borda" data-i="' + i + '"' + (c.borda !== false ? ' checked' : '') + '></div>';
+    h += '<div class="row"><label>Cor</label><input type="color" data-c="cor" data-i="' + i + '" value="' + c.cor + '">';
+    if (c.preench === 'contornos') h += '<label style="flex:0 0 auto">Alterna</label><input type="color" data-c="cor2" data-i="' + i + '" value="' + c.cor2 + '">';
+    h += '</div>';
+    return h + '</div></div>';
+  }
+
+  function drawPanel() {
+    var box = document.getElementById('cams'), h = '';
+    for (var i = 0; i < cfg.camadas.length; i++) h += camHTML(cfg.camadas[i], i);
+    box.innerHTML = h;
+    syncGlobals();
+  }
+
+  var GFMT = {
+    diam: function (v) { return v + ' mm'; }, base: mm, sym: function (v) { return v + '×'; },
+    rot: deg, aro: mm, aroH: mm, fio: function (v) { return v.toFixed(2) + ' mm'; }, fioH: mm,
+    degrau: function (v) { return v.toFixed(2) + ' mm'; },
+    cone: function (v) { return v ? v.toFixed(1) + ' mm' : 'sem'; }, coneH: mm, coneC: num,
+    furo: function (v) { return v ? v.toFixed(1) + ' mm' : 'sem'; }, furoP: mm,
+    conn: function (v) { return v ? v + '×' : 'sem'; }, connW: mm, luz: deg, verniz: pct
+  };
+  function syncGlobals() {
+    document.querySelectorAll('[data-g]').forEach(function (el) {
+      var k = el.dataset.g;
+      if (el.type === 'checkbox') el.checked = !!cfg[k]; else el.value = cfg[k];
+    });
+    document.querySelectorAll('[data-v]').forEach(function (el) {
+      var k = el.dataset.v, f = GFMT[k];
+      el.textContent = f ? f(cfg[k]) : cfg[k];
+    });
+    document.querySelectorAll('[data-modo]').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.modo === cfg.modo);
+    });
+    document.querySelectorAll('[data-only]').forEach(function (el) {
+      var c = el.dataset.only;
+      var vis = c === 'vazado' ? cfg.modo === 'vazado' : (c === 'cone' ? cfg.cone > 0 : cfg.furo > 0);
+      el.style.display = vis ? '' : 'none';
+    });
+  }
+
+  /* ---------------- eventos do painel ---------------- */
+  var scroll = document.getElementById('scroll');
+  scroll.addEventListener('input', function (e) {
+    var el = e.target, k;
+    if (el.dataset.g) {
+      k = el.dataset.g;
+      cfg[k] = el.type === 'checkbox' ? el.checked : (el.type === 'color' ? el.value : parseFloat(el.value));
+      if (k === 'sym') drawPanel(); else syncGlobals();
+      schedule();
+    } else if (el.dataset.c) {
+      var i = +el.dataset.i, ck = el.dataset.c, c = cfg.camadas[i];
+      if (el.type === 'checkbox') { c[ck] = el.checked; drawPanel(); }
+      else if (el.type === 'color') { c[ck] = el.value; drawPanel(); }
+      else if (el.tagName === 'SELECT') { c[ck] = el.dataset.num ? parseFloat(el.value) : el.value; drawPanel(); }
+      else {
+        c[ck] = parseFloat(el.value);
+        if (ck === 'r0' && c.r0 > c.r1 - 0.01) c.r1 = Math.min(1, c.r0 + 0.01);
+        if (ck === 'r1' && c.r1 < c.r0 + 0.01) c.r0 = Math.max(0, c.r1 - 0.01);
+        if (ck === 'nivel') drawPanel();
+        var n = el.parentNode.querySelector('.num');
+        for (var f = 0; f < CAM_FIELDS.length; f++) if (CAM_FIELDS[f].k === ck && n) n.textContent = CAM_FIELDS[f].fmt(c[ck]);
+      }
+      schedule();
+    }
+  });
+  scroll.addEventListener('click', function (e) {
+    var el = e.target, i = +el.dataset.i, a = el.dataset.act;
+    if (el.dataset.modo) { cfg.modo = el.dataset.modo; syncGlobals(); schedule(); return; }
+    if (a) {
+      e.stopPropagation();
+      if (a === 'del' && cfg.camadas.length > 1) cfg.camadas.splice(i, 1);
+      if (a === 'dup') cfg.camadas.splice(i + 1, 0, JSON.parse(JSON.stringify(cfg.camadas[i])));
+      if (a === 'up' && i > 0) cfg.camadas.splice(i - 1, 0, cfg.camadas.splice(i, 1)[0]);
+      if (a === 'down' && i < cfg.camadas.length - 1) cfg.camadas.splice(i + 1, 0, cfg.camadas.splice(i, 1)[0]);
+      open = {}; drawPanel(); schedule(); return;
+    }
+    var head = el.closest('[data-toggle]');
+    if (head && el.tagName !== 'INPUT') { i = +head.dataset.toggle; open[i] = !open[i]; drawPanel(); }
+  });
+  document.getElementById('addcam').addEventListener('click', function () {
+    var last = cfg.camadas[cfg.camadas.length - 1];
+    cfg.camadas.push(C({ r0: last ? Math.min(0.9, last.r1) : 0.3, r1: 0.98, nivel: last ? last.nivel : 1 }));
+    open = {}; open[cfg.camadas.length - 1] = true; drawPanel(); schedule();
+  });
+  document.querySelectorAll('.preset').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var diam = cfg.diam;
+      cfg = Object.assign(MC.defaults(), PRESETS[b.dataset.preset]());
+      cfg.diam = diam;
+      open = {}; drawPanel(); schedule();
+    });
+  });
+  document.querySelectorAll('.tab').forEach(function (b) {
+    b.addEventListener('click', function () {
+      tab = b.dataset.tab;
+      document.querySelectorAll('.tab').forEach(function (x) { x.classList.toggle('on', x === b); });
+      schedule();
+    });
+  });
+
+  /* ---------------- desenho ---------------- */
+  var hexCache = {};
+  function hex(c) {
+    var v = hexCache[c];
+    if (!v) v = hexCache[c] = [parseInt(c.substr(1, 2), 16), parseInt(c.substr(3, 2), 16), parseInt(c.substr(5, 2), 16)];
+    return v;
+  }
+  function lightDir() {
+    var a = cfg.luz * Math.PI / 180;
+    var lx = Math.cos(a), ly = Math.sin(a), lz = 0.8;
+    var L = Math.sqrt(lx * lx + ly * ly + lz * lz);
+    return [lx / L, ly / L, lz / L];
+  }
+  /* cor da amostra: filete, poça, faixa alternada ou a própria placa */
+  function corDe(o) {
+    if (o.id < 0) return cfg.corBase;
+    if (o.fio) return cfg.corFio;
+    if (o.banda % 2 === 1 && o.cor2) return o.cor2;
+    return o.cor;
+  }
+  function fit() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = cv.clientWidth, h = cv.clientHeight;
+    if (cv.width !== (w * dpr | 0) || cv.height !== (h * dpr | 0)) {
+      cv.width = w * dpr | 0; cv.height = h * dpr | 0;
+    }
+  }
+
+  /* vista de topo: cor plana por poça + sombreamento pela derivada da altura */
+  function drawTop(scale, cinza) {
+    var W = Math.max(64, (cv.width * scale) | 0), H = Math.max(64, (cv.height * scale) | 0);
+    var P = MC.prepare(cfg), Rm = cfg.diam / 2, zmax = MC.alturaMax(cfg);
+    var img = ctx.createImageData(W, H), d = img.data;
+    var cx = W / 2, cy = H / 2, px = (Rm * 2.14) / Math.min(W, H);
+    var zb = new Float32Array(W * H), mb = new Uint8Array(W * H), cb = new Array(W * H);
+    var x, y, k, o = {};
+    for (y = 0; y < H; y++) {
+      var my = (y - cy) * px;
+      for (x = 0; x < W; x++) {
+        var mx = (x - cx) * px, rr = Math.sqrt(mx * mx + my * my);
+        k = y * W + x;
+        if (rr > Rm) { mb[k] = 0; continue; }
+        var th = Math.atan2(my, mx);
+        if (!MC.solid(cfg, P, rr, th, o)) { mb[k] = 0; continue; }
+        zb[k] = MC.altura(cfg, P, rr, th, o);
+        mb[k] = 1;
+        cb[k] = cinza ? null : corDe(o);
+      }
+    }
+    var L = lightDir();
+    for (y = 0; y < H; y++) {
+      for (x = 0; x < W; x++) {
+        k = y * W + x; var q = k * 4;
+        if (!mb[k]) { d[q] = 13; d[q + 1] = 15; d[q + 2] = 20; d[q + 3] = 255; continue; }
+        var zl = (x > 0 && mb[k - 1]) ? zb[k - 1] : zb[k];
+        var zr = (x < W - 1 && mb[k + 1]) ? zb[k + 1] : zb[k];
+        var zu = (y > 0 && mb[k - W]) ? zb[k - W] : zb[k];
+        var zd = (y < H - 1 && mb[k + W]) ? zb[k + W] : zb[k];
+        var gx = (zr - zl) / (2 * px), gy = (zd - zu) / (2 * px);
+        var NL = Math.sqrt(gx * gx + gy * gy + 1);
+        var nx = -gx / NL, ny = -gy / NL, nz = 1 / NL;
+        var dif = Math.max(0, nx * L[0] + ny * L[1] + nz * L[2]);
+        var hx = L[0], hy = L[1], hz = L[2] + 1, HL = Math.sqrt(hx * hx + hy * hy + hz * hz);
+        var spec = Math.pow(Math.max(0, (nx * hx + ny * hy + nz * hz) / HL), 30) * cfg.verniz * 255;
+        var col, f;
+        if (cinza) {
+          var t = zb[k] / zmax;
+          col = [40 + 200 * t, 44 + 198 * t, 52 + 190 * t];
+          f = 0.55 + 0.45 * dif; spec = 0;
+        } else {
+          col = hex(cb[k]);
+          f = (0.42 + 0.20 * (zb[k] / zmax)) + 0.62 * dif;
+        }
+        var borda = (x > 0 && !mb[k - 1]) || (x < W - 1 && !mb[k + 1]) || (y > 0 && !mb[k - W]) || (y < H - 1 && !mb[k + W]) ? 0.6 : 1;
+        d[q] = MC.clamp(col[0] * f * borda + spec, 0, 255);
+        d[q + 1] = MC.clamp(col[1] * f * borda + spec, 0, 255);
+        d[q + 2] = MC.clamp(col[2] * f * borda + spec, 0, 255);
+        d[q + 3] = 255;
+      }
+    }
+    if (scale === 1) ctx.putImageData(img, 0, 0);
+    else {
+      var tmp = document.createElement('canvas'); tmp.width = W; tmp.height = H;
+      tmp.getContext('2d').putImageData(img, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      ctx.drawImage(tmp, 0, 0, cv.width, cv.height);
+    }
+  }
+
+  /* =======================================================================
+     Vista 3D: rasteriza a MESMA grade polar que vira o STL, com z-buffer.
+     Ordenar quadriláteros por profundidade (painter) embolava — o filete tem
+     menos de 1 mm e a grade cartesiana não o resolvia. Aqui cada célula polar
+     cai em 2 ou 3 pixels e o desenho sai nítido, sem ordenação.
+     ======================================================================= */
+  function draw3D(NRq) {
+    var W = cv.width, H = cv.height;
+    var P = MC.prepare(cfg), Rm = cfg.diam / 2;
+    var q = MC.resolution(cfg, NRq < 120 ? 'teste' : 'alta');
+    var NR = NRq, NT = Math.max(60, Math.round(q.nt * NRq / q.nr / 2) * 2);
+    var i, j, o = {};
+
+    var rs = new Float64Array(NR + 1), cs = new Float64Array(NT), sn = new Float64Array(NT), ths = new Float64Array(NT);
+    for (i = 0; i <= NR; i++) rs[i] = Rm * i / NR;
+    for (j = 0; j < NT; j++) { ths[j] = Math.PI * 2 * j / NT; cs[j] = Math.cos(ths[j]); sn[j] = Math.sin(ths[j]); }
+
+    var z = new Float32Array((NR + 1) * NT);
+    for (i = 0; i <= NR; i++) for (j = 0; j < NT; j++) z[i * NT + j] = MC.altura(cfg, P, rs[i], ths[j], o);
+    var pres = new Uint8Array(NR * NT), cor = new Array(NR * NT);
+    var dth = Math.PI * 2 / NT;
+    for (i = 0; i < NR; i++) {
+      var rc = (rs[i] + rs[i + 1]) / 2;
+      for (j = 0; j < NT; j++) {
+        var thc = ths[j] + dth / 2;
+        if (!MC.solid(cfg, P, rc, thc, o)) continue;
+        pres[i * NT + j] = 1;
+        MC.altura(cfg, P, rc, thc, o);
+        cor[i * NT + j] = hex(corDe(o));
+      }
+    }
+
+    var img = ctx.createImageData(W, H), d = img.data;
+    var zbuf = new Float32Array(W * H).fill(-1e9);
+    for (i = 0; i < d.length; i += 4) { d[i] = 13; d[i + 1] = 15; d[i + 2] = 20; d[i + 3] = 255; }
+
+    var cyw = Math.cos(yaw), syw = Math.sin(yaw), se = Math.sin(elev), ce = Math.cos(elev);
+    var sc = Math.min(W, H) * 0.44 / Rm, ox = W / 2, oy = H / 2 + Rm * sc * 0.10;
+    function px(x, y, zz) { return ox + (x * cyw - y * syw) * sc; }
+    function py(x, y, zz) { return oy + ((x * syw + y * cyw) * se - zz * ce) * sc; }
+    function pz(x, y, zz) { return (x * syw + y * cyw) * ce + zz * se; }
+
+    /* triângulo chapado com teste de profundidade */
+    function tri(ax, ay, bx, by, cx2, cy2, prof, R8, G8, B8) {
+      var x0 = Math.max(0, Math.floor(Math.min(ax, bx, cx2))), x1 = Math.min(W - 1, Math.ceil(Math.max(ax, bx, cx2)));
+      var y0 = Math.max(0, Math.floor(Math.min(ay, by, cy2))), y1 = Math.min(H - 1, Math.ceil(Math.max(ay, by, cy2)));
+      if (x1 < x0 || y1 < y0) return;
+      var e = (bx - ax) * (cy2 - ay) - (by - ay) * (cx2 - ax);
+      if (e === 0) return;
+      var inv = 1 / e, xx, yy;
+      for (yy = y0; yy <= y1; yy++) {
+        var fy = yy + 0.5, base = yy * W;
+        for (xx = x0; xx <= x1; xx++) {
+          var fx = xx + 0.5;
+          var w0 = ((bx - ax) * (fy - ay) - (by - ay) * (fx - ax)) * inv;
+          var w1 = ((cx2 - bx) * (fy - by) - (cy2 - by) * (fx - bx)) * inv;
+          var w2 = ((ax - cx2) * (fy - cy2) - (ay - cy2) * (fx - cx2)) * inv;
+          if (w0 < -1e-6 || w1 < -1e-6 || w2 < -1e-6) continue;
+          var k = base + xx;
+          if (prof <= zbuf[k]) continue;
+          zbuf[k] = prof;
+          var q4 = k * 4; d[q4] = R8; d[q4 + 1] = G8; d[q4 + 2] = B8;
+        }
+      }
+    }
+
+    var L = lightDir();
+    for (i = 0; i < NR; i++) {
+      for (j = 0; j < NT; j++) {
+        if (!pres[i * NT + j]) continue;
+        var jp = (j + 1) % NT, jm = (j - 1 + NT) % NT;
+        var Ax = rs[i] * cs[j], Ay = rs[i] * sn[j], Az = z[i * NT + j];
+        var Bx = rs[i] * cs[jp], By = rs[i] * sn[jp], Bz = z[i * NT + jp];
+        var Cx = rs[i + 1] * cs[jp], Cy = rs[i + 1] * sn[jp], Cz = z[(i + 1) * NT + jp];
+        var Dx = rs[i + 1] * cs[j], Dy = rs[i + 1] * sn[j], Dz = z[(i + 1) * NT + j];
+
+        // normal pelo produto vetorial das diagonais
+        var ux = Cx - Ax, uy = Cy - Ay, uz = Cz - Az;
+        var vx = Dx - Bx, vy = Dy - By, vz = Dz - Bz;
+        var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+        var NL = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+        nx /= NL; ny /= NL; nz /= NL;
+        if (nz < 0) { nx = -nx; ny = -ny; nz = -nz; }
+        var dif = Math.max(0, nx * L[0] + ny * L[1] + nz * L[2]);
+        var hx = L[0], hy = L[1], hz = L[2] + 1, HL = Math.sqrt(hx * hx + hy * hy + hz * hz);
+        var spec = Math.pow(Math.max(0, (nx * hx + ny * hy + nz * hz) / HL), 30) * cfg.verniz * 200;
+        var col = cor[i * NT + j] || hex(cfg.corBase);
+        var f = 0.34 + 0.68 * dif;
+        var R8 = MC.clamp(col[0] * f + spec, 0, 255) | 0;
+        var G8 = MC.clamp(col[1] * f + spec, 0, 255) | 0;
+        var B8 = MC.clamp(col[2] * f + spec, 0, 255) | 0;
+
+        var pax = px(Ax, Ay, Az), pay = py(Ax, Ay, Az);
+        var pbx = px(Bx, By, Bz), pby = py(Bx, By, Bz);
+        var pcx = px(Cx, Cy, Cz), pcy = py(Cx, Cy, Cz);
+        var pdx = px(Dx, Dy, Dz), pdy = py(Dx, Dy, Dz);
+        var prof = (pz(Ax, Ay, Az) + pz(Cx, Cy, Cz)) / 2;
+        tri(pax, pay, pdx, pdy, pcx, pcy, prof, R8, G8, B8);
+        tri(pax, pay, pcx, pcy, pbx, pby, prof, R8, G8, B8);
+
+        // saias verticais nas fronteiras
+        var rr = MC.clamp(col[0] * 0.30, 0, 255) | 0, gg = MC.clamp(col[1] * 0.30, 0, 255) | 0, bb = MC.clamp(col[2] * 0.30, 0, 255) | 0;
+        var lados = [];
+        if (i === NR - 1 || !pres[(i + 1) * NT + j]) lados.push([Dx, Dy, Dz, Cx, Cy, Cz]);
+        if (i > 0 && !pres[(i - 1) * NT + j]) lados.push([Bx, By, Bz, Ax, Ay, Az]);
+        if (!pres[i * NT + jm]) lados.push([Ax, Ay, Az, Dx, Dy, Dz]);
+        if (!pres[i * NT + jp]) lados.push([Cx, Cy, Cz, Bx, By, Bz]);
+        for (var w = 0; w < lados.length; w++) {
+          var e2 = lados[w];
+          var t1x = px(e2[0], e2[1], e2[2]), t1y = py(e2[0], e2[1], e2[2]);
+          var t2x = px(e2[3], e2[4], e2[5]), t2y = py(e2[3], e2[4], e2[5]);
+          var b1x = px(e2[0], e2[1], 0), b1y = py(e2[0], e2[1], 0);
+          var b2x = px(e2[3], e2[4], 0), b2y = py(e2[3], e2[4], 0);
+          var pw = Math.max(pz(e2[0], e2[1], e2[2]), pz(e2[3], e2[4], e2[5]));
+          tri(t1x, t1y, t2x, t2y, b2x, b2y, pw, rr, gg, bb);
+          tri(t1x, t1y, b2x, b2y, b1x, b1y, pw, rr, gg, bb);
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  /* ---------------- agendamento ---------------- */
+  function schedule() {
+    if (!pending) { pending = true; requestAnimationFrame(function () { pending = false; render(0.4); }); }
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(function () { render(1); updateStats(); }, 180);
+  }
+  function render(scale) {
+    fit();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    if (tab === 'v3d') draw3D(scale < 1 ? 90 : 240);
+    else drawTop(scale, tab === 'relevo');
+    hud.textContent = tab === 'v3d'
+      ? 'arraste para girar · ' + Math.round(yaw * 180 / Math.PI) + '° / ' + Math.round(elev * 180 / Math.PI) + '°'
+      : (tab === 'relevo' ? 'mapa de altura — claro é alto' : 'vista de topo · as cores são só para planejar a pintura');
+  }
+
+  /* ---------------- estatísticas ---------------- */
+  function updateStats() {
+    var P = MC.prepare(cfg), Rm = cfg.diam / 2;
+    var full = MC.resolution(cfg, document.getElementById('qual').value);
+    var NR = Math.min(120, full.nr), NT = Math.min(720, full.nt);
+    var pres = new Uint8Array(NR * NT), count = 0, i, j, o = {};
+    for (i = 0; i < NR; i++) {
+      var rc = Rm * (i + 0.5) / NR;
+      for (j = 0; j < NT; j++) {
+        var s = MC.solid(cfg, P, rc, Math.PI * 2 * (j + 0.5) / NT, o) ? 1 : 0;
+        pres[i * NT + j] = s; count += s;
+      }
+    }
+    var parts = componentes(pres, NR, NT);
+    var frac = count / (NR * NT);
+    var estTri = Math.round(full.nr * full.nt * frac * (cfg.modo === 'placa' ? 3 : 4) * 1.15);
+    document.getElementById('s-diam').textContent = cfg.diam + ' mm';
+    document.getElementById('s-h').textContent = MC.alturaMax(cfg).toFixed(1) + ' mm';
+    document.getElementById('s-tri').textContent = fmtN(estTri) + ' tri (≈)';
+    document.getElementById('s-size').textContent = fmtB(84 + estTri * 50);
+    var badge = document.getElementById('s-parts');
+    badge.textContent = parts === 1 ? '1 peça' : parts + ' peças soltas';
+    badge.className = 'badge ' + (parts === 1 ? 'ok' : 'warn');
+  }
+  function componentes(pres, NR, NT) {
+    var seen = new Uint8Array(NR * NT), st = [], c = 0, i, j;
+    for (i = 0; i < NR; i++) for (j = 0; j < NT; j++) {
+      var s = i * NT + j;
+      if (!pres[s] || seen[s]) continue;
+      c++; seen[s] = 1; st.push(s);
+      while (st.length) {
+        var q = st.pop(), qi = (q / NT) | 0, qj = q % NT, t;
+        var nb = [qi * NT + (qj + 1) % NT, qi * NT + (qj - 1 + NT) % NT];
+        if (qi > 0) nb.push((qi - 1) * NT + qj);
+        if (qi < NR - 1) nb.push((qi + 1) * NT + qj);
+        if (qi === 0) for (t = 0; t < NT; t++) nb.push(t);
+        for (t = 0; t < nb.length; t++) if (pres[nb[t]] && !seen[nb[t]]) { seen[nb[t]] = 1; st.push(nb[t]); }
+      }
+    }
+    return c;
+  }
+  function fmtN(n) { return n.toLocaleString('pt-BR'); }
+  function fmtB(b) { return b > 1e6 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' kB'; }
+
+  /* ---------------- órbita 3D ---------------- */
+  var drag = null;
+  cv.addEventListener('pointerdown', function (e) {
+    if (tab !== 'v3d') return;
+    drag = { x: e.clientX, y: e.clientY, yaw: yaw, el: elev };
+    cv.setPointerCapture(e.pointerId); cv.classList.add('drag');
+  });
+  cv.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    yaw = drag.yaw + (e.clientX - drag.x) * 0.008;
+    elev = MC.clamp(drag.el + (e.clientY - drag.y) * 0.006, 0.18, 1.53);
+    render(0.5);
+  });
+  cv.addEventListener('pointerup', function () {
+    if (!drag) return;
+    drag = null; cv.classList.remove('drag'); render(1);
+  });
+
+  /* ---------------- exportação ---------------- */
+  function baixar(blob, nome) {
+    var u = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = u; a.download = nome; document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(u); a.remove(); }, 500);
+  }
+  document.getElementById('dl').addEventListener('click', function () {
+    var btn = this; btn.disabled = true; btn.textContent = 'gerando…';
+    setTimeout(function () {
+      try {
+        var res = MC.resolution(cfg, document.getElementById('qual').value);
+        var mesh = MC.buildMesh(cfg, res);
+        var buf = MC.toSTL(mesh, 'mandala');
+        baixar(new Blob([buf], { type: 'model/stl' }), 'mandala_cloisonne_' + cfg.sym + 'x_' + cfg.diam + 'mm.stl');
+        document.getElementById('s-tri').textContent = fmtN(mesh.tris) + ' tri';
+        document.getElementById('s-size').textContent = fmtB(buf.byteLength);
+        var badge = document.getElementById('s-parts');
+        badge.textContent = mesh.parts === 1 ? '1 peça' : mesh.parts + ' peças soltas';
+        badge.className = 'badge ' + (mesh.parts === 1 ? 'ok' : 'warn');
+      } catch (err) {
+        alert('Não consegui gerar a malha: ' + err.message + '\nTente uma qualidade menor.');
+      }
+      btn.disabled = false; btn.textContent = 'Baixar STL';
+    }, 30);
+  });
+  document.getElementById('save').addEventListener('click', function () {
+    baixar(new Blob([JSON.stringify(cfg, null, 2)], { type: 'application/json' }), 'mandala-cloisonne.json');
+  });
+  document.getElementById('load').addEventListener('click', function () { document.getElementById('file').click(); });
+  document.getElementById('file').addEventListener('change', function (e) {
+    var f = e.target.files[0]; if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      try {
+        var o = JSON.parse(rd.result);
+        if (!o.camadas || !o.camadas.length) throw new Error('sem camadas');
+        cfg = Object.assign(MC.defaults(), o);
+        cfg.camadas = o.camadas.map(function (x) { return C(x); });
+        open = {}; drawPanel(); schedule();
+      } catch (err) { alert('Arquivo inválido: ' + err.message); }
+    };
+    rd.readAsText(f); e.target.value = '';
+  });
+  document.getElementById('qual').addEventListener('change', updateStats);
+  window.addEventListener('resize', function () { schedule(); });
+
+  cfg = Object.assign(MC.defaults(), PRESETS.incenso());
+  drawPanel();
+  schedule();
+})();
+</script>
+</body>
+</html>
