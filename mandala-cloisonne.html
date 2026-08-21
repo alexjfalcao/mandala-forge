@@ -193,7 +193,8 @@
       <span class="badge ok" id="s-cores">1 cor</span>
       <span class="sp" style="flex:1"></span>
       <select id="fmt" class="sel">
-        <option value="partes" selected>3MF · peças por cor</option>
+        <option value="contorno" selected>3MF · contorno (bordas lisas)</option>
+        <option value="partes">3MF · peças por cor (grade)</option>
         <option value="obj">OBJ + MTL · com cor</option>
         <option value="3mf">3MF · peça única</option>
         <option value="stl">STL · sem cor</option>
@@ -538,6 +539,11 @@ var MC = (function () {
        fino        220 x 2880   0,13 mm                 6,1
      ------------------------------------------------------------------------- */
   var QUAL = { teste: [140, 720], bom: [240, 1080], alta: [340, 1440], max: [440, 1800], fino: [220, 2880] };
+  // Grade da via por CONTORNO. É cartesiana e não tem nada a ver com a polar
+  // acima: aqui a célula não decide o degrau da borda (a curva de nível decide),
+  // só de quantos segmentos ela é feita. Por isso rende muito mais por célula.
+  var QUAL_CONT = { teste: 200, bom: 320, alta: 420, max: 560, fino: 700 };
+  function resolucaoContorno(q) { return QUAL_CONT[q] || QUAL_CONT.bom; }
   function resolution(cfg, q) {
     var p = QUAL[q] || QUAL.bom;
     var sym = Math.max(3, Math.round(cfg.sym)), m = sym * 4;
@@ -946,8 +952,13 @@ var MC = (function () {
 
     var raiz, cfgXML = null;
     if (pecas) {
-      for (i = 0; i < pecas.length; i++)
-        objetoXML(g.vx, g.nv, pecas[i].idx, pecas[i].tris, null, 2 + i, pecas[i].indice, buf, solta);
+      for (i = 0; i < pecas.length; i++) {
+        // via contorno: cada peça traz os próprios vértices
+        // via grade: todas compartilham o vetor de vértices da malha
+        var pv = pecas[i].vx || g.vx, pn = pecas[i].nv || g.nv;
+        var pind = pecas[i].indice === undefined ? i : pecas[i].indice;
+        objetoXML(pv, pn, pecas[i].idx, pecas[i].tris, null, 2 + i, pind, buf, solta);
+      }
       raiz = 2 + pecas.length;
       buf.push('<object id="' + raiz + '" type="model">\n<components>\n');
       for (i = 0; i < pecas.length; i++)
@@ -1058,6 +1069,343 @@ var MC = (function () {
     return { nome: base, obj: out.join(''), mtl: mtl.join('') };
   }
 
+
+  /* =========================================================================
+     EXPORTAÇÃO POR CONTORNO
+
+     A malha por grade polar amostra um campo de alturas: cada célula tem uma
+     altura só, então toda fronteira sai em escada de uma célula. Aqui é o
+     contrário — a fronteira é a curva de nível, e a grade só decide de quantos
+     segmentos ela é feita.
+
+     Cada célula emite o seu próprio pedaço recortado pela curva (marching
+     squares com recorte), o que evita triangulação genérica com furos. Células
+     inteiramente dentro viram retângulos fundidos, senão a contagem de
+     triângulos explodiria em áreas lisas.
+
+     Invariante: vértices são indexados pela estrutura da grade (nó, ou cruzamento
+     numa aresta), nunca por hash de coordenada. Duas células vizinhas calculam o
+     mesmo cruzamento a partir dos mesmos dois valores de canto, então casam
+     exatamente e a malha fecha.
+     ========================================================================= */
+
+  /* ---- cobertura fracionária de cada região (cor + altura) ---- */
+  function cobertura(cfg, N, SUB) {
+    // A moldura precisa sobrar pelo menos duas células além do disco: se o
+    // centro da célula mais externa ainda cair dentro da peça, o contorno não
+    // tem onde fechar e a malha fica aberta no aro inteiro.
+    var R = cfg.diam / 2, quadro = R * (1 + 4 / N);
+    var P = prepare(cfg);
+    var passo = 2 * quadro / N, sp = passo / SUB;
+    var o = {}, mapa = {}, regs = [], cov = [];
+    var total = N * N, inc = 1 / (SUB * SUB);
+    var ix, iy, sx, sy;
+    for (iy = 0; iy < N; iy++) {
+      var yc = -quadro + (iy + 0.5) * passo;
+      for (ix = 0; ix < N; ix++) {
+        var xc = -quadro + (ix + 0.5) * passo;
+        for (sy = 0; sy < SUB; sy++) {
+          var y = yc + (sy - (SUB - 1) / 2) * sp;
+          for (sx = 0; sx < SUB; sx++) {
+            var x = xc + (sx - (SUB - 1) / 2) * sp;
+            var rr = Math.sqrt(x * x + y * y);
+            if (rr > R) continue;
+            var th = Math.atan2(y, x);
+            if (!solid(cfg, P, rr, th, o)) continue;
+            if (cfg.cone > 0 && rr < cfg.cone / 2) continue;         // cone sai à parte
+            var zr = altura(cfg, P, rr, th, o), zq, cor;
+            if (o.id < 0) { zq = zr; cor = cfg.corBase; }             // placa e aro já são planos
+            else {
+              zq = cfg.base + o.nivel * cfg.degrau + (o.fio >= 0.5 ? cfg.fioH : 0);
+              cor = o.fio >= 0.5 ? cfg.corFio : ((o.banda % 2 === 1 && o.cor2) ? o.cor2 : o.cor);
+            }
+            var k = cor + '@' + zq.toFixed(3), id = mapa[k];
+            if (id === undefined) {
+              id = regs.length; regs.push({ cor: cor, z: zq }); mapa[k] = id;
+              cov.push(new Float32Array(total));
+            }
+            cov[id][iy * N + ix] += inc;
+          }
+        }
+      }
+    }
+    return { N: N, quadro: quadro, raio: R, passo: passo, regs: regs, cov: cov };
+  }
+
+  /* ---- malha fechada de UMA região, extrudada de z=0 até `z` ---- */
+  function malhaRegiao(cov, N, quadro, passo, z) {
+    var M = N - 1;                                                    // quadrados da grade
+    var vx = new Float32Array(1 << 14), nv = 0;
+    var idx = new Uint32Array(1 << 15), nt = 0;
+    var idN = new Int32Array(2 * N * N).fill(-1);                     // nós: topo e fundo
+    var idH = new Int32Array(2 * N * N).fill(-1);                     // cruzamento em aresta horizontal
+    var idV = new Int32Array(2 * N * N).fill(-1);                     // cruzamento em aresta vertical
+
+    function px(j) { return -quadro + (j + 0.5) * passo; }
+    function py(i) { return -quadro + (i + 0.5) * passo; }
+    function vPush(x, y, zz) {
+      if (nv * 3 + 3 > vx.length) { var b = new Float32Array(vx.length * 2); b.set(vx); vx = b; }
+      vx[nv * 3] = x; vx[nv * 3 + 1] = y; vx[nv * 3 + 2] = zz;
+      return nv++;
+    }
+    function tri(a, b, c) {
+      if (a === b || b === c || a === c) return;                      // degenerado: descarta
+      if (nt * 3 + 3 > idx.length) { var b2 = new Uint32Array(idx.length * 2); b2.set(idx); idx = b2; }
+      idx[nt * 3] = a; idx[nt * 3 + 1] = b; idx[nt * 3 + 2] = c; nt++;
+    }
+    function vNode(i, j, topo) {
+      var k = (topo ? 0 : N * N) + i * N + j;
+      if (idN[k] < 0) idN[k] = vPush(px(j), py(i), topo ? z : 0);
+      return idN[k];
+    }
+    function vH(i, j, t, topo) {                                      // entre (i,j) e (i,j+1)
+      var k = (topo ? 0 : N * N) + i * N + j;
+      if (idH[k] < 0) idH[k] = vPush(px(j) + t * passo, py(i), topo ? z : 0);
+      return idH[k];
+    }
+    function vV(i, j, t, topo) {                                      // entre (i,j) e (i+1,j)
+      var k = (topo ? 0 : N * N) + i * N + j;
+      if (idV[k] < 0) idV[k] = vPush(px(j), py(i) + t * passo, topo ? z : 0);
+      return idV[k];
+    }
+
+    /* Cruzamento da curva na aresta `e` do quadrado (i,j), com t medido no
+       sentido do percurso anti-horário. Cada aresta é endereçada pela sua
+       posição canônica na grade, então os dois quadrados que a compartilham
+       chegam ao MESMO vértice — é isso que faz a malha fechar. */
+    function cruz(i, j, e, t, topo) {
+      // Quando a cobertura vale exatamente o limiar, o cruzamento cai em cima
+      // do nó. Sem grudar nele, sairiam dois vértices distintos no mesmo ponto
+      // — degenerado, e a malha deixa de fechar. Os dois quadrados que
+      // compartilham a aresta calculam o mesmo t, então grudam juntos.
+      var EPS = 1e-6;
+      if (t <= EPS || t >= 1 - EPS) {
+        var fim = t > 0.5;
+        if (e === 0) return vNode(i, fim ? j + 1 : j, topo);
+        if (e === 1) return vNode(fim ? i + 1 : i, j + 1, topo);
+        if (e === 2) return vNode(i + 1, fim ? j : j + 1, topo);
+        return vNode(fim ? i : i + 1, j, topo);
+      }
+      if (e === 0) return vH(i, j, t, topo);
+      if (e === 1) return vV(i, j + 1, t, topo);
+      if (e === 2) return vH(i + 1, j, 1 - t, topo);
+      return vV(i, j, 1 - t, topo);
+    }
+
+    var dentro = new Uint8Array(N * N);
+    var i, j, k;
+    for (i = 0; i < N * N; i++) dentro[i] = cov[i] >= 0.5 ? 1 : 0;
+
+    var cheio = new Uint8Array(M * M), usado = new Uint8Array(M * M);
+    for (i = 0; i < M; i++)
+      for (j = 0; j < M; j++)
+        cheio[i * M + j] = (dentro[i * N + j] && dentro[i * N + j + 1] &&
+          dentro[(i + 1) * N + j + 1] && dentro[(i + 1) * N + j]) ? 1 : 0;
+
+    /* ---- áreas lisas: retângulos fundidos, em leque a partir do centro.
+       Leque pelo centro, e não por um canto, porque um canto geraria
+       triângulos colineares nas bordas subdivididas. E as bordas mantêm TODOS
+       os nós da grade, senão apareceria T-junction contra as células vizinhas
+       e a malha deixaria de fechar. ---- */
+    for (i = 0; i < M; i++) {
+      for (j = 0; j < M; j++) {
+        if (!cheio[i * M + j] || usado[i * M + j]) continue;
+        var j2 = j;
+        while (j2 + 1 < M && cheio[i * M + j2 + 1] && !usado[i * M + j2 + 1]) j2++;
+        var i2 = i, ok;
+        while (i2 + 1 < M) {
+          ok = true;
+          for (k = j; k <= j2; k++)
+            if (!cheio[(i2 + 1) * M + k] || usado[(i2 + 1) * M + k]) { ok = false; break; }
+          if (!ok) break;
+          i2++;
+        }
+        for (var a = i; a <= i2; a++) for (var b = j; b <= j2; b++) usado[a * M + b] = 1;
+
+        var borda = [];                                               // nós da borda, sentido anti-horário
+        for (k = j; k <= j2 + 1; k++) borda.push([i, k]);
+        for (k = i + 1; k <= i2 + 1; k++) borda.push([k, j2 + 1]);
+        for (k = j2; k >= j; k--) borda.push([i2 + 1, k]);
+        for (k = i2; k >= i + 1; k--) borda.push([k, j]);
+        var cxm = (px(j) + px(j2 + 1)) / 2, cym = (py(i) + py(i2 + 1)) / 2;
+        var ct = vPush(cxm, cym, z), cb = vPush(cxm, cym, 0);
+        for (k = 0; k < borda.length; k++) {
+          var p1 = borda[k], p2 = borda[(k + 1) % borda.length];
+          tri(ct, vNode(p1[0], p1[1], 1), vNode(p2[0], p2[1], 1));
+          tri(cb, vNode(p2[0], p2[1], 0), vNode(p1[0], p1[1], 0));
+        }
+      }
+    }
+
+    /* ---- células de fronteira: recorta o quadrado pela curva de nível ---- */
+    var vals = [0, 0, 0, 0], cantos = [[0, 0], [0, 1], [1, 1], [1, 0]];
+    for (i = 0; i < M; i++) {
+      for (j = 0; j < M; j++) {
+        if (cheio[i * M + j]) continue;
+        vals[0] = cov[i * N + j]; vals[1] = cov[i * N + j + 1];
+        vals[2] = cov[(i + 1) * N + j + 1]; vals[3] = cov[(i + 1) * N + j];
+        var quantos = 0;
+        for (k = 0; k < 4; k++) if (vals[k] >= 0.5) quantos++;
+        if (!quantos) continue;
+
+        // sela: dois cantos opostos dentro. O centro decide se estão ligados;
+        // se não estiverem, saem dois triângulos em vez de um hexágono.
+        var sela = quantos === 2 && ((vals[0] >= 0.5) === (vals[2] >= 0.5));
+        var ligado = true;
+        if (sela) ligado = (vals[0] + vals[1] + vals[2] + vals[3]) / 4 >= 0.5;
+
+        var polyT = [], polyB = [], corda = [];
+        for (k = 0; k < 4; k++) {
+          var va = vals[k], vb = vals[(k + 1) % 4];
+          var da = va >= 0.5, db = vb >= 0.5;
+          if (da) {
+            var c = cantos[k];
+            polyT.push(vNode(i + c[0], j + c[1], 1));
+            polyB.push(vNode(i + c[0], j + c[1], 0));
+            corda.push(false);
+          }
+          if (da !== db) {
+            var t = (0.5 - va) / (vb - va);
+            polyT.push(cruz(i, j, k, t, 1));
+            polyB.push(cruz(i, j, k, t, 0));
+            corda.push(da);                                           // saiu: a próxima aresta é a corda
+          }
+        }
+        if (polyT.length < 3) continue;
+
+        if (sela && !ligado) {
+          // Dois cantos opostos dentro, mas desligados: cada um vira um
+          // triângulo com os cruzamentos das suas duas arestas. Montado a
+          // partir dos cantos, e não por índices fixos no polígono, porque o
+          // layout muda conforme QUAIS cantos estão dentro.
+          for (k = 0; k < 4; k++) {
+            if (vals[k] < 0.5) continue;
+            var eEnt = (k + 3) % 4, eSai = k;
+            var tEnt = (0.5 - vals[eEnt]) / (vals[k] - vals[eEnt]);
+            var tSai = (0.5 - vals[k]) / (vals[(k + 1) % 4] - vals[k]);
+            var cc = cantos[k];
+            var nT = vNode(i + cc[0], j + cc[1], 1), nB = vNode(i + cc[0], j + cc[1], 0);
+            var aT = cruz(i, j, eEnt, tEnt, 1), aB = cruz(i, j, eEnt, tEnt, 0);
+            var bT = cruz(i, j, eSai, tSai, 1), bB = cruz(i, j, eSai, tSai, 0);
+            tri(aT, nT, bT); tri(aB, bB, nB);
+            parede(bT, aT, bB, aB);
+          }
+        } else {
+          for (k = 1; k + 1 < polyT.length; k++) {
+            tri(polyT[0], polyT[k], polyT[k + 1]);
+            tri(polyB[0], polyB[k + 1], polyB[k]);
+          }
+          for (k = 0; k < polyT.length; k++) {
+            if (!corda[k]) continue;
+            var n2 = (k + 1) % polyT.length;
+            parede(polyT[k], polyT[n2], polyB[k], polyB[n2]);
+          }
+        }
+      }
+    }
+
+    function parede(t1, t2, b1, b2) {                                 // face lateral, normal para fora
+      tri(t1, b1, b2); tri(t1, b2, t2);
+    }
+
+    return { vx: vx, nv: nv, idx: idx, tris: nt };
+  }
+
+  /* ---- cone central: é curvo, então sai como sólido de revolução ---- */
+  function coneMalha(cfg, seg) {
+    var rc = cfg.cone / 2;
+    if (!(rc > 0)) return null;
+    seg = seg || 192;
+    var base = cfg.base, alt = cfg.coneH, curva = Math.max(0.1, cfg.coneC);
+    var perfil = [], passos = 40, i, k;
+    var rf = cfg.furo > 0 ? cfg.furo / 2 : 0;
+    if (rf > 0) {
+      var fundo = Math.max(0.8, base + alt - cfg.furoP);
+      perfil.push([0, fundo], [rf, fundo]);                           // fundo do furo cego
+    }
+    for (i = 0; i <= passos; i++) {
+      var r = rf + (rc - rf) * i / passos;
+      perfil.push([r, base + alt * Math.pow(1 - r / rc, curva)]);
+    }
+    if (rf <= 0) perfil.unshift([0, base + alt]);
+    perfil.push([rc, 0], [0, 0]);                                     // desce e volta pelo eixo
+
+    var vx = new Float32Array(perfil.length * seg * 3 + 6), nv = 0;
+    var idx = new Uint32Array(perfil.length * seg * 6), nt = 0;
+    function vPush(x, y, z) { vx[nv * 3] = x; vx[nv * 3 + 1] = y; vx[nv * 3 + 2] = z; return nv++; }
+    function tri(a, b, c) { if (a === b || b === c || a === c) return; idx[nt * 3] = a; idx[nt * 3 + 1] = b; idx[nt * 3 + 2] = c; nt++; }
+
+    var anel = [];                                                    // índices por ponto do perfil
+    for (k = 0; k < perfil.length; k++) {
+      var r = perfil[k][0], z = perfil[k][1];
+      if (r <= 1e-9) { anel.push([vPush(0, 0, z)]); continue; }        // no eixo colapsa num ponto
+      var linha = [];
+      for (i = 0; i < seg; i++) {
+        var a = Math.PI * 2 * i / seg;
+        linha.push(vPush(r * Math.cos(a), r * Math.sin(a), z));
+      }
+      anel.push(linha);
+    }
+    for (k = 0; k + 1 < anel.length; k++) {
+      var A = anel[k], B = anel[k + 1];
+      for (i = 0; i < seg; i++) {
+        var i2 = (i + 1) % seg;
+        var a0 = A.length === 1 ? A[0] : A[i], a1 = A.length === 1 ? A[0] : A[i2];
+        var b0 = B.length === 1 ? B[0] : B[i], b1 = B.length === 1 ? B[0] : B[i2];
+        tri(a0, b0, b1); tri(a0, b1, a1);
+      }
+    }
+    return { vx: vx, nv: nv, idx: idx, tris: nt };
+  }
+
+  /* ---- junta várias malhas indexadas numa só ---- */
+  function juntar(malhas) {
+    var nv = 0, nt = 0, i, k;
+    for (i = 0; i < malhas.length; i++) { nv += malhas[i].nv; nt += malhas[i].tris; }
+    var vx = new Float32Array(nv * 3), idx = new Uint32Array(nt * 3), ov = 0, ot = 0;
+    for (i = 0; i < malhas.length; i++) {
+      var m = malhas[i];
+      for (k = 0; k < m.nv * 3; k++) vx[ov * 3 + k] = m.vx[k];
+      for (k = 0; k < m.tris * 3; k++) idx[ot * 3 + k] = m.idx[k] + ov;
+      ov += m.nv; ot += m.tris;
+    }
+    return { vx: vx, nv: nv, idx: idx, tris: nt };
+  }
+
+  /* =======================================================================
+     Peça inteira por contorno: uma malha fechada por cor.
+     ======================================================================= */
+  function buildContorno(cfg, N, SUB) {
+    N = N || 700;
+    // SUB ímpar de propósito: com SUB par a cobertura pode dar exatamente 0,5,
+    // que é o limiar, e todo cruzamento vira caso degenerado
+    SUB = SUB || 3;
+    if (SUB % 2 === 0) SUB++;
+    var C = cobertura(cfg, N, SUB);
+    var porCor = {}, ordem = [], i;
+    for (i = 0; i < C.regs.length; i++) {
+      var reg = C.regs[i];
+      var m = malhaRegiao(C.cov[i], C.N, C.quadro, C.passo, reg.z);
+      if (!m.tris) continue;
+      if (!porCor[reg.cor]) { porCor[reg.cor] = []; ordem.push(reg.cor); }
+      porCor[reg.cor].push(m);
+    }
+    var cone = coneMalha(cfg);
+    if (cone && cone.tris) {
+      if (!porCor[cfg.corBase]) { porCor[cfg.corBase] = []; ordem.push(cfg.corBase); }
+      porCor[cfg.corBase].push(cone);
+    }
+    var pecas = [], maxZ = 0;
+    for (i = 0; i < ordem.length; i++) {
+      var j = juntar(porCor[ordem[i]]);
+      pecas.push({ cor: ordem[i], vx: j.vx, nv: j.nv, idx: j.idx, tris: j.tris });
+    }
+    for (i = 0; i < pecas.length; i++)
+      for (var k = 2; k < pecas[i].nv * 3; k += 3)
+        if (pecas[i].vx[k] > maxZ) maxZ = pecas[i].vx[k];
+    return { pecas: pecas, paleta: ordem, height: maxZ, diam: cfg.diam, parts: 1, regioes: C.regs.length };
+  }
+
   /* ---- diagnóstico: malha fechada? (usado nos testes) ---- */
   function audit(mesh) {
     var p = mesh.pos, nt = mesh.tris, map = new Map(), i, k;
@@ -1086,8 +1434,9 @@ var MC = (function () {
     MOTIVOS: MOTIVOS, PREENCH: PREENCH,
     camada: camada, defaults: defaults, prepare: prepare,
     buildIndexed: buildIndexed, buildPartes: buildPartes,
+    cobertura: cobertura, malhaRegiao: malhaRegiao, coneMalha: coneMalha, buildContorno: buildContorno,
     dist: dist, perfil: perfil, amostra: amostra, altura: altura, alturaMax: alturaMax,
-    solid: solid, alturaNo: alturaNo, resolution: resolution, buildMesh: buildMesh,
+    solid: solid, alturaNo: alturaNo, resolution: resolution, resolucaoContorno: resolucaoContorno, buildMesh: buildMesh,
     toSTL: toSTL, to3MF: to3MF, toOBJ: toOBJ, audit: audit, clamp: clamp
   };
 })();
@@ -1697,6 +2046,11 @@ var MC = (function () {
     // duplicadas, uma de cada lado da fronteira entre cores).
     var f = document.getElementById('fmt').value;
     if (f === 'partes') estTri = Math.round(estTri * 2.4);
+    if (f === 'contorno') {
+      // a via por contorno não usa a grade polar: estima pela cartesiana dela
+      var Nc = MC.resolucaoContorno(document.getElementById('qual').value);
+      estTri = Math.round(Nc * Nc * 5 * frac);
+    }
     var estBytes = f === 'stl' ? 84 + estTri * 50
       : (f === 'obj' ? estTri * 31 : Math.round(estTri * 8.5));
     document.getElementById('s-diam').textContent = cfg.diam + ' mm';
@@ -1779,6 +2133,17 @@ var MC = (function () {
         }
         // peças por cor: um sólido fechado por cor, cada um num extrusor.
         // peça única / obj: um sólido só, com cor por face.
+        if (fmt === 'contorno') {
+          var N = MC.resolucaoContorno(document.getElementById('qual').value);
+          var gc = MC.buildContorno(cfg, N, 3);
+          var tc = 0;
+          for (var w = 0; w < gc.pecas.length; w++) tc += gc.pecas[w].tris;
+          MC.to3MF(gc, nome).then(function (buf) {
+            baixar(new Blob([buf], { type: 'model/3mf' }), nome + '.3mf');
+            pronto(buf.byteLength, 1, tc);
+          }).catch(falhou);
+          return;
+        }
         var g = fmt === 'partes' ? MC.buildPartes(cfg, res) : MC.buildIndexed(cfg, res, true);
         var tris = g.tris;
         if (g.pecas) { tris = 0; for (var q = 0; q < g.pecas.length; q++) tris += g.pecas[q].tris; }

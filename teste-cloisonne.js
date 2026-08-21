@@ -222,6 +222,51 @@ async function checa3MF() {
   return falhas;
 }
 
+// Via por CONTORNO: cada peça de cor tem que ser um sólido fechado por si só.
+// Grade pequena de propósito — o que se testa aqui é a topologia, não o
+// acabamento. É onde moram as armadilhas do marching squares: cruzamento em
+// cima do nó, sela desconectada e T-junction contra retângulo fundido.
+{
+  console.log('\nvia por contorno:');
+  let ruins = 0;
+  for (const [name, cfg] of cases) {
+    const g = MC.buildContorno(clone(cfg), 120, 3);
+    let tot = 0, abertas = 0, degen = 0;
+    for (const p of g.pecas) {
+      const pos = new Float32Array(p.tris * 9);
+      for (let i = 0; i < p.tris; i++) for (let k = 0; k < 3; k++) {
+        const v = p.idx[i * 3 + k] * 3, o = i * 9 + k * 3;
+        pos[o] = p.vx[v]; pos[o + 1] = p.vx[v + 1]; pos[o + 2] = p.vx[v + 2];
+      }
+      const a = MC.audit({ pos, tris: p.tris });
+      tot += p.tris; abertas += a.openEdges; degen += a.degenerate;
+    }
+    // toda peça dentro do disco e acima do plano
+    let maxR = 0, minZ = Infinity;
+    for (const p of g.pecas)
+      for (let i = 0; i < p.nv; i++) {
+        const r = Math.hypot(p.vx[i * 3], p.vx[i * 3 + 1]);
+        if (r > maxR) maxR = r;
+        if (p.vx[i * 3 + 2] < minZ) minZ = p.vx[i * 3 + 2];
+      }
+    // Limite SUPERIOR, não igualdade: no vazado sem aro o desenho não chega à
+    // borda de propósito. A folga acompanha a célula, porque a borda do disco
+    // cai numa curva de nível entre centros de célula.
+    const celula = cfg.diam / 120;
+    const ok = abertas === 0 && degen === 0 && g.pecas.length > 0 &&
+      maxR * 2 <= cfg.diam + celula && minZ >= -1e-6;
+    if (!ok) ruins++;
+    console.log((ok ? 'OK  ' : 'FALHA ') + name.padEnd(24) +
+      ' regiões=' + String(g.regioes).padStart(2) +
+      ' peças=' + String(g.pecas.length).padStart(2) +
+      ' tri=' + String(tot).padStart(7) +
+      ' abertas=' + String(abertas).padStart(5) +
+      ' degen=' + String(degen).padStart(4) +
+      ' Ømax=' + (maxR * 2).toFixed(2));
+  }
+  fail += ruins;
+}
+
 // a qualidade "fino" troca resolução radial por angular: precisa continuar
 // estanque, é ela que salva o filete do serrilhado
 {

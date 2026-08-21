@@ -155,6 +155,10 @@ Consequências práticas ao mexer:
 - No motivo `arco`, `prepare` desconta a calota (`spanA`) para que `larg = 1` signifique
   "encosta no vizinho". Mexer nisso funde os arcos num anel contínuo.
 - Uma banda mais fina que `2 × fio` some — vira só filete, sem cor.
+- **`buildContorno`** é a via de exportação padrão: marching squares com recorte por célula,
+  bordas lisas, sem dependências. Suas armadilhas (cruzamento em cima do nó, sela
+  desconectada, T-junction contra retângulo fundido, moldura apertada) estão detalhadas na
+  seção 6 do `MANDALA-CLOISONNE.md` e cobertas na suíte — **leia antes de mexer nela**.
 - A vista 3D rasteriza a **grade da exportação** com z-buffer (teto de ~300 mil células).
   Grade cartesiana com painter's algorithm não resolve um filete de menos de 1 mm — não
   "simplifique" de volta. E se o preview usar grade diferente da exportação, ele deixa de

@@ -208,35 +208,63 @@ No vazado o fundo da placa some e sobra só o desenho: vira renda/suncatcher.
 
 ## 6. Duas vias de exportação
 
-O app em HTML monta a peça **amostrando um campo de alturas numa grade polar**. Isso serve
-para desenhar e para o preview, mas na impressão traz dois problemas de uma vez: toda
-fronteira sai em escada, e a cor precisa ser assada por face — e é aí que o fatiador a
-agrupa como quiser.
+O desenho é montado **amostrando um campo de alturas**. Para o preview isso basta, mas para
+imprimir traz um problema: cada célula da grade tem uma altura só, então toda fronteira sai
+em escada de uma célula.
 
-Existe uma segunda via, por **contorno**, que ataca a raiz: em vez de amostrar alturas,
-extrai a curva de nível de cada região e a extruda como sólido fechado.
+A via por **contorno** inverte: a fronteira é a curva de nível, e a grade só decide de
+quantos segmentos ela é feita. Existe em duas implementações, com a mesma ideia:
 
-| | grade (HTML) | contorno (`exportar.py`) |
-|---|---|---|
-| bordas | escada de ~1 célula | **lisas** (contorno sub-pixel) |
-| triângulos (incensário) | 520 k a 1,6 M | **~200 k** |
-| peças | uma por cor, mas coladas | uma por cor, `manifold = yes` no Bambu |
-| dependências | nenhuma | numpy, shapely, contourpy, trimesh |
-| tempo | ~1 s | ~12 s |
-| onde roda | no navegador | linha de comando |
+| | grade polar | contorno no navegador | contorno em Python |
+|---|---|---|---|
+| onde | `mandala-core` | `mandala-core` | `exportar.py` |
+| bordas | escada de ~1 célula | **lisas** | **lisas** |
+| triângulos (incensário) | 520 k | ~400 k | **~105 k** |
+| dependências | nenhuma | nenhuma | numpy, shapely, contourpy, trimesh |
+| tempo | ~1 s | ~1 s | ~12 s |
 
-O HTML continua sendo o lugar de desenhar e o dono da matemática. A via por contorno não
-reimplementa fórmula nenhuma: `amostrar.js` carrega o **mesmo** bloco `mandala-core` em
-`vm`, avalia o desenho e despeja um mapa de regiões; o Python só faz geometria.
+**O padrão do app é o contorno no navegador.** A versão em Python rende bem menos
+triângulos porque extrai polígonos globais e os simplifica — uma reta vira um segmento só.
+A do navegador recorta célula a célula, então gasta um punhado de triângulos por célula de
+fronteira. Em compensação não precisa de triangulação genérica com furos, que é a parte
+difícil de portar.
 
-```bash
-pip install numpy shapely contourpy trimesh --break-system-packages
+### Contorno no navegador — `buildContorno`
 
-python3 exportar.py preset:incenso mandala.3mf        # um preset do próprio HTML
-python3 exportar.py minha.json     mandala.3mf        # o .json salvo pelo app
-python3 exportar.py preset:incenso mandala.3mf --grade 2400 --sub 3   # mais fino
-python3 teste-contorno.py                             # teste de fumaça dos 5 presets
-```
+Cada célula emite o **seu pedaço recortado** pela curva de nível (marching squares com
+recorte). Células inteiramente dentro são fundidas em retângulos, senão áreas lisas
+explodiriam a contagem.
+
+⚠️ **Três armadilhas, todas com teste na suíte:**
+
+1. **Cruzamento em cima do nó.** Quando a cobertura vale exatamente o limiar, `t` dá 0 ou 1
+   e o cruzamento coincide com um nó. Sem grudar nele, saem dois vértices distintos no mesmo
+   ponto: degenerados e malha aberta. Por isso `SUB` é forçado a **ímpar** (com SUB par a
+   cobertura pode dar exatamente 0,5) **e** `cruz()` gruda no nó quando `t` chega perto de 0
+   ou 1. Os dois quadrados que compartilham a aresta calculam o mesmo `t`, então grudam
+   juntos.
+2. **Sela desconectada.** Dois cantos opostos dentro: o centro decide se estão ligados. O
+   caso desconectado é montado **a partir dos cantos**, não por índices fixos no polígono —
+   o layout do polígono muda conforme *quais* cantos estão dentro.
+3. **T-junction contra retângulo fundido.** A borda do retângulo mantém **todos** os nós da
+   grade e é triangulada em leque a partir do **centro**, não de um canto (um canto geraria
+   triângulos colineares). Sem isso, a aresta longa do retângulo não casa com as arestas
+   curtas dos vizinhos e a malha abre.
+
+E uma quarta, fora do meshing: a **moldura de amostragem precisa sobrar duas células além
+do disco** (`quadro = R·(1+4/N)`). Se o centro da célula mais externa cair dentro da peça, o
+contorno não tem onde fechar e a malha abre no aro inteiro.
+
+Grade por qualidade (`QUAL_CONT`), independente da polar:
+
+| qualidade | N | célula | triângulos (incensário) |
+|---|---|---|---|
+| teste | 200 | 0,60 mm | 193 k |
+| bom | 320 | 0,375 mm | 403 k |
+| alta | 420 | 0,29 mm | 618 k |
+| max | 560 | 0,21 mm | 985 k |
+
+### Contorno em Python — `exportar.py`
 
 ### Como funciona
 
