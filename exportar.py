@@ -211,7 +211,22 @@ def perfil_bambu(cores):
         if k.startswith("filament") and isinstance(val, list) and len(val) == 1:
             cfg[k] = val * len(cores)
     cfg["filament_colour"] = ["#" + c.replace("#", "").upper()[:6] for c in cores]
-    return v.group(1), json.dumps(cfg, indent=4)
+    return v.group(1), json.dumps(cfg, indent=4), centro_mesa(cfg)
+
+
+def centro_mesa(cfg):
+    """Centro da mesa a partir do printable_area ("XxY" por canto). Como projeto,
+    o Bambu respeita a coordenada do <item>: sem translação a peça abre centrada
+    em (0,0), o canto frontal esquerdo, com a maior parte fora da mesa."""
+    xs, ys = [], []
+    for p in cfg.get("printable_area", []):
+        q = str(p).split("x")
+        if len(q) == 2:
+            xs.append(float(q[0]))
+            ys.append(float(q[1]))
+    if not xs:
+        return 0.0, 0.0
+    return (min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0
 
 
 def escrever_3mf(pecas, caminho, nome="mandala"):
@@ -221,7 +236,7 @@ def escrever_3mf(pecas, caminho, nome="mandala"):
     project_settings.config diz que o filamento i+1 tem a cor da peça i. Sem o
     segundo, a peça vai para o extrusor certo mas com a cor que o usuário tiver
     naquele slot."""
-    versao, projeto = perfil_bambu([c for c, _ in pecas])
+    versao, projeto, (mesa_x, mesa_y) = perfil_bambu([c for c, _ in pecas])
     partes = ['<?xml version="1.0" encoding="UTF-8"?>\n'
               '<model unit="millimeter" xml:lang="en-US" '
               'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n'
@@ -251,7 +266,9 @@ def escrever_3mf(pecas, caminho, nome="mandala"):
     for i in range(len(pecas)):
         partes.append(f'<component objectid="{2 + i}"/>\n')
     partes.append("</components>\n</object>\n</resources>\n")
-    partes.append(f'<build><item objectid="{raiz}"/></build>\n</model>\n')
+    partes.append(f'<build><item objectid="{raiz}" '
+                  f'transform="1 0 0 0 1 0 0 0 1 {mesa_x:g} {mesa_y:g} 0" printable="1"/>'
+                  "</build>\n</model>\n")
 
     cfgxml = ['<?xml version="1.0" encoding="UTF-8"?>\n<config>\n',
               f'  <object id="{raiz}">\n',

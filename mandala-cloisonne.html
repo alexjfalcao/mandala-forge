@@ -203,9 +203,9 @@
         <option value="max">qualidade: máxima</option>
         <option value="fino">qualidade: filete fino</option>
       </select>
-      <button class="btn ghost" id="save">salvar .json</button>
-      <button class="btn ghost" id="load">abrir .json</button>
-      <button class="btn" id="dl">Baixar</button>
+      <button class="btn ghost" id="save">Backup configuração</button>
+      <button class="btn ghost" id="load">Exportar configuração</button>
+      <button class="btn" id="dl">Baixar modelo</button>
       <input type="file" id="file" accept=".json,application/json" hidden>
     </div>
   </main>
@@ -895,6 +895,21 @@ var MC = (function () {
     return '#' + h.slice(0, 6);
   }
 
+  /* ---- centro da mesa, lido do perfil (printable_area: "XxY" por canto) ----
+     Como projeto, o Bambu respeita a coordenada do <item> em vez de arranjar
+     sozinho — sem esta translação a peça abre centrada em (0,0), que é o canto
+     frontal esquerdo, com três quartos dela fora da mesa. */
+  function centroMesa() {
+    var a = PERFIL_BAMBU.printable_area || [], i, x = [], y = [];
+    for (i = 0; i < a.length; i++) {
+      var p = String(a[i]).split('x');
+      if (p.length === 2) { x.push(parseFloat(p[0])); y.push(parseFloat(p[1])); }
+    }
+    if (!x.length) return [0, 0];
+    return [(Math.min.apply(null, x) + Math.max.apply(null, x)) / 2,
+            (Math.min.apply(null, y) + Math.max.apply(null, y)) / 2];
+  }
+
   /* ---- project_settings.config com uma entrada de filamento por cor ---- */
   function projetoBambu(pal) {
     var cfg = JSON.parse(JSON.stringify(PERFIL_BAMBU)), k, i, a;
@@ -968,7 +983,9 @@ var MC = (function () {
     }
     c.push('  </object>\n</config>\n');
     var cfgXML = c.join('');
-    buf.push('</resources>\n<build><item objectid="' + raiz + '"/></build>\n</model>\n');
+    var mesa = centroMesa();
+    buf.push('</resources>\n<build><item objectid="' + raiz + '" transform="1 0 0 0 1 0 0 0 1 ' +
+      num(mesa[0]) + ' ' + num(mesa[1]) + ' 0" printable="1"/></build>\n</model>\n');
     solta();
 
     var entradas = [

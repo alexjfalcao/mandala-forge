@@ -200,6 +200,10 @@ Consequências práticas ao mexer:
   array por filamento em UMA entrada, replicada por cor em `projetoBambu()`. `exportar.py`
   puxa o mesmo molde do HTML por regex. Detalhes e a receita de regerar o molde estão na
   seção 7 do `MANDALA-CLOISONNE.md`.
+- **Projeto não é auto-arranjado**: o `<build><item>` precisa levar
+  `transform="1 0 0 0 1 0 0 0 1 <cx> <cy> 0"` com o centro de `printable_area`
+  (`centroMesa()`, 165/160 no H2C), senão a peça — modelada em torno de (0,0) — abre no
+  canto frontal esquerdo, quase toda fora da mesa.
 - Coordenadas exportadas usam **5 casas decimais**: com 3, vértices vizinhos perto do centro
   colidiam na qualidade máxima e viravam triângulo degenerado.
 - No XML do 3MF, a cor de cada peça vem do `pindex` do `<object>` (índice **0-based** na

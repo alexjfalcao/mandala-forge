@@ -248,6 +248,21 @@ function confere3MF(buf, g) {
     if (p.indexOf(g.pecas[i].cor) < 0) erros.push('peça ' + (i + 1) + ' não nomeia a cor ' + g.pecas[i].cor);
   });
 
+  // 4b. o <item> tem que trazer a peça para o centro da mesa: como projeto, o
+  //     Bambu respeita a coordenada, e a mandala é modelada em torno de (0,0)
+  const item = modelo.match(/<item [^>]*>/);
+  const tr = item && item[0].match(/transform="([^"]+)"/);
+  if (!tr) erros.push('<item> sem transform — a peça abriria no canto da mesa');
+  else {
+    const n = tr[1].trim().split(/\s+/).map(Number);
+    const area = (projeto.printable_area || []).map(p => String(p).split('x').map(Number));
+    const xs = area.map(p => p[0]), ys = area.map(p => p[1]);
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    if (n.length !== 12) erros.push('transform do <item> não tem 12 números');
+    else if (Math.abs(n[9] - cx) > 0.01 || Math.abs(n[10] - cy) > 0.01)
+      erros.push('peça posta em ' + n[9] + ',' + n[10] + ' e não no centro da mesa (' + cx + ',' + cy + ')');
+  }
+
   // 5. o projeto declara um filamento por cor, na MESMA ordem — comparação
   //    exata do hex, que é o que torna a associação determinística
   const esperado = g.pecas.map(p => '#' + p.cor.replace('#', '').toUpperCase().slice(0, 6));

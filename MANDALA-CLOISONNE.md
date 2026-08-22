@@ -413,6 +413,20 @@ Sem `--load-filaments` o despejo sai **sem** 21 chaves de filamento (`filament_s
 `filament_retraction_length`, …) e o Bambu rejeita o projeto — silenciosamente, sem exportar
 nada e com `return_code: 0` no `result.json`.
 
+### Posição na mesa
+
+Como projeto, o Bambu **não arranja sozinho**: ele põe a peça exatamente onde o
+`<build><item>` mandar. A mandala é modelada em torno de (0,0), então sem translação ela
+abre no canto frontal esquerdo, quase toda fora da mesa. Por isso o `<item>` sai com
+
+```xml
+<item objectid="8" transform="1 0 0 0 1 0 0 0 1 165 160 0" printable="1"/>
+```
+
+— os três últimos números são a translação, e 165/160 é o centro de `printable_area` lido do
+próprio `PERFIL_BAMBU` (mesa 330×320 do H2C). Trocando o molde por outra máquina, o centro
+acompanha. É o mesmo `transform` que o Bambu escreve nos projetos dele.
+
 ### Estrutura do pacote
 
 ```
