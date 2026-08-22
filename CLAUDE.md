@@ -144,7 +144,7 @@ cfg → prepare()  → camadas ativas
     → filete()   → esse ponto é filete (linha alta) ou poça (rebaixada)?
     → amostra()  → percorre as camadas; a ÚLTIMA que reivindica vence (pintura, não soma)
     → altura()   → mm: base + nivel*degrau + (filete ? fioH : 0), com cone/furo/aro por cima
-    → buildMesh/toSTL/audit — mesmo mesher do irmão
+    → buildContorno → to3MF | toOBJ   (buildIndexed/buildMesh só na auditoria)
 ```
 
 Consequências práticas ao mexer:
@@ -171,17 +171,23 @@ Consequências práticas ao mexer:
   todas — mandala plana, só cone e aro com altura própria. `alturaMax` também respeita.
 - `filete()` devolve **fração 0..1** com borda macia dimensionada pela célula da grade, não
   0/1. Logo `altura` multiplica (`out.fio * fioH`) e a cor decide por `out.fio >= 0.5`.
-- `emitir()` é a única implementação da emissão de triângulos (recebe quais células entram
-  e fecha o sólido); `buildIndexed` passa a presença, `buildPartes` passa presença por cor,
-  `buildMesh` só expande índices em sopa para o STL. `to3MF` é **assíncrono** (comprime com
-  `CompressionStream`) e aceita as duas formas.
+- Sobraram **dois** formatos de exportação, `3MF · contorno` (padrão) e `OBJ + MTL`, e os
+  dois saem da **mesma** geometria (`buildContorno`). O STL sem cor, o 3MF de peça única, o
+  3MF de peças por cor pela grade (`buildPartes`) e o OBJ pela grade foram removidos — não
+  davam cor no fatiador ou saíam com borda em escada. Não os traga de volta sem motivo novo.
+- `to3MF` e `toOBJ` aceitam **só** a forma de `buildContorno` (peças com vértices próprios).
+  `to3MF` é **assíncrono** (comprime com `CompressionStream`); `toOBJ` emite os vértices de
+  cada peça em sequência e soma o deslocamento nas faces, com um `usemtl` por peça.
+- A grade polar (`emitir`/`buildIndexed`/`buildMesh`) **não exporta mais nada** — sobrou
+  como malha auditada pela suíte e como espelho do gerador irmão. `emitir()` continua sendo
+  a única implementação da emissão de triângulos.
 - **Fatiadores ignoram `basematerials`.** Cor no Bambu/Prusa só chega como *peça* (um objeto
   com vários `<component>` e o extrusor de cada um em `Metadata/model_settings.config`) ou
   via OBJ colorido — mas aí o Bambu abre o diálogo *Import Model* e agrupa as cores no
   **Color Count**, cujo valor inicial o "Auto" escolhe sozinho (6 cores viraram 2 num AMS de
   4 slots). O sintoma é o *Filament Mapping* listar cores que não estão na paleta: são
   centroides. Para imprimir colorido sem esse passo manual, o caminho determinístico é o
-  3MF de peças.
+  3MF por contorno.
 - O Bambu avisa `The 3mf file has invalid config` em **qualquer** 3MF sem
   `Metadata/project_settings.config` — inclui os de Fusion e Blender. Não gere esse arquivo
   (são 74 kB de presets de máquina). O aviso é **cosmético**: o `model_settings.config` é
@@ -189,9 +195,8 @@ Consequências práticas ao mexer:
   CLI do Bambu).
 - Coordenadas exportadas usam **5 casas decimais**: com 3, vértices vizinhos perto do centro
   colidiam na qualidade máxima e viravam triângulo degenerado.
-- No XML do 3MF, o `pid` precisa aparecer em **cada** `<triangle>` e o `p1` é índice
-  **0-based**. Errar qualquer um dos dois não gera erro de leitura — só faz a peça sair
-  numa cor só ou com todas as cores deslocadas.
+- No XML do 3MF, a cor de cada peça vem do `pindex` do `<object>` (índice **0-based** na
+  paleta). Errar isso não gera erro de leitura — só faz as cores saírem trocadas.
 
 ### Adicionar um tipo de anel (`mandala-stl.html`)
 

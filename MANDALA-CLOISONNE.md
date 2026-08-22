@@ -27,7 +27,7 @@ Mesma separação em três blocos do gerador irmão — **os testes dependem del
 mandala-cloisonne.html
 ├── <style>                    tema escuro, layout flex
 ├── <body>                     painel + canvas + rodapé
-├── <script id="mandala-core"> ★ matemática, malha, STL — SEM DOM
+├── <script id="mandala-core"> ★ matemática, malha, 3MF/OBJ — SEM DOM
 └── <script id="mandala-ui">   presets, painel, preview, download
 ```
 
@@ -55,11 +55,10 @@ MC.alturaMax(cfg)              // teto da peça, em mm
 MC.solid(cfg, P, rmm, th, out) // há material aqui?
 MC.resolution(cfg, q)          // { nr, nt } para 'teste'|'bom'|'alta'|'max'
 MC.buildIndexed(cfg, res, cor) // um sólido só: { vx, nv, idx, tris, mat, paleta, ... }
-MC.buildPartes(cfg, res)       // um sólido FECHADO por cor: { vx, nv, pecas: [...], ... }
+MC.buildContorno(cfg, N, SUB)  // um sólido FECHADO por cor, por curva de nível: { pecas, ... }
 MC.buildMesh(cfg, res)         // sopa de triângulos: { pos, n, tris, height, diam, parts }
-MC.toSTL(mesh, nome)           // ArrayBuffer (STL binário, sem cor)
-MC.to3MF(g, nome)              // Promise<ArrayBuffer> (3MF com cor)
-MC.toOBJ(g, nome)              // { nome, obj, mtl } — DOIS arquivos, com cor
+MC.to3MF(g, nome)              // Promise<ArrayBuffer> — SÓ a forma de buildContorno
+MC.toOBJ(g, nome)              // { nome, obj, mtl } — idem; DOIS arquivos, com cor
 MC.audit(mesh)                 // { openEdges, degenerate, nonFinite, tris }
 ```
 
@@ -297,16 +296,22 @@ Grade por qualidade (`QUAL_CONT`), independente da polar:
 
 ## 7. Exportação a partir do HTML
 
-| | OBJ + MTL | 3MF peça única | 3MF peças por cor | STL |
-|---|---|---|---|---|
-| cor | por face, via `usemtl` | por triângulo | um sólido por cor | não |
-| arquivos | **dois** (lado a lado) | um | um | um |
-| Bambu Studio | importa e oferece mapear cor → filamento | ignora a cor | lê as peças e os extrusores | sem cor |
-| aviso de config | **nunca** | sim | sim | não |
-| triângulos | 1× | 1× | ~2,4× | 1× |
-| tamanho | ~35% do STL | ~17% | ~40% | 100% |
+Sobraram **dois** formatos, e os dois saem da **mesma** geometria — `buildContorno`, uma
+peça fechada por cor com as bordas na curva de nível. As vias que não deram certo — 3MF de
+peça única (o fatiador ignora `basematerials` e abre tudo cinza), 3MF de peças por cor pela
+grade (bordas em escada e ~2,4× triângulos), OBJ pela grade (mesma escada) e STL (sem cor
+nenhuma) — foram removidas.
 
-**O padrão é 3MF · peças por cor** — é o único caminho *determinístico*: uma peça vira um
+| | 3MF · contorno | OBJ + MTL |
+|---|---|---|
+| geometria | contorno | contorno (a mesma) |
+| cor | um sólido por cor, `pindex` na paleta | um `usemtl` por peça |
+| arquivos | um | **dois** (lado a lado) |
+| Bambu Studio | lê as peças e os extrusores | importa e oferece mapear cor → filamento |
+| aviso de config | sim (cosmético) | **nunca** |
+| tamanho | 1× | ~4× (texto, sem compressão) |
+
+**O padrão é 3MF · contorno** — é o único caminho *determinístico*: uma peça vira um
 extrusor, sem intermediários.
 
 ⚠️ **O OBJ passa pelo agrupamento de cores do Bambu.** Ao importar, ele abre o diálogo
@@ -320,7 +325,7 @@ são centroides. Seis cores agrupadas em duas viraram `#65377B` e `#F8C370`, que
 na paleta — são a média de {roxo, ameixa} e de {creme, laranja, amarelo, violeta}.
 
 Quem for usar OBJ tem que subir o Color Count para o número de cores do desenho e clicar
-*Apply*. Para imprimir colorido sem esse passo manual, use o 3MF de peças.
+*Apply*. Para imprimir colorido sem esse passo manual, use o 3MF por contorno.
 
 O aviso de config do Bambu **é cosmético**: ele diz "load geometry data only", mas o
 `model_settings.config` é lido assim mesmo — a reexportação pelo CLI devolve as peças com
@@ -345,16 +350,14 @@ arquivo**: ele forçaria um perfil de máquina no usuário, o que é pior que o 
 Com 3MF, o caminho é **File → Import → Import 3MF** (não Open Project). Com OBJ o problema
 não existe.
 
-### Por que existe o modo "peças por cor"
+### Por que o 3MF sai em peças
 
 O Bambu Studio (e o PrusaSlicer) **ignoram `basematerials`**. Um 3MF de peça única com cor
-por triângulo abre colorido num visualizador, mas entra cinza no fatiador. O que o fatiador
-entende é **peça**: um objeto com vários `<component>`, cada um com seu extrusor declarado
-em `Metadata/model_settings.config`.
+por triângulo abre colorido num visualizador, mas entra cinza no fatiador — foi por isso que
+essa via saiu. O que o fatiador entende é **peça**: um objeto com vários `<component>`, cada
+um com seu extrusor declarado em `Metadata/model_settings.config`.
 
-`buildPartes` gera um sólido fechado por cor. Juntos eles ladrilham o disco sem sobrepor —
-o volume da união bate com o da peça única. O custo é que as paredes internas aparecem duas
-vezes, uma de cada lado da fronteira, daí os ~2,4× triângulos.
+`buildContorno` gera um sólido fechado por cor. Juntos eles ladrilham o disco sem sobrepor.
 
 ⚠️ **A cor atravessa toda a espessura.** Numa impressora com AMS isso significa troca de
 filamento em todas as camadas da chapa, não só nas do relevo. Chapa fina (`base`) reduz o
@@ -366,7 +369,7 @@ desperdício de purga.
 [Content_Types].xml
 _rels/.rels
 3D/3dmodel.model                 basematerials + um <object> por cor + <object> raiz com <components>
-Metadata/model_settings.config   de-para peça → extrusor      (só no modo peças)
+Metadata/model_settings.config   de-para peça → extrusor
 ```
 
 Sem **nenhum** arquivo `Metadata/*.config`, o Bambu Studio mostra
@@ -380,6 +383,10 @@ File → Import → Import 3MF.
 
 ### OBJ + MTL
 
+Consome a **mesma** geometria do 3MF: cada peça de cor entra com os seus vértices, em
+sequência, e as faces somam o deslocamento da peça (`g cor<i>` + `usemtl material_<i+1>`).
+Pela grade polar o OBJ saía com a mesma escada do 3MF de peças — por isso mudou de via.
+
 O `.obj` referencia o `.mtl` por nome relativo (`mtllib ./nome.mtl`), então **os dois
 precisam cair na mesma pasta**. É o custo do formato; em troca, o Bambu tem um caminho
 dedicado para OBJ colorido (`obj_color_deal_algo`, `ColorDecomposeDialog` no binário) que
@@ -388,10 +395,12 @@ agrupa as cores e oferece mapear cada uma para um filamento.
 ⚠️ **Toda face precisa de `usemtl`.** Sem isso o Bambu recusa com
 `error:some_face_no_color, please check mtl file and obj file`.
 
-Obs.: o `trimesh` **lê** cor de OBJ (ao contrário do 3MF), mas ao carregar ele duplica os
-vértices na fronteira entre materiais e depois se recusa a fundi-los, então reporta
-`is_watertight: False` num arquivo que está correto. Confie no Bambu (`--info` →
-`manifold = yes`), não nele, para esse ponto.
+Obs.: o `trimesh` **lê** cor de OBJ (ao contrário do 3MF) — `group_material=True` devolve
+uma malha por cor com o `diffuse` certo, e é um jeito rápido de conferir a exportação. Mas
+`is_watertight` dele diz `False` em duas ou três peças mesmo quando o arquivo está correto:
+uma peça é a união das regiões daquela cor, que se tocam face a face, e depois do
+`merge_vertices` essas paredes coladas viram arestas com **4** faces. O que importa é não
+haver aresta com **1** face (contado à mão: zero), e é isso que `MC.audit` já garante.
 
 ### Borda macia do filete
 
@@ -457,16 +466,19 @@ Reexportar é o teste definitivo: o `Metadata/model_settings.config` do arquivo 
 mostra o que o Bambu **entendeu**. Esperado — uma `<part>` por cor, `extruder` de 1 a N, e
 `mesh_stat` com `edges_fixed="0" degenerate_facets="0" facets_reversed="0"` em todas.
 
-Obs.: no modo peças, `--info` reporta `manifold = no` e centenas de `number_of_parts`. Isso
+Obs.: `--info` reporta `manifold = no` e centenas de `number_of_parts`. Isso
 é esperado e não é defeito: ele funde tudo antes de medir, então vê as faces coincidentes
 entre peças vizinhas e conta cada ilha (os 10 pontos, as 10 pétalas…) como uma peça.
 
-### De onde vem a cor de cada triângulo
+### De onde vem a cor de cada peça
 
-`buildIndexed(cfg, res, true)` e `buildPartes` amostram o **centro de cada célula** e converte em índice de
-paleta pela mesma regra do preview (filete → `corFio`, poça → cor da camada, faixa ímpar →
-`cor2`, sem camada → `corBase`). Topo e paredes da célula herdam essa cor; o **fundo sai
-todo em `corBase`** — é o verso da peça.
+Na via por contorno a cor **é** a região: `cobertura` agrupa os pontos por `cor@z` (filete →
+`corFio`, poça → cor da camada, faixa ímpar → `cor2`, sem camada → `corBase`), e cada grupo
+vira uma malha extrudada de z=0 até a sua altura. As malhas de mesma cor são unidas numa
+peça só — daí uma peça poder ter várias ilhas e paredes internas coladas.
+
+Na grade polar (só a auditoria usa hoje) a cor vem do **centro de cada célula**, pela mesma
+regra; topo e paredes herdam essa cor e o **fundo sai todo em `corBase`**.
 
 ---
 
@@ -476,8 +488,7 @@ Grade polar `NR × NT`; alturas nos **nós**, presença no **centro da célula**
 
 `emitir(G, pertence, …)` é a **única** implementação da emissão de triângulos: recebe quais
 células entram e fecha o sólido com paredes em toda fronteira com quem ficou de fora. A peça
-inteira passa `presença`; cada peça de cor passa `presença && cor == k`. `buildMesh` só
-expande os índices em sopa para o STL. Os vértices são numerados pela grade (o centro é um
+inteira passa `presença`. `buildMesh` só expande os índices em sopa para a auditoria. Os vértices são numerados pela grade (o centro é um
 vértice só, compartilhado), então não há dedupe por hash em lugar nenhum.
 
 1. Os nós de `i=0` colapsam num ponto: altura mediada, **um** triângulo por célula, sem
@@ -526,22 +537,27 @@ node teste-cloisonne.js
 
 8 casos (padrão, incensário com cone e furo cego, vazado com e sem conectores, todos os
 motivos, todos os preenchimentos, extremos, anel único), **fuzz de 40 configurações
-aleatórias** e uma passada de **3MF** sobre os mesmos 8 casos — inclusive com `r0 > r1` de propósito, `larg` extremo e furo mais fundo que a
-peça. Cada caso confere:
+aleatórias**, uma passada de **grade indexada** e outra de **contorno + 3MF + OBJ** sobre os
+mesmos 8 casos —
+inclusive com `r0 > r1` de propósito, `larg` extremo e furo mais fundo que a peça. Cada caso
+confere:
 
 ```
 openEdges === 0 · degenerate === 0 · nonFinite === 0
-tris do cabeçalho STL === mesh.tris · byteLength === 84 + 50·tris
 raio máximo ≤ diam/2 · z mínimo ≥ 0 · z máximo ≤ MC.alturaMax(cfg)
 ```
 
-A passada de exportação confere: mesmo número de triângulos do STL, todo índice dentro do
-intervalo, toda cor dentro da paleta, os vértices indexados reproduzindo a sopa exatamente,
-assinatura de ZIP e 3 entradas no diretório central. E, para o modo peças, **audita cada
-sólido de cor isoladamente** (`openEdges === 0`) e confere que o `model_settings.config` foi
-para dentro do pacote.
+A passada da grade indexada confere: todo índice dentro do intervalo, toda cor dentro da
+paleta e os vértices indexados reproduzindo a sopa exatamente. A de contorno **audita cada
+sólido de cor isoladamente** (`openEdges === 0`) e depois exporta os dois formatos: no 3MF,
+assinatura de ZIP, 4 entradas no diretório central e o `model_settings.config` dentro do
+pacote; no OBJ, `usemtl` em toda face, um material por peça, todo índice no intervalo e
+todo material usado declarado no `.mtl`.
 
-Estado atual: **8/8 + 40/40 fuzz + 8/8 no 3MF**.
+A precisão das 5 casas decimais é conferida direto nos vértices da grade nas 5 qualidades:
+arredondar não pode fundir dois vértices distintos.
+
+Estado atual: **8/8 + 40/40 fuzz + 8/8 na grade indexada + 8/8 no contorno (3MF e OBJ)**.
 
 Validação externa, igual à do irmão:
 

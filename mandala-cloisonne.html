@@ -158,11 +158,11 @@
         <div class="row"><label>Placa</label><input type="color" data-g="corBase"><label style="flex:0 0 auto">Filete</label><input type="color" data-g="corFio"></div>
         <div class="row"><label>Luz</label><input type="range" data-g="luz" min="0" max="360" step="1"><span class="num" data-v="luz"></span></div>
         <div class="row"><label>Brilho</label><input type="range" data-g="verniz" min="0" max="1" step="0.02"><span class="num" data-v="verniz"></span></div>
-        <p class="hint">As cores valem para o preview <b>e para a exportação</b>: OBJ e 3MF as levam junto. O STL não guarda cor.</p>
+        <p class="hint">As cores valem para o preview <b>e para a exportação</b>: OBJ e 3MF as levam junto.</p>
         <p class="hint">O OBJ sai em <b>dois arquivos</b> (.obj e .mtl) que precisam ficar na mesma pasta — o navegador vai pedir permissão para baixar os dois.</p>
-        <p class="hint">Para imprimir colorido prefira o <b>3MF · peças por cor</b>: ele mapeia uma peça para cada extrusor, direto, sem diálogo nenhum.</p>
-        <p class="hint">Se usar OBJ, o Bambu abre o <b>Import Model</b> e agrupa as cores. O <b>Color Count</b> vem no que o “Auto” escolher — costuma ser 2. Clique em <b>4</b> ou <b>8</b> e depois em <b>Apply</b>, senão ele funde tudo e as cores que aparecem são médias, não as suas.</p>
-        <p class="hint">Para o melhor acabamento, salve o <b>.json</b> e exporte pela linha de comando: <code>python3 exportar.py minha.json peca.3mf</code>. Essa via monta a peça por contorno em vez de grade — bordas lisas e um sólido fechado por cor. Veja o <code>MANDALA-CLOISONNE.md</code>.</p>
+        <p class="hint">Para imprimir colorido prefira o <b>3MF · contorno</b>: ele mapeia uma peça para cada extrusor, direto, sem diálogo nenhum.</p>
+        <p class="hint">Os dois formatos saem pela mesma geometria por contorno — bordas lisas, um sólido fechado por cor. Se usar OBJ, o Bambu abre o <b>Import Model</b> e agrupa as cores: o <b>Color Count</b> vem no que o “Auto” escolher — costuma ser 2. Clique em <b>4</b> ou <b>8</b> e depois em <b>Apply</b>, senão ele funde tudo e as cores que aparecem são médias, não as suas.</p>
+        <p class="hint">Para uma grade ainda mais fina, salve o <b>.json</b> e exporte pela linha de comando: <code>python3 exportar.py minha.json peca.3mf</code> — mesma ideia, com shapely e trimesh fazendo o contorno. Veja o <code>MANDALA-CLOISONNE.md</code>.</p>
       </fieldset>
     </div>
   </aside>
@@ -194,10 +194,7 @@
       <span class="sp" style="flex:1"></span>
       <select id="fmt" class="sel">
         <option value="contorno" selected>3MF · contorno (bordas lisas)</option>
-        <option value="partes">3MF · peças por cor (grade)</option>
         <option value="obj">OBJ + MTL · com cor</option>
-        <option value="3mf">3MF · peça única</option>
-        <option value="stl">STL · sem cor</option>
       </select>
       <select id="qual" class="sel">
         <option value="teste">qualidade: teste</option>
@@ -575,8 +572,8 @@ var MC = (function () {
      ======================================================================= */
   /* =======================================================================
      Geometria INDEXADA. É a única implementação da malha: buildMesh() só
-     expande isto em sopa de triângulos para o STL. Índices existem porque o
-     3MF precisa deles — e, de quebra, o vértice do centro passa a ser um só.
+     expande isto em sopa de triângulos para a auditoria. Índices existem
+     porque o OBJ precisa deles — e, de quebra, o vértice do centro é um só.
 
      Numeração dos vértices (NT por anel, mais o ponto único do centro):
        topo  : i=0 → 0        · i>0 → 1 + (i-1)*NT + j
@@ -712,33 +709,7 @@ var MC = (function () {
     };
   }
 
-  /* -------------------------------------------------------------------------
-     Uma peça FECHADA por cor. Cada peça é um prisma da base até o topo, e
-     juntas ladrilham o disco sem sobrepor — é o que o fatiador espera para
-     atribuir um filamento por peça.
-
-     Consequência: a cor atravessa toda a espessura. Numa impressora com AMS
-     isso significa troca de filamento em todas as camadas da chapa, não só nas
-     do relevo. Chapa fina (`base`) reduz o desperdício.
-     ------------------------------------------------------------------------- */
-  function buildPartes(cfg, res) {
-    var G = grade(cfg, res, true);
-    var NR = G.NR, NT = G.NT, n = NR * NT, i;
-    var pecas = [];
-    for (var k = 0; k < G.paleta.length; k++) {
-      var grupo = new Uint8Array(n), tem = 0;
-      for (i = 0; i < n; i++) if (G.pres[i] && G.mat[i] === k) { grupo[i] = 1; tem++; }
-      if (!tem) continue;
-      var e = emitir(G, grupo, null, false);
-      pecas.push({ cor: G.paleta[k], indice: k, idx: e.idx, tris: e.tris, celulas: tem });
-    }
-    return {
-      vx: G.vx, nv: G.nv, pecas: pecas, paleta: G.paleta,
-      height: G.height, diam: G.diam, parts: components(G.pres, NR, NT)
-    };
-  }
-
-  /* ---- sopa de triângulos (o que o STL e a auditoria esperam) ---- */
+  /* ---- sopa de triângulos (o que a auditoria espera) ---- */
   function buildMesh(cfg, res) {
     var g = buildIndexed(cfg, res, false);
     var pos = new Float32Array(g.tris * 9), i, k;
@@ -773,37 +744,11 @@ var MC = (function () {
     return count;
   }
 
-  /* ---- STL binário ---- */
-  function toSTL(mesh, name) {
-    var nt = mesh.tris, buf = new ArrayBuffer(84 + 50 * nt), dv = new DataView(buf);
-    var head = 'mandala cloisonne — ' + (name || '') + ' — ' + mesh.diam + 'mm';
-    for (var c = 0; c < 80; c++) dv.setUint8(c, c < head.length ? head.charCodeAt(c) & 0x7f : 32);
-    dv.setUint32(80, nt, true);
-    var p = mesh.pos, off = 84;
-    for (var i = 0; i < nt; i++) {
-      var o = i * 9;
-      var x1 = p[o], y1 = p[o + 1], z1 = p[o + 2];
-      var x2 = p[o + 3], y2 = p[o + 4], z2 = p[o + 5];
-      var x3 = p[o + 6], y3 = p[o + 7], z3 = p[o + 8];
-      var ux = x2 - x1, uy = y2 - y1, uz = z2 - z1;
-      var vx = x3 - x1, vy = y3 - y1, vz = z3 - z1;
-      var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-      var L = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
-      dv.setFloat32(off, nx / L, true); dv.setFloat32(off + 4, ny / L, true); dv.setFloat32(off + 8, nz / L, true);
-      dv.setFloat32(off + 12, x1, true); dv.setFloat32(off + 16, y1, true); dv.setFloat32(off + 20, z1, true);
-      dv.setFloat32(off + 24, x2, true); dv.setFloat32(off + 28, y2, true); dv.setFloat32(off + 32, z2, true);
-      dv.setFloat32(off + 36, x3, true); dv.setFloat32(off + 40, y3, true); dv.setFloat32(off + 44, z3, true);
-      dv.setUint16(off + 48, 0, true);
-      off += 50;
-    }
-    return buf;
-  }
-
   /* =======================================================================
      3MF — ZIP + XML, escrito à mão para não trazer dependência nenhuma.
-     Diferente do STL, guarda cor: uma `base` por cor da paleta e cada
-     triângulo aponta a sua com p1. É o que os fatiadores leem para atribuir
-     filamento por região. Devolve uma Promise (a compressão é assíncrona).
+     Guarda cor: uma `base` por cor da paleta e cada peça aponta a sua com
+     pindex. É o que os fatiadores leem para atribuir filamento por região.
+     Devolve uma Promise (a compressão é assíncrona).
      ======================================================================= */
   var CRCT = null;
   function crc32(b) {
@@ -897,7 +842,7 @@ var MC = (function () {
   /* -------------------------------------------------------------------------
      Escreve um <object> com malha própria, compactando os vértices usados.
      ------------------------------------------------------------------------- */
-  function objetoXML(vx, nv, idx, tris, mat, id, pindex, buf, solta) {
+  function objetoXML(vx, nv, idx, tris, id, pindex, buf, solta) {
     var usado = new Uint8Array(nv), novo = new Int32Array(nv), i, k;
     for (i = 0; i < nv; i++) novo[i] = -1;
     for (i = 0; i < tris * 3; i++) usado[idx[i]] = 1;
@@ -913,33 +858,28 @@ var MC = (function () {
     buf.push('</vertices>\n<triangles>\n');
     for (i = 0; i < tris; i++) {
       k = i * 3;
-      buf.push('<triangle v1="' + novo[idx[k]] + '" v2="' + novo[idx[k + 1]] + '" v3="' + novo[idx[k + 2]] + '"' +
-        // o pid TEM que ir em cada triângulo: sem ele o leitor de referência
-        // (lib3mf) descarta o p1 e usa a propriedade do objeto — tudo numa cor
-        // só. E o p1 é índice 0-based dentro do grupo, não o id do material.
-        (mat ? ' pid="1" p1="' + mat[i] + '"' : '') + '/>\n');
+      buf.push('<triangle v1="' + novo[idx[k]] + '" v2="' + novo[idx[k + 1]] + '" v3="' + novo[idx[k + 2]] + '"/>\n');
       if (buf.length > 40000) solta();
     }
     buf.push('</triangles>\n</mesh>\n</object>\n');
   }
 
   /* -------------------------------------------------------------------------
-     3MF. Aceita as duas formas de geometria:
-       buildIndexed(...) → um objeto só, com cor por triângulo
-       buildPartes(...)  → um objeto por cor, montados como componentes
+     3MF a partir de buildContorno(...): um objeto por cor, montados como
+     componentes de uma peça só.
 
-     A forma com peças é a que serve para imprimir colorido: o fatiador vê uma
-     peça por filamento. O Metadata/model_settings.config faz o de-para
-     cor → extrusor; sem nenhum arquivo .config o Bambu Studio avisa
-     "The 3mf file has invalid config, load geometry data only" e joga a cor
-     fora, ficando só com a geometria.
+     É a forma que serve para imprimir colorido: o fatiador vê uma peça por
+     filamento. O Metadata/model_settings.config faz o de-para cor → extrusor;
+     sem nenhum arquivo .config o Bambu Studio avisa "The 3mf file has invalid
+     config, load geometry data only" e joga a cor fora, ficando só com a
+     geometria.
      ------------------------------------------------------------------------- */
   function to3MF(g, nome) {
     var out = [], buf = [], i;
     function solta() { out.push(buf.join('')); buf.length = 0; }
     var titulo = String(nome || 'mandala').replace(/[<>&"']/g, '');
     var pal = (g.paleta && g.paleta.length) ? g.paleta : ['#cccccc'];
-    var pecas = g.pecas || null;
+    var pecas = g.pecas;
 
     buf.push('<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" ' +
       'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n' +
@@ -950,37 +890,27 @@ var MC = (function () {
       buf.push('<base name="cor' + i + '" displaycolor="' + corHex(pal[i]) + '"/>\n');
     buf.push('</basematerials>\n');
 
-    var raiz, cfgXML = null;
-    if (pecas) {
-      for (i = 0; i < pecas.length; i++) {
-        // via contorno: cada peça traz os próprios vértices
-        // via grade: todas compartilham o vetor de vértices da malha
-        var pv = pecas[i].vx || g.vx, pn = pecas[i].nv || g.nv;
-        var pind = pecas[i].indice === undefined ? i : pecas[i].indice;
-        objetoXML(pv, pn, pecas[i].idx, pecas[i].tris, null, 2 + i, pind, buf, solta);
-      }
-      raiz = 2 + pecas.length;
-      buf.push('<object id="' + raiz + '" type="model">\n<components>\n');
-      for (i = 0; i < pecas.length; i++)
-        buf.push('<component objectid="' + (2 + i) + '"/>\n');
-      buf.push('</components>\n</object>\n');
+    // cada peça traz os próprios vértices e uma cor só (pindex na paleta)
+    for (i = 0; i < pecas.length; i++)
+      objetoXML(pecas[i].vx, pecas[i].nv, pecas[i].idx, pecas[i].tris, 2 + i, i, buf, solta);
+    var raiz = 2 + pecas.length;
+    buf.push('<object id="' + raiz + '" type="model">\n<components>\n');
+    for (i = 0; i < pecas.length; i++)
+      buf.push('<component objectid="' + (2 + i) + '"/>\n');
+    buf.push('</components>\n</object>\n');
 
-      var c = ['<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <object id="' + raiz + '">\n' +
-        '    <metadata key="name" value="' + titulo + '"/>\n' +
-        '    <metadata key="extruder" value="1"/>\n'];
-      for (i = 0; i < pecas.length; i++) {
-        c.push('    <part id="' + (2 + i) + '" subtype="normal_part">\n' +
-          '      <metadata key="name" value="' + titulo + ' ' + pecas[i].cor + '"/>\n' +
-          '      <metadata key="extruder" value="' + (i + 1) + '"/>\n' +
-          '      <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>\n' +
-          '    </part>\n');
-      }
-      c.push('  </object>\n</config>\n');
-      cfgXML = c.join('');
-    } else {
-      objetoXML(g.vx, g.nv, g.idx, g.tris, g.mat, 2, 0, buf, solta);
-      raiz = 2;
+    var c = ['<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <object id="' + raiz + '">\n' +
+      '    <metadata key="name" value="' + titulo + '"/>\n' +
+      '    <metadata key="extruder" value="1"/>\n'];
+    for (i = 0; i < pecas.length; i++) {
+      c.push('    <part id="' + (2 + i) + '" subtype="normal_part">\n' +
+        '      <metadata key="name" value="' + titulo + ' ' + pecas[i].cor + '"/>\n' +
+        '      <metadata key="extruder" value="' + (i + 1) + '"/>\n' +
+        '      <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>\n' +
+        '    </part>\n');
     }
+    c.push('  </object>\n</config>\n');
+    var cfgXML = c.join('');
     buf.push('</resources>\n<build><item objectid="' + raiz + '"/></build>\n</model>\n');
     solta();
 
@@ -989,7 +919,7 @@ var MC = (function () {
       { nome: '_rels/.rels', dados: bytes(RELS) },
       { nome: '3D/3dmodel.model', dados: bytes(out.join('')) }
     ];
-    if (cfgXML) entradas.push({ nome: 'Metadata/model_settings.config', dados: bytes(cfgXML) });
+    entradas.push({ nome: 'Metadata/model_settings.config', dados: bytes(cfgXML) });
     return zipar(entradas);
   }
 
@@ -1004,60 +934,41 @@ var MC = (function () {
 
      Toda face leva `usemtl`: sem isso o Bambu recusa com
      "error:some_face_no_color, please check mtl file and obj file".
+
+     Consome a MESMA geometria do 3MF (buildContorno): uma peça fechada por
+     cor, com bordas de curva de nível. Pela grade polar o OBJ saía com a
+     borda em escada — foi por isso que essa via mudou.
      ======================================================================= */
   function toOBJ(g, nome) {
-    var i, k;
+    var i, k, p;
     var base = String(nome || 'mandala').replace(/[^A-Za-z0-9_.-]/g, '_');
-    var usado = new Uint8Array(g.nv), novo = new Int32Array(g.nv);
-    for (i = 0; i < g.nv; i++) novo[i] = -1;
-
-    // reúne todos os triângulos, venham de uma peça só ou de peças por cor
-    var grupos = [];
-    if (g.pecas) {
-      for (i = 0; i < g.pecas.length; i++)
-        grupos.push({ mat: g.pecas[i].indice, idx: g.pecas[i].idx, tris: g.pecas[i].tris });
-    } else {
-      var porMat = {};
-      for (i = 0; i < g.tris; i++) {
-        var mm = g.mat ? g.mat[i] : 0;
-        (porMat[mm] || (porMat[mm] = [])).push(i);
-      }
-      for (var key in porMat) {
-        var lista = porMat[key], ix = new Uint32Array(lista.length * 3);
-        for (i = 0; i < lista.length; i++) {
-          ix[i * 3] = g.idx[lista[i] * 3];
-          ix[i * 3 + 1] = g.idx[lista[i] * 3 + 1];
-          ix[i * 3 + 2] = g.idx[lista[i] * 3 + 2];
-        }
-        grupos.push({ mat: +key, idx: ix, tris: lista.length });
-      }
-      grupos.sort(function (a, b) { return a.mat - b.mat; });
-    }
-
-    for (i = 0; i < grupos.length; i++)
-      for (k = 0; k < grupos[i].tris * 3; k++) usado[grupos[i].idx[k]] = 1;
-    var nv = 0;
-    for (i = 0; i < g.nv; i++) if (usado[i]) novo[i] = nv++;
-
+    var pal = (g.paleta && g.paleta.length) ? g.paleta : ['#cccccc'];
     var out = [], buf = ['# ' + base + ' — gerado por Mandala Cloisonne\nmtllib ./' + base + '.mtl\n'];
     function solta() { out.push(buf.join('')); buf.length = 0; }
-    for (i = 0; i < g.nv; i++) {
-      if (!usado[i]) continue;
-      buf.push('v ' + num(g.vx[i * 3]) + ' ' + num(g.vx[i * 3 + 1]) + ' ' + num(g.vx[i * 3 + 2]) + '\n');
-      if (buf.length > 40000) solta();
+
+    // cada peça é um sólido próprio, com os seus vértices: o .obj recebe as
+    // listas em sequência e as faces somam o deslocamento da peça
+    var off = [], n = 0;
+    for (i = 0; i < g.pecas.length; i++) {
+      p = g.pecas[i]; off.push(n); n += p.nv;
+      for (k = 0; k < p.nv; k++) {
+        buf.push('v ' + num(p.vx[k * 3]) + ' ' + num(p.vx[k * 3 + 1]) + ' ' + num(p.vx[k * 3 + 2]) + '\n');
+        if (buf.length > 40000) solta();
+      }
     }
-    for (i = 0; i < grupos.length; i++) {
-      var gr = grupos[i];
-      if (!gr.tris) continue;
-      buf.push('g cor' + gr.mat + '\nusemtl material_' + (gr.mat + 1) + '\n');
-      for (k = 0; k < gr.tris; k++) {
-        buf.push('f ' + (novo[gr.idx[k * 3]] + 1) + ' ' + (novo[gr.idx[k * 3 + 1]] + 1) + ' ' + (novo[gr.idx[k * 3 + 2]] + 1) + '\n');
+    for (i = 0; i < g.pecas.length; i++) {
+      p = g.pecas[i];
+      if (!p.tris) continue;
+      buf.push('g cor' + i + '\nusemtl material_' + (i + 1) + '\n');
+      for (k = 0; k < p.tris; k++) {
+        buf.push('f ' + (off[i] + p.idx[k * 3] + 1) + ' ' +
+          (off[i] + p.idx[k * 3 + 1] + 1) + ' ' + (off[i] + p.idx[k * 3 + 2] + 1) + '\n');
         if (buf.length > 40000) solta();
       }
     }
     solta();
 
-    var pal = (g.paleta && g.paleta.length) ? g.paleta : ['#cccccc'], mtl = [];
+    var mtl = [];
     for (i = 0; i < pal.length; i++) {
       var h = pal[i].replace('#', '');
       mtl.push('newmtl material_' + (i + 1) + '\n' +
@@ -1433,11 +1344,11 @@ var MC = (function () {
   return {
     MOTIVOS: MOTIVOS, PREENCH: PREENCH,
     camada: camada, defaults: defaults, prepare: prepare,
-    buildIndexed: buildIndexed, buildPartes: buildPartes,
+    buildIndexed: buildIndexed,
     cobertura: cobertura, malhaRegiao: malhaRegiao, coneMalha: coneMalha, buildContorno: buildContorno,
     dist: dist, perfil: perfil, amostra: amostra, altura: altura, alturaMax: alturaMax,
     solid: solid, alturaNo: alturaNo, resolution: resolution, resolucaoContorno: resolucaoContorno, buildMesh: buildMesh,
-    toSTL: toSTL, to3MF: to3MF, toOBJ: toOBJ, audit: audit, clamp: clamp
+    to3MF: to3MF, toOBJ: toOBJ, audit: audit, clamp: clamp
   };
 })();
 </script>
@@ -1850,7 +1761,7 @@ var MC = (function () {
   }
 
   /* =======================================================================
-     Vista 3D: rasteriza a MESMA grade polar que vira o STL, com z-buffer.
+     Vista 3D: rasteriza a MESMA grade polar da exportação, com z-buffer.
      Ordenar quadriláteros por profundidade (painter) embolava — o filete tem
      menos de 1 mm e a grade cartesiana não o resolvia. Aqui cada célula polar
      cai em 2 ou 3 pixels e o desenho sai nítido, sem ordenação.
@@ -2021,7 +1932,7 @@ var MC = (function () {
     }
     var parts = componentes(pres, NR, NT);
     // quantas cores distintas o desenho usa? é o número de filamentos que o
-    // 3MF de peças vai pedir — acima dos slots do AMS o fatiador tem que juntar
+    // 3MF por contorno vai pedir — acima dos slots do AMS o fatiador junta
     var vistas = {}, nCores = 0, o2 = {};
     for (i = 0; i < NR; i += 2) {
       var rr = Rm * (i + 0.5) / NR;
@@ -2040,19 +1951,12 @@ var MC = (function () {
       ? 'cabe num AMS de 4 filamentos'
       : nCores + ' cores para ' + nCores + ' filamentos. Com menos slots, o fatiador junta as mais parecidas — junte você, editando as cores das camadas, para escolher quais.';
     var frac = count / (NR * NT);
-    var estTri = Math.round(full.nr * full.nt * frac * (cfg.modo === 'placa' ? 3 : 4) * 1.15);
-    // o 3MF é XML comprimido: na prática sai perto de 1/6 do STL equivalente.
-    // Em peças por cor a contagem de triângulos ~2,4× (paredes internas
-    // duplicadas, uma de cada lado da fronteira entre cores).
+    // os dois formatos saem por contorno, que não usa a grade polar: estima
+    // pela cartesiana dele. O 3MF é XML comprimido, ~1/6 do OBJ equivalente.
     var f = document.getElementById('fmt').value;
-    if (f === 'partes') estTri = Math.round(estTri * 2.4);
-    if (f === 'contorno') {
-      // a via por contorno não usa a grade polar: estima pela cartesiana dela
-      var Nc = MC.resolucaoContorno(document.getElementById('qual').value);
-      estTri = Math.round(Nc * Nc * 5 * frac);
-    }
-    var estBytes = f === 'stl' ? 84 + estTri * 50
-      : (f === 'obj' ? estTri * 31 : Math.round(estTri * 8.5));
+    var Nc = MC.resolucaoContorno(document.getElementById('qual').value);
+    var estTri = Math.round(Nc * Nc * 5 * frac);
+    var estBytes = f === 'obj' ? estTri * 31 : Math.round(estTri * 8.5);
     document.getElementById('s-diam').textContent = cfg.diam + ' mm';
     document.getElementById('s-h').textContent = MC.alturaMax(cfg).toFixed(1) + ' mm';
     document.getElementById('s-tri').textContent = fmtN(estTri) + ' tri (≈)';
@@ -2121,32 +2025,14 @@ var MC = (function () {
       btn.disabled = false; btn.textContent = 'Baixar';
     }
     setTimeout(function () {
-      var res = MC.resolution(cfg, document.getElementById('qual').value);
       var nome = 'mandala_cloisonne_' + cfg.sym + 'x_' + cfg.diam + 'mm';
       try {
-        if (fmt === 'stl') {
-          var mesh = MC.buildMesh(cfg, res);
-          var buf = MC.toSTL(mesh, 'mandala');
-          baixar(new Blob([buf], { type: 'model/stl' }), nome + '.stl');
-          pronto(buf.byteLength, mesh.parts, mesh.tris);
-          return;
-        }
-        // peças por cor: um sólido fechado por cor, cada um num extrusor.
-        // peça única / obj: um sólido só, com cor por face.
-        if (fmt === 'contorno') {
-          var N = MC.resolucaoContorno(document.getElementById('qual').value);
-          var gc = MC.buildContorno(cfg, N, 3);
-          var tc = 0;
-          for (var w = 0; w < gc.pecas.length; w++) tc += gc.pecas[w].tris;
-          MC.to3MF(gc, nome).then(function (buf) {
-            baixar(new Blob([buf], { type: 'model/3mf' }), nome + '.3mf');
-            pronto(buf.byteLength, 1, tc);
-          }).catch(falhou);
-          return;
-        }
-        var g = fmt === 'partes' ? MC.buildPartes(cfg, res) : MC.buildIndexed(cfg, res, true);
-        var tris = g.tris;
-        if (g.pecas) { tris = 0; for (var q = 0; q < g.pecas.length; q++) tris += g.pecas[q].tris; }
+        // os dois formatos saem da MESMA geometria: uma peça fechada por cor,
+        // com as bordas seguindo a curva de nível
+        var N = MC.resolucaoContorno(document.getElementById('qual').value);
+        var g = MC.buildContorno(cfg, N, 3);
+        var tris = 0;
+        for (var w = 0; w < g.pecas.length; w++) tris += g.pecas[w].tris;
 
         if (fmt === 'obj') {
           // o .obj referencia o .mtl por nome relativo, então os dois têm que
@@ -2155,13 +2041,13 @@ var MC = (function () {
           baixar(new Blob([o.mtl], { type: 'text/plain' }), o.nome + '.mtl');
           setTimeout(function () {
             baixar(new Blob([o.obj], { type: 'text/plain' }), o.nome + '.obj');
-            pronto(o.obj.length + o.mtl.length, g.parts, tris);
+            pronto(o.obj.length + o.mtl.length, 1, tris);
           }, 400);
           return;
         }
         MC.to3MF(g, nome).then(function (buf) {
           baixar(new Blob([buf], { type: 'model/3mf' }), nome + '.3mf');
-          pronto(buf.byteLength, g.parts, tris);
+          pronto(buf.byteLength, 1, tris);
         }).catch(falhou);
       } catch (err) { falhou(err); }
     }, 30);

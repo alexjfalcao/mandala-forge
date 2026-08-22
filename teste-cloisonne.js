@@ -85,8 +85,6 @@ for (const [name, cfg] of cases) {
   const mesh = MC.buildMesh(clone(cfg), res);
   const dt = Date.now() - t0;
   const a = MC.audit(mesh);
-  const stl = MC.toSTL(mesh, name);
-  const nt = new DataView(stl).getUint32(80, true);
 
   let maxR = 0, minZ = Infinity, maxZ = -Infinity;
   for (let i = 0; i < mesh.n; i += 3) {
@@ -97,7 +95,6 @@ for (const [name, cfg] of cases) {
   }
 
   const ok = a.openEdges === 0 && a.nonFinite === 0 && a.degenerate === 0 &&
-    nt === mesh.tris && stl.byteLength === 84 + 50 * mesh.tris &&
     maxR <= cfg.diam / 2 + 1e-3 && minZ >= -1e-6 &&
     maxZ <= MC.alturaMax(cfg) + 1e-3;
 
@@ -116,11 +113,11 @@ for (const [name, cfg] of cases) {
   );
 }
 
-// geometria indexada + 3MF: índices no intervalo, cor em todo triângulo,
-// zip legível e o mesmo número de triângulos do STL.
-async function checa3MF() {
+// geometria indexada da grade polar: índices no intervalo, cor em todo
+// triângulo e os mesmos triângulos da sopa auditada.
+function checaIndexada() {
   let falhas = 0;
-  console.log('\ngeometria indexada + 3MF (peça única e peças por cor):');
+  console.log('\ngeometria indexada (grade polar):');
   for (const [name, cfg] of cases) {
     const res = MC.resolution(cfg, 'teste');
     const g = MC.buildIndexed(clone(cfg), res, true);
@@ -145,78 +142,15 @@ async function checa3MF() {
       }
     }
 
-    // peças por cor: cada uma tem que ser um sólido fechado por si só, e
-    // juntas têm que somar exatamente as células presentes (ladrilham o disco)
-    const pt = MC.buildPartes(clone(cfg), res);
-    let trisPecas = 0, pecasOk = true;
-    for (const p of pt.pecas) {
-      const pos = new Float32Array(p.tris * 9);
-      for (let i = 0; i < p.tris; i++) for (let k = 0; k < 3; k++) {
-        const v = p.idx[i * 3 + k] * 3, o = i * 9 + k * 3;
-        pos[o] = pt.vx[v]; pos[o + 1] = pt.vx[v + 1]; pos[o + 2] = pt.vx[v + 2];
-      }
-      const a = MC.audit({ pos, tris: p.tris });
-      if (a.openEdges || a.degenerate || a.nonFinite) pecasOk = false;
-      trisPecas += p.tris;
-    }
-    if (!pecasOk || pt.pecas.length === 0) ok = false;
-
-    const bufP = await MC.to3MF(pt, name);
-    const bp = new Uint8Array(bufP);
-    // o 3MF de peças precisa carregar o model_settings.config, senão o Bambu
-    // Studio descarta a cor com "The 3mf file has invalid config"
-    const txt = new TextDecoder().decode(bp);
-    const temConfig = txt.indexOf('model_settings.config') >= 0;
-    if (!temConfig) ok = false;
-
-    // OBJ + MTL: toda face tem que levar usemtl (o Bambu recusa
-    // "some_face_no_color"), todo índice tem que estar no intervalo e o número
-    // de materiais no .mtl tem que cobrir os usemtl do .obj
-    const o = MC.toOBJ(g, name);
-    const linhas = o.obj.split('\n');
-    let nv = 0, nf = 0, matAtual = -1, semCor = 0;
-    const matsUsados = new Set();
-    for (const L of linhas) {
-      if (L.startsWith('v ')) nv++;
-      else if (L.startsWith('usemtl ')) { matAtual = L.slice(7); matsUsados.add(matAtual); }
-      else if (L.startsWith('f ')) {
-        nf++;
-        if (matAtual === -1) semCor++;
-        const vs = L.slice(2).split(' ').map(Number);
-        if (vs.length !== 3 || vs.some(v => !(v >= 1 && v <= nv))) semCor++;
-      }
-    }
-    const matsDeclarados = new Set((o.mtl.match(/newmtl (\S+)/g) || []).map(x => x.slice(7)));
-    let objOk = nf === g.tris && semCor === 0 && matsUsados.size > 0 &&
-      o.obj.indexOf('mtllib ./' + o.nome + '.mtl') >= 0;
-    for (const m of matsUsados) if (!matsDeclarados.has(m)) objOk = false;
-    if (!objOk) ok = false;
-
-    const buf = await MC.to3MF(g, name);
-    const b = new Uint8Array(buf);
-    // assinatura de zip e fim do diretório central
-    const zipOk = b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
-    const dv = new DataView(buf);
-    let eocd = -1;
-    for (let i = b.length - 22; i >= 0 && i > b.length - 1024; i--)
-      if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
-    const tresEntradas = eocd >= 0 && dv.getUint16(eocd + 10, true) === 3;
-    if (!ok || !zipOk || !tresEntradas) falhas++;
+    if (!ok) falhas++;
 
     let nUsados = 0;
     for (let i = 0; i < g.nv; i++) if (usados[i]) nUsados++;
     console.log(
-      ((ok && zipOk && tresEntradas) ? 'OK  ' : 'FALHA ') + name.padEnd(24) +
+      (ok ? 'OK  ' : 'FALHA ') + name.padEnd(24) +
       ' vért=' + String(nUsados).padStart(7) + '/' + String(g.nv).padStart(7) +
       ' tri=' + String(g.tris).padStart(7) +
-      ' cores=' + String(g.paleta.length).padStart(2) +
-      ' 3mf=' + (buf.byteLength / 1048576).toFixed(2) + 'MB' +
-      ' (' + (100 * buf.byteLength / (84 + 50 * g.tris)).toFixed(1) + '% do STL)' +
-      ' | peças=' + String(pt.pecas.length).padStart(2) +
-      ' ' + String(trisPecas).padStart(7) + 'tri' +
-      ' ' + (bufP.byteLength / 1048576).toFixed(2) + 'MB' +
-      ' | obj=' + (o.obj.length / 1048576).toFixed(2) + 'MB' +
-      ' ' + matsUsados.size + 'mat'
+      ' cores=' + String(g.paleta.length).padStart(2)
     );
   }
   return falhas;
@@ -226,8 +160,8 @@ async function checa3MF() {
 // Grade pequena de propósito — o que se testa aqui é a topologia, não o
 // acabamento. É onde moram as armadilhas do marching squares: cruzamento em
 // cima do nó, sela desconectada e T-junction contra retângulo fundido.
-{
-  console.log('\nvia por contorno:');
+async function checaContorno() {
+  console.log('\nvia por contorno + 3MF + OBJ:');
   let ruins = 0;
   for (const [name, cfg] of cases) {
     const g = MC.buildContorno(clone(cfg), 120, 3);
@@ -253,8 +187,42 @@ async function checa3MF() {
     // borda de propósito. A folga acompanha a célula, porque a borda do disco
     // cai numa curva de nível entre centros de célula.
     const celula = cfg.diam / 120;
-    const ok = abertas === 0 && degen === 0 && g.pecas.length > 0 &&
+    let ok = abertas === 0 && degen === 0 && g.pecas.length > 0 &&
       maxR * 2 <= cfg.diam + celula && minZ >= -1e-6;
+
+    // 3MF: zip legível, quatro entradas e o model_settings.config — sem ele o
+    // Bambu Studio descarta a cor com "The 3mf file has invalid config"
+    const buf = await MC.to3MF(g, name);
+    const b = new Uint8Array(buf), dv = new DataView(buf);
+    const zipOk = b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
+    let eocd = -1;
+    for (let i = b.length - 22; i >= 0 && i > b.length - 1024; i--)
+      if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    const quatroEntradas = eocd >= 0 && dv.getUint16(eocd + 10, true) === 4;
+    const temConfig = new TextDecoder().decode(b).indexOf('model_settings.config') >= 0;
+    if (!zipOk || !quatroEntradas || !temConfig) ok = false;
+
+    // OBJ + MTL da MESMA geometria: toda face tem que levar usemtl (o Bambu
+    // recusa "some_face_no_color"), todo índice tem que estar no intervalo e o
+    // .mtl tem que declarar todo material usado
+    const obj = MC.toOBJ(g, name);
+    let nv = 0, nf = 0, matAtual = -1, ruimObj = 0;
+    const matsUsados = new Set();
+    for (const L of obj.obj.split('\n')) {
+      if (L.startsWith('v ')) nv++;
+      else if (L.startsWith('usemtl ')) { matAtual = L.slice(7); matsUsados.add(matAtual); }
+      else if (L.startsWith('f ')) {
+        nf++;
+        if (matAtual === -1) ruimObj++;
+        const vs = L.slice(2).split(' ').map(Number);
+        if (vs.length !== 3 || vs.some(v => !(v >= 1 && v <= nv))) ruimObj++;
+      }
+    }
+    const matsDeclarados = new Set((obj.mtl.match(/newmtl (\S+)/g) || []).map(x => x.slice(7)));
+    for (const mm of matsUsados) if (!matsDeclarados.has(mm)) ruimObj++;
+    if (nf !== tot || ruimObj || matsUsados.size !== g.pecas.length ||
+      obj.obj.indexOf('mtllib ./' + obj.nome + '.mtl') < 0) ok = false;
+
     if (!ok) ruins++;
     console.log((ok ? 'OK  ' : 'FALHA ') + name.padEnd(24) +
       ' regiões=' + String(g.regioes).padStart(2) +
@@ -262,9 +230,12 @@ async function checa3MF() {
       ' tri=' + String(tot).padStart(7) +
       ' abertas=' + String(abertas).padStart(5) +
       ' degen=' + String(degen).padStart(4) +
-      ' Ømax=' + (maxR * 2).toFixed(2));
+      ' Ømax=' + (maxR * 2).toFixed(2) +
+      ' 3mf=' + (buf.byteLength / 1048576).toFixed(2) + 'MB' +
+      ' obj=' + (obj.obj.length / 1048576).toFixed(2) + 'MB' +
+      ' ' + matsUsados.size + 'mat');
   }
-  fail += ruins;
+  return ruins;
 }
 
 // a qualidade "fino" troca resolução radial por angular: precisa continuar
@@ -324,19 +295,24 @@ async function checa3MF() {
   if (bad) fail += bad;
 }
 
-// precisão da exportação: perto do centro os nós ficam a menos de 0,0005 mm
-// um do outro na qualidade máxima. Se o formatador arredondar demais, eles
-// colidem e viram triângulo degenerado no arquivo.
+// precisão da exportação: perto do centro os nós da grade ficam a menos de
+// 0,0005 mm um do outro na qualidade máxima. Se o formatador arredondar
+// demais, eles colidem e viram triângulo degenerado no arquivo. As 5 casas
+// decimais valem para os dois formatos — é o mesmo num() do núcleo.
 {
   const cfg = MC.defaults();
+  const num = v => String(Math.round(v * 1e5) / 1e5);
   let ruins = 0;
   for (const q of ['teste', 'bom', 'alta', 'max', 'fino']) {
-    const g = MC.buildIndexed(cfg, MC.resolution(cfg, q), true);
-    const o = MC.toOBJ(g, 'p');
-    const vs = o.obj.split('\n').filter(L => L.startsWith('v '));
-    const set = new Set(vs);
-    if (set.size !== vs.length) { ruins++; console.log('  ' + q + ': ' + (vs.length - set.size) + ' vértices COLIDEM na exportação'); }
-    else console.log('  ' + q.padEnd(6) + ' ' + String(vs.length).padStart(7) + ' vértices, todos distintos');
+    const g = MC.buildIndexed(cfg, MC.resolution(cfg, q), false);
+    const exatos = new Set(), escritos = new Set();
+    for (let i = 0; i < g.nv; i++) {
+      const x = g.vx[i * 3], y = g.vx[i * 3 + 1], z = g.vx[i * 3 + 2];
+      exatos.add(x + ',' + y + ',' + z);
+      escritos.add(num(x) + ' ' + num(y) + ' ' + num(z));
+    }
+    if (escritos.size !== exatos.size) { ruins++; console.log('  ' + q + ': ' + (exatos.size - escritos.size) + ' vértices COLIDEM ao arredondar'); }
+    else console.log('  ' + q.padEnd(6) + ' ' + String(exatos.size).padStart(7) + ' vértices, todos distintos');
   }
   console.log('precisão da exportação: ' + (ruins ? ruins + ' QUALIDADE(S) COM COLISÃO' : 'ok nas 5 qualidades'));
   fail += ruins;
@@ -351,12 +327,12 @@ async function checa3MF() {
   const dt = Date.now() - t0;
   const a = MC.audit(mesh);
   console.log('qualidade máxima: grade ' + res.nr + 'x' + res.nt +
-    ' → ' + mesh.tris.toLocaleString('pt-BR') + ' tri, ' +
-    ((84 + 50 * mesh.tris) / 1048576).toFixed(1) + ' MB, ' + dt + ' ms, abertas=' + a.openEdges);
+    ' → ' + mesh.tris.toLocaleString('pt-BR') + ' tri, ' + dt + ' ms, abertas=' + a.openEdges);
 }
 
-checa3MF().then(f => {
-  fail += f;
+(async () => {
+  fail += checaIndexada();
+  fail += await checaContorno();
   console.log(fail === 0 ? '\nTODOS OS TESTES PASSARAM' : '\n' + fail + ' CASO(S) COM FALHA');
   process.exit(fail ? 1 : 0);
-});
+})();
