@@ -2,6 +2,35 @@
 const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
+const zlib = require('zlib');
+
+// abre o .3mf sem dependência: o zip é escrito à mão pelo núcleo, então aqui
+// se lê o diretório central e se infla cada entrada com o zlib do próprio Node
+function lerZip(buf) {
+  const b = Buffer.from(buf);
+  let eocd = -1;
+  for (let i = b.length - 22; i >= 0; i--) if (b.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error('sem diretório central');
+  const n = b.readUInt16LE(eocd + 10);
+  let p = b.readUInt32LE(eocd + 16);
+  const saida = {};
+  for (let k = 0; k < n; k++) {
+    if (b.readUInt32LE(p) !== 0x02014b50) throw new Error('entrada ' + k + ' corrompida');
+    const metodo = b.readUInt16LE(p + 10), crc = b.readUInt32LE(p + 16);
+    const comp = b.readUInt32LE(p + 20), bruto = b.readUInt32LE(p + 24);
+    const lnome = b.readUInt16LE(p + 28), lext = b.readUInt16LE(p + 30), lcom = b.readUInt16LE(p + 32);
+    const off = b.readUInt32LE(p + 42);
+    const nome = b.slice(p + 46, p + 46 + lnome).toString();
+    const ln = b.readUInt16LE(off + 26), le = b.readUInt16LE(off + 28);
+    const dados = b.slice(off + 30 + ln + le, off + 30 + ln + le + comp);
+    const claro = metodo === 8 ? zlib.inflateRawSync(dados) : dados;
+    if (claro.length !== bruto) throw new Error(nome + ': tamanho não bate');
+    if (zlib.crc32 ? zlib.crc32(claro) !== crc : false) throw new Error(nome + ': CRC não bate');
+    saida[nome] = claro;
+    p += 46 + lnome + lext + lcom;
+  }
+  return saida;
+}
 
 const html = fs.readFileSync(path.join(__dirname, 'mandala-cloisonne.html'), 'utf8');
 const m = html.match(/<script id="mandala-core">([\s\S]*?)<\/script>/);
@@ -156,6 +185,84 @@ function checaIndexada() {
   return falhas;
 }
 
+/* -------------------------------------------------------------------------
+   Confere o pacote 3MF inteiro: estrutura, geometria e o de-para
+
+     cor da mandala → peça → filamento do projeto → extrusor
+
+   O Bambu só adota as cores se o arquivo se declarar projeto dele
+   (Application "BambuStudio-<versão>") E levar o project_settings.config
+   completo; e ele ignora `basematerials`. Por isso o que se confere aqui é o
+   par model_settings.config (peça i → extrusor i+1) + project_settings.config
+   (filamento i+1 → cor da peça i), sem nenhuma tolerância de cor.
+   ------------------------------------------------------------------------- */
+function confere3MF(buf, g) {
+  const erros = [];
+  let z;
+  try { z = lerZip(buf); } catch (e) { return ['zip inválido: ' + e.message]; }
+
+  for (const n of ['[Content_Types].xml', '_rels/.rels', '3D/3dmodel.model',
+                   'Metadata/model_settings.config', 'Metadata/project_settings.config'])
+    if (!z[n]) erros.push('falta a entrada ' + n);
+  if (erros.length) return erros;
+
+  const modelo = z['3D/3dmodel.model'].toString();
+  const cfgM = z['Metadata/model_settings.config'].toString();
+  let projeto;
+  try { projeto = JSON.parse(z['Metadata/project_settings.config'].toString()); }
+  catch (e) { return ['project_settings.config não é JSON: ' + e.message]; }
+
+  // 1. o arquivo se declara projeto do Bambu (sem isso a cor é descartada)
+  if (!/<metadata name="Application">BambuStudio-\d+\.\d+\.\d+\.\d+<\/metadata>/.test(modelo))
+    erros.push('Application não é "BambuStudio-<versão>" — o fatiador vai ignorar as cores');
+
+  // 2. um <object> de malha por cor, com geometria de verdade, e o objeto raiz
+  const objs = modelo.split('<object ').slice(1);
+  const malhas = objs.filter(o => o.indexOf('<mesh>') >= 0);
+  if (malhas.length !== g.pecas.length)
+    erros.push('objetos de malha: ' + malhas.length + ' ≠ ' + g.pecas.length + ' peças');
+  if (objs.length !== g.pecas.length + 1) erros.push('falta o objeto raiz de componentes');
+
+  // 3. a geometria NÃO pode ter mudado: mesma contagem de triângulos por peça
+  //    (e de vértices, já compactados pelos índices realmente usados)
+  malhas.forEach((o, i) => {
+    const nv = (o.match(/<vertex /g) || []).length;
+    const nt = (o.match(/<triangle /g) || []).length;
+    if (!nv || !nt) erros.push('peça ' + (i + 1) + ' sem geometria');
+    if (nt !== g.pecas[i].tris)
+      erros.push('peça ' + (i + 1) + ': ' + nt + ' triângulos no arquivo ≠ ' + g.pecas[i].tris + ' na malha');
+    const usados = new Set();
+    for (let k = 0; k < g.pecas[i].tris * 3; k++) usados.add(g.pecas[i].idx[k]);
+    if (nv !== usados.size)
+      erros.push('peça ' + (i + 1) + ': ' + nv + ' vértices no arquivo ≠ ' + usados.size + ' usados');
+  });
+
+  // 4. cada peça com extrusor explícito, na ordem da paleta
+  const partes = cfgM.split('<part ').slice(1);
+  if (partes.length !== g.pecas.length)
+    erros.push('model_settings.config: ' + partes.length + ' partes ≠ ' + g.pecas.length + ' peças');
+  partes.forEach((p, i) => {
+    const e = p.match(/key="extruder" value="(\d+)"/);
+    if (!e) erros.push('peça ' + (i + 1) + ' sem extrusor declarado');
+    else if (+e[1] !== i + 1) erros.push('peça ' + (i + 1) + ' foi para o extrusor ' + e[1]);
+    if (p.indexOf(g.pecas[i].cor) < 0) erros.push('peça ' + (i + 1) + ' não nomeia a cor ' + g.pecas[i].cor);
+  });
+
+  // 5. o projeto declara um filamento por cor, na MESMA ordem — comparação
+  //    exata do hex, que é o que torna a associação determinística
+  const esperado = g.pecas.map(p => '#' + p.cor.replace('#', '').toUpperCase().slice(0, 6));
+  const cores = projeto.filament_colour || [];
+  if (cores.length !== esperado.length)
+    erros.push('filament_colour tem ' + cores.length + ' cores para ' + esperado.length + ' peças');
+  else esperado.forEach((c, i) => {
+    if (cores[i] !== c) erros.push('filamento ' + (i + 1) + ' é ' + cores[i] + ', deveria ser ' + c);
+  });
+  for (const k of ['filament_type', 'filament_settings_id', 'filament_ids'])
+    if (!Array.isArray(projeto[k]) || projeto[k].length !== esperado.length)
+      erros.push(k + ' não tem uma entrada por cor');
+  return erros;
+}
+
 // Via por CONTORNO: cada peça de cor tem que ser um sólido fechado por si só.
 // Grade pequena de propósito — o que se testa aqui é a topologia, não o
 // acabamento. É onde moram as armadilhas do marching squares: cruzamento em
@@ -190,17 +297,13 @@ async function checaContorno() {
     let ok = abertas === 0 && degen === 0 && g.pecas.length > 0 &&
       maxR * 2 <= cfg.diam + celula && minZ >= -1e-6;
 
-    // 3MF: zip legível, quatro entradas e o model_settings.config — sem ele o
-    // Bambu Studio descarta a cor com "The 3mf file has invalid config"
+    // 3MF: pacote válido e, principalmente, a associação cor → peça → filamento
+    // escrita de forma explícita (nada de basematerials nem de cor aproximada)
     const buf = await MC.to3MF(g, name);
-    const b = new Uint8Array(buf), dv = new DataView(buf);
+    const b = new Uint8Array(buf);
     const zipOk = b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
-    let eocd = -1;
-    for (let i = b.length - 22; i >= 0 && i > b.length - 1024; i--)
-      if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
-    const quatroEntradas = eocd >= 0 && dv.getUint16(eocd + 10, true) === 4;
-    const temConfig = new TextDecoder().decode(b).indexOf('model_settings.config') >= 0;
-    if (!zipOk || !quatroEntradas || !temConfig) ok = false;
+    const falhas3mf = confere3MF(buf, g);
+    if (!zipOk || falhas3mf.length) { ok = false; for (const f of falhas3mf) console.log('    ✗ ' + f); }
 
     // OBJ + MTL da MESMA geometria: toda face tem que levar usemtl (o Bambu
     // recusa "some_face_no_color"), todo índice tem que estar no intervalo e o
@@ -232,6 +335,7 @@ async function checaContorno() {
       ' degen=' + String(degen).padStart(4) +
       ' Ømax=' + (maxR * 2).toFixed(2) +
       ' 3mf=' + (buf.byteLength / 1048576).toFixed(2) + 'MB' +
+      ' filam=' + g.pecas.length +
       ' obj=' + (obj.obj.length / 1048576).toFixed(2) + 'MB' +
       ' ' + matsUsados.size + 'mat');
   }

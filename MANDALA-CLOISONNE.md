@@ -327,9 +327,10 @@ na paleta — são a média de {roxo, ameixa} e de {creme, laranja, amarelo, vio
 Quem for usar OBJ tem que subir o Color Count para o número de cores do desenho e clicar
 *Apply*. Para imprimir colorido sem esse passo manual, use o 3MF por contorno.
 
-O aviso de config do Bambu **é cosmético**: ele diz "load geometry data only", mas o
-`model_settings.config` é lido assim mesmo — a reexportação pelo CLI devolve as peças com
-`extruder` de 1 a N. Verificado, não deduzido.
+Com o `project_settings.config` no pacote o aviso `The 3mf file has invalid config` não
+aparece mais — e, mesmo antes, ele era cosmético para a geometria: o `model_settings.config`
+era lido assim mesmo e a reexportação devolvia as peças com `extruder` de 1 a N. Verificado,
+não deduzido.
 
 ### Quantas cores o desenho pode ter
 
@@ -363,23 +364,69 @@ um com seu extrusor declarado em `Metadata/model_settings.config`.
 filamento em todas as camadas da chapa, não só nas do relevo. Chapa fina (`base`) reduz o
 desperdício de purga.
 
+### A cadeia cor → peça → filamento → extrusor
+
+São **dois** arquivos de config, e os dois são necessários:
+
+```
+Metadata/model_settings.config    peça i  → extrusor i+1     (XML)
+Metadata/project_settings.config  filamento i+1 → cor da peça i   (JSON)
+```
+
+Só com o primeiro a peça vai para o extrusor certo, mas a cor exibida é a do **slot** que o
+usuário tiver ali. Foi exatamente esse o bug das "cores trocadas": num projeto com 8
+filamentos carregados (`#161616`, `#65377B`, …), a peça 1 (`#5b2a7a`) ia para o extrusor 1 e
+saía preta. Nada estava adivinhando cor — faltava a tabela.
+
+### O gatilho: `Application`
+
+Medido por reexportação no CLI do Bambu, com o arquivo variando um item de cada vez:
+
+| `<metadata name="Application">` | `project_settings.config` | o que o Bambu faz |
+|---|---|---|
+| `Mandala Cloisonne` | ausente, parcial ou completo | **ignora** a config; cor = slot do usuário |
+| `BambuStudio-<versão>` | só filamentos | lê o JSON e **descarta** na hora de montar os presets |
+| `BambuStudio-<versão>` | **completo** | adota: `filament_colour` vira a paleta, peças nos extrusores 1..N |
+
+Ou seja: o arquivo precisa se declarar projeto do BambuStudio **e** levar um
+`project_settings.config` completo. Meio termo não existe — e a versão no nome tem que ser
+numérica (`BambuStudio-Mandala Cloisonne` faz o Bambu abortar a leitura).
+
+### O molde `PERFIL_BAMBU`
+
+Por isso o núcleo carrega `var PERFIL_BAMBU` (~21 kB): o despejo do próprio Bambu Studio
+02.08.02.61 para **Bambu Lab H2C bico 0.4 + 0.20mm Standard + Bambu PLA Basic**. Todo array
+"por filamento" tem **uma** entrada; `projetoBambu(pal)` replica cada uma por cor e escreve
+`filament_colour` na ordem das peças. Abrindo em outra impressora o Bambu substitui os
+presets e mantém as cores.
+
+⚠️ Regerar o molde: rode o CLI com máquina **e** processo **e** filamento carregados —
+
+```bash
+BambuStudio --datadir "$HOME/Library/Application Support/BambuStudio" \
+  --load-settings ".../machine/Bambu Lab H2C 0.4 nozzle.json;.../process/0.20mm Standard @BBL H2C.json" \
+  --load-filaments ".../filament/Bambu PLA Basic @BBL H2C.json" \
+  --export-3mf volta.3mf entrada.3mf
+```
+
+Sem `--load-filaments` o despejo sai **sem** 21 chaves de filamento (`filament_settings_id`,
+`filament_retraction_length`, …) e o Bambu rejeita o projeto — silenciosamente, sem exportar
+nada e com `return_code: 0` no `result.json`.
+
 ### Estrutura do pacote
 
 ```
 [Content_Types].xml
 _rels/.rels
-3D/3dmodel.model                 basematerials + um <object> por cor + <object> raiz com <components>
-Metadata/model_settings.config   de-para peça → extrusor
+3D/3dmodel.model                 Application=BambuStudio-<versão> + basematerials
+                                 + um <object> por cor + <object> raiz com <components>
+Metadata/model_settings.config   peça → extrusor
+Metadata/project_settings.config filamento → cor  (molde H2C 0.4 + a paleta)
 ```
 
-Sem **nenhum** arquivo `Metadata/*.config`, o Bambu Studio mostra
-`The 3mf file has invalid config, load geometry data only` (string confirmada no binário) e
-descarta a cor, ficando só com a geometria.
-
-⚠️ Esse aviso também aparece ao abrir o arquivo como **projeto** (File → Open Project), que
-espera `Metadata/project_settings.config` — 74 kB de presets de impressora e filamento.
-**Não gere esse arquivo**: forçaria um perfil de máquina no usuário. O caminho certo é
-File → Import → Import 3MF.
+`basematerials` continua sendo escrito para visualizadores genéricos, mas **não** é o que o
+fatiador lê: 6 objetos independentes com `pid`/`pindex` foram testados e caíram todos no
+extrusor 1.
 
 ### OBJ + MTL
 
@@ -549,15 +596,39 @@ raio máximo ≤ diam/2 · z mínimo ≥ 0 · z máximo ≤ MC.alturaMax(cfg)
 
 A passada da grade indexada confere: todo índice dentro do intervalo, toda cor dentro da
 paleta e os vértices indexados reproduzindo a sopa exatamente. A de contorno **audita cada
-sólido de cor isoladamente** (`openEdges === 0`) e depois exporta os dois formatos: no 3MF,
-assinatura de ZIP, 4 entradas no diretório central e o `model_settings.config` dentro do
-pacote; no OBJ, `usemtl` em toda face, um material por peça, todo índice no intervalo e
-todo material usado declarado no `.mtl`.
+sólido de cor isoladamente** (`openEdges === 0`) e depois exporta os dois formatos.
+
+`confere3MF` abre o pacote de verdade (`lerZip` infla com o `zlib` do Node, sem dependência)
+e confere, para cada caso:
+
+1. zip íntegro, com as 5 entradas esperadas;
+2. `Application` no formato `BambuStudio-<versão>` — sem isso o fatiador ignora as cores;
+3. um `<object>` de malha por cor, cada um com vértices e triângulos;
+4. **contagem de triângulos e de vértices idêntica à da malha** — a exportação não pode
+   mexer na geometria;
+5. uma `<part>` por peça, com `extruder` explícito e na ordem da paleta;
+6. `filament_colour[i]` **exatamente igual** (comparação de hex, sem tolerância) à cor da
+   peça i, e `filament_type`/`filament_settings_id`/`filament_ids` com uma entrada por cor.
+
+No OBJ: `usemtl` em toda face, um material por peça, todo índice no intervalo e todo material
+usado declarado no `.mtl`.
 
 A precisão das 5 casas decimais é conferida direto nos vértices da grade nas 5 qualidades:
 arredondar não pode fundir dois vértices distintos.
 
 Estado atual: **8/8 + 40/40 fuzz + 8/8 na grade indexada + 8/8 no contorno (3MF e OBJ)**.
+
+De ponta a ponta, o teste que fecha a conta é a reexportação pelo CLI do Bambu:
+
+```bash
+python3 exportar.py preset:incenso saida.3mf     # ou baixe pelo app
+BambuStudio --datadir "$HOME/Library/Application Support/BambuStudio" \
+            --export-3mf volta.3mf saida.3mf
+```
+
+No `volta.3mf`: `filament_colour` = a paleta na ordem das peças, uma `<part>` por cor com
+`extruder` de 1 a N, `face_count` igual ao nosso por peça e `edges_fixed="0"
+degenerate_facets="0"`.
 
 Validação externa, igual à do irmão:
 

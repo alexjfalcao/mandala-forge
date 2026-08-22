@@ -29,6 +29,7 @@ Dependências: numpy, shapely, contourpy, trimesh.
 import argparse
 import json
 import os
+import re
 import struct
 import subprocess
 import sys
@@ -193,14 +194,41 @@ RELS = (
 )
 
 
+def perfil_bambu(cores):
+    """project_settings.config do Bambu com um filamento por cor.
+
+    O molde mora no HTML (`var PERFIL_BAMBU`), para os dois exportadores
+    dizerem a mesma coisa. Ele é o despejo do próprio Bambu Studio; aqui só se
+    replica cada array "por filamento" e se escreve filament_colour na ordem
+    das peças. Ver a explicação no bloco `mandala-core` do HTML."""
+    html = open(os.path.join(AQUI, "mandala-cloisonne.html"), encoding="utf8").read()
+    m = re.search(r"var PERFIL_BAMBU = (\{.*?\});\n", html, re.S)
+    v = re.search(r"var BBS_VERSAO = '([^']+)';", html)
+    if not m or not v:
+        raise SystemExit("PERFIL_BAMBU/BBS_VERSAO não encontrados no HTML")
+    cfg = json.loads(m.group(1))
+    for k, val in list(cfg.items()):
+        if k.startswith("filament") and isinstance(val, list) and len(val) == 1:
+            cfg[k] = val * len(cores)
+    cfg["filament_colour"] = ["#" + c.replace("#", "").upper()[:6] for c in cores]
+    return v.group(1), json.dumps(cfg, indent=4)
+
+
 def escrever_3mf(pecas, caminho, nome="mandala"):
     """pecas: lista de (cor_hex, trimesh). Cada uma vira um <object> e um
-    extrusor. O model_settings.config é o que faz o Bambu Studio atribuir
-    filamento por peça em vez de agrupar cores por conta própria."""
+    extrusor. São dois arquivos de config, e os dois são necessários:
+    model_settings.config manda a peça i para o extrusor i+1, e
+    project_settings.config diz que o filamento i+1 tem a cor da peça i. Sem o
+    segundo, a peça vai para o extrusor certo mas com a cor que o usuário tiver
+    naquele slot."""
+    versao, projeto = perfil_bambu([c for c, _ in pecas])
     partes = ['<?xml version="1.0" encoding="UTF-8"?>\n'
               '<model unit="millimeter" xml:lang="en-US" '
               'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n'
-              '<metadata name="Application">Mandala Cloisonne</metadata>\n'
+              # "BambuStudio-<versão>" é o gatilho para o fatiador ler o
+              # project_settings.config; com outro nome ele o descarta
+              f'<metadata name="Application">BambuStudio-{versao}</metadata>\n'
+              '<metadata name="Designer">Mandala Cloisonne</metadata>\n'
               f'<metadata name="Title">{nome}</metadata>\n'
               "<resources>\n<basematerials id=\"1\">\n"]
     for cor, _ in pecas:
@@ -243,6 +271,7 @@ def escrever_3mf(pecas, caminho, nome="mandala"):
         z.writestr("_rels/.rels", RELS)
         z.writestr("3D/3dmodel.model", "".join(partes))
         z.writestr("Metadata/model_settings.config", "".join(cfgxml))
+        z.writestr("Metadata/project_settings.config", projeto)
 
 
 # --------------------------------------------------------------------------

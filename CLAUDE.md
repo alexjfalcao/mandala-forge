@@ -188,11 +188,18 @@ Consequências práticas ao mexer:
   4 slots). O sintoma é o *Filament Mapping* listar cores que não estão na paleta: são
   centroides. Para imprimir colorido sem esse passo manual, o caminho determinístico é o
   3MF por contorno.
-- O Bambu avisa `The 3mf file has invalid config` em **qualquer** 3MF sem
-  `Metadata/project_settings.config` — inclui os de Fusion e Blender. Não gere esse arquivo
-  (são 74 kB de presets de máquina). O aviso é **cosmético**: o `model_settings.config` é
-  lido assim mesmo e as peças chegam com seus extrusores (verificado por reexportação no
-  CLI do Bambu).
+- **A cor precisa dos DOIS arquivos de config.** `model_settings.config` manda a peça i para
+  o extrusor i+1; `project_settings.config` diz que o filamento i+1 tem a cor da peça i. Só
+  com o primeiro, a peça vai para o extrusor certo com a cor do slot que o usuário tiver ali
+  — era essa a causa das "cores trocadas".
+- **Dois gatilhos, medidos no CLI do Bambu**: (1) o `<metadata name="Application">` tem que
+  ser `BambuStudio-<versão numérica>`, senão o fatiador lê e descarta o project_settings;
+  (2) esse project_settings tem que ser **completo** — uma config só com `filament_colour` é
+  aceita pelo parser e ignorada ao montar os presets (testado no app: os slots não mudaram).
+  Daí `var PERFIL_BAMBU` no núcleo: ~21 kB de despejo do Bambu para H2C bico 0.4, com todo
+  array por filamento em UMA entrada, replicada por cor em `projetoBambu()`. `exportar.py`
+  puxa o mesmo molde do HTML por regex. Detalhes e a receita de regerar o molde estão na
+  seção 7 do `MANDALA-CLOISONNE.md`.
 - Coordenadas exportadas usam **5 casas decimais**: com 3, vértices vizinhos perto do centro
   colidiam na qualidade máxima e viravam triângulo degenerado.
 - No XML do 3MF, a cor de cada peça vem do `pindex` do `<object>` (índice **0-based** na
