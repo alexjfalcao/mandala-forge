@@ -152,6 +152,13 @@ Consequências práticas ao mexer:
 - A **ordem do array `camadas` é a ordem de pintura** — a última cobre as anteriores. O
   painel tem ▲▼ por isso.
 - `dist`/`amostra` usam raio normalizado; `altura`/`solid` usam **milímetros**.
+- **Fase mora em `fasePasso`**, fração do passo da simetria (1 passo = `360/n`), não em
+  graus: meio passo segue meio passo quando `sym` muda. `prepare` cai no `fase` em graus só
+  quando `fasePasso` não é finito (config antiga); a UI converte na carga (`migraFase`) e
+  mantém `fase` como espelho.
+- No `anel` a fase e a largura não mexem no contorno (é uma volta inteira) mas **mexem no
+  preenchimento** — `nervuras`, `gotaint` e `pontoint` são n-fold e giram com a fase. O
+  painel mostra esses dois controles quando o interior é um desses três (`salvoSe`).
 - No motivo `arco`, `prepare` desconta a calota (`spanA`) para que `larg = 1` signifique
   "encosta no vizinho". Mexer nisso funde os arcos num anel contínuo.
 - Uma banda mais fina que `2 × fio` some — vira só filete, sem cor.

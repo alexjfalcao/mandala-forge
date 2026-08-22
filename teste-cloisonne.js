@@ -357,6 +357,39 @@ async function checaContorno() {
   return ruins;
 }
 
+// fase em PASSOS da simetria: meio passo tem que continuar meio passo quando a
+// simetria muda. É o que faz trocar 10 por 12 não desalinhar as camadas entre si.
+{
+  let ruins = 0;
+  const ang = (sym, mult, fasePasso) => {
+    const c = MC.defaults();
+    c.sym = sym; c.rot = 0;
+    c.camadas = [C({ motivo: 'gota', mult, fasePasso, r0: 0.3, r1: 0.6 })];
+    return MC.prepare(c).cam[0].ph * 180 / Math.PI;      // deslocamento angular, em graus
+  };
+  for (const [sym, mult] of [[10, 1], [12, 1], [12, 2], [9, 0.5]]) {
+    const n = Math.max(1, Math.round(sym * mult)), meio = 180 / n;
+    const got = ang(sym, mult, 0.5);
+    const ok = Math.abs(got - meio) < 1e-9;
+    if (!ok) ruins++;
+    console.log('  ' + (ok ? 'ok  ' : 'FALHA ') + 'sym ' + sym + ' × mult ' + mult +
+      ' → n=' + n + ', meio passo = ' + meio.toFixed(2) + '°, fase deu ' + got.toFixed(2) + '°');
+  }
+  // config antiga, sem fasePasso: continua valendo `fase` em graus
+  {
+    const c = MC.defaults();
+    c.sym = 12; c.rot = 0;
+    c.camadas = [C({ motivo: 'gota', mult: 1, fase: 18 })];
+    delete c.camadas[0].fasePasso;
+    const got = MC.prepare(c).cam[0].ph * 180 / Math.PI;
+    const ok = Math.abs(got - 18) < 1e-9;
+    if (!ok) ruins++;
+    console.log('  ' + (ok ? 'ok  ' : 'FALHA ') + 'sem fasePasso: fase 18° → ' + got.toFixed(2) + '° (compatibilidade)');
+  }
+  console.log('fase em passos: ' + (ruins ? ruins + ' CASO(S) COM FALHA' : 'ok'));
+  fail += ruins;
+}
+
 // a qualidade "fino" troca resolução radial por angular: precisa continuar
 // estanque, é ela que salva o filete do serrilhado
 {

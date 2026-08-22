@@ -195,8 +195,8 @@
       </div>
       <div class="foot">
       <select id="fmt" class="sel">
-        <option value="contorno" selected>3MF · contorno (bordas lisas)</option>
-        <option value="obj">OBJ + MTL · com cor</option>
+        <option value="contorno" selected>Formato 3MF · colorido</option>
+        <option value="obj">OBJ + MTL · colorido</option>
       </select>
       <select id="qual" class="sel">
         <option value="teste">qualidade: teste</option>
@@ -246,7 +246,8 @@ var MC = (function () {
       larg: 0.9,               // largura relativa ao setor disponível
       base: 0.8,               // expoente da extremidade interna (baixo = redonda)
       ponta: 1.0,              // expoente da extremidade externa (alto = afilada)
-      fase: 0,                 // graus
+      fase: 0,                 // graus — legado, só vale se fasePasso for nulo
+      fasePasso: null,         // fração do passo (1 passo = 360/n): 0,5 = meio passo
       nivel: 1,                // patamar (altura = nivel * degrau)
       borda: true,             // desenha o filete de contorno externo?
       preench: 'nenhum',
@@ -323,11 +324,16 @@ var MC = (function () {
       var r0 = Math.min(c.r0, c.r1), r1 = Math.max(c.r0, c.r1);
       if (r1 - r0 < 1e-3) continue;
       var n = Math.max(1, Math.round(cfg.sym * c.mult));
+      // A fase mora em PASSOS da simetria, não em graus: 1 passo = 360/n, então
+      // meio passo continua sendo meio passo quando a simetria muda. `fase` em
+      // graus fica como fallback para configs antigas.
+      var faseDeg = (c.fasePasso === null || c.fasePasso === undefined || !isFinite(c.fasePasso))
+        ? c.fase : c.fasePasso * 360 / n;
       var mid = (r0 + r1) / 2, half = (r1 - r0) / 2;
       var setor = PI * mid / n;                                        // meia-largura do setor em mid
       var g = {
         idx: i, motivo: c.motivo, n: n,
-        ph: (c.fase + cfg.rot) * PI / 180,
+        ph: (faseDeg + cfg.rot) * PI / 180,
         r0: r0, r1: r1, mid: mid, half: half, len: r1 - r0,
         hw: Math.max(0.004, c.larg * setor),
         base: clamp(c.base, 0.15, 4), ponta: clamp(c.ponta, 0.15, 4),
@@ -1578,16 +1584,34 @@ var MC = (function () {
   function deg(v) { return Math.round(v) + '°'; }
   function mm(v) { return v.toFixed(1) + ' mm'; }
   function num(v) { return (+v).toFixed(2); }
+  /* Fase em passos da simetria: 1 passo = 360/n, o espaçamento entre dois
+     elementos da mesma camada. Meio passo continua meio passo quando a simetria
+     muda — por isso o controle é em passo e não em graus. */
+  var FRACOES = [[0, '0'], [1 / 6, '⅙'], [1 / 4, '¼'], [1 / 3, '⅓'], [1 / 2, '½'],
+                 [2 / 3, '⅔'], [3 / 4, '¾'], [5 / 6, '⅚'], [1, '1']];
+  function passo(v, c) {
+    var nome = (+v).toFixed(2), i;
+    for (i = 0; i < FRACOES.length; i++)
+      if (Math.abs(v - FRACOES[i][0]) < 0.011) { nome = FRACOES[i][1]; break; }
+    var n = Math.max(1, Math.round(cfg.sym * (c ? c.mult : 1))), g = v * 360 / n;
+    return nome + ' · ' + (Math.abs(g - Math.round(g)) < 0.05 ? Math.round(g) : g.toFixed(1)) + '°';
+  }
 
   var CAM_FIELDS = [
     { k: 'mult', t: 'sel', label: 'Repetições', num: true,
       opts: [[0.25, '¼ da simetria'], [0.5, '½ da simetria'], [1, '× 1'], [2, '× 2'], [3, '× 3'], [4, '× 4']] },
     { k: 'r0', t: 'rng', label: 'Raio interno', min: 0, max: 1, step: 0.002, fmt: pct },
     { k: 'r1', t: 'rng', label: 'Raio externo', min: 0, max: 1, step: 0.002, fmt: pct },
-    { k: 'larg', t: 'rng', label: 'Largura', min: 0.05, max: 2, step: 0.01, fmt: pct, nao: ['anel'] },
+    // no anel a largura/fase não mexem no contorno (ele é uma volta inteira),
+    // mas MEXEM no preenchimento: nervuras, gota e ponto internos são n-fold e
+    // giram com a fase. Sem esses controles o interior do anel fica travado e
+    // não dá para alinhá-lo com as camadas vizinhas ao mudar a simetria.
+    { k: 'larg', t: 'rng', label: 'Largura', min: 0.05, max: 2, step: 0.01, fmt: pct,
+      nao: ['anel'], salvoSe: ['nervuras', 'gotaint', 'pontoint'] },
     { k: 'base', t: 'rng', label: 'Base', min: 0.2, max: 3, step: 0.05, fmt: num, para: ['folha', 'gota', 'cunha'] },
     { k: 'ponta', t: 'rng', label: 'Ponta', min: 0.2, max: 3, step: 0.05, fmt: num, para: ['folha', 'gota'] },
-    { k: 'fase', t: 'rng', label: 'Fase', min: 0, max: 360, step: 0.5, fmt: deg, nao: ['anel'] },
+    { k: 'fasePasso', t: 'rng', label: 'Fase (passo)', min: 0, max: 1, step: 1 / 24, fmt: passo,
+      nao: ['anel'], salvoSe: ['nervuras', 'gotaint', 'pontoint'] },
     { k: 'nivel', t: 'rng', label: 'Nível', min: 0, max: 6, step: 1, fmt: function (v) { return v + '×'; }, soltoSe: 'nivelUnico' },
     { k: 'preench', t: 'sel', label: 'Interior', opts: null },
     { k: 'passo', t: 'rng', label: 'Passo', min: 0.6, max: 8, step: 0.1, fmt: mm, se: ['contornos'] },
@@ -1602,9 +1626,35 @@ var MC = (function () {
   function visivel(F, c) {
     if (F.soltoSe && cfg[F.soltoSe]) return false;
     if (F.para && F.para.indexOf(c.motivo) < 0) return false;
-    if (F.nao && F.nao.indexOf(c.motivo) >= 0) return false;
+    if (F.nao && F.nao.indexOf(c.motivo) >= 0 &&
+        !(F.salvoSe && F.salvoSe.indexOf(c.preench) >= 0)) return false;
     if (F.se && F.se.indexOf(c.preench) < 0) return false;
     return true;
+  }
+
+  /* Config antiga (ou preset) traz `fase` em graus: converte para passos uma vez,
+     na carga, usando a simetria daquela config. Depois disso, mudar a simetria
+     não desalinha mais nada — o elemento fica no mesmo ponto do seu passo. */
+  function migraFase(c0) {
+    for (var i = 0; i < c0.camadas.length; i++) {
+      var c = c0.camadas[i];
+      if (c.fasePasso !== null && c.fasePasso !== undefined && isFinite(c.fasePasso)) continue;
+      var n = Math.max(1, Math.round(c0.sym * c.mult)), passoDeg = 360 / n;
+      var g = ((c.fase || 0) % passoDeg + passoDeg) % passoDeg;
+      c.fasePasso = g / passoDeg;
+      c.fase = g;
+    }
+    return c0;
+  }
+
+  /* `fase` (graus) é só espelho de `fasePasso` para quem abrir o .json numa
+     versão antiga do app; quem manda na geometria é o passo. */
+  function espelhaFase() {
+    for (var i = 0; i < cfg.camadas.length; i++) {
+      var c = cfg.camadas[i], n = Math.max(1, Math.round(cfg.sym * c.mult));
+      if (c.fasePasso !== null && c.fasePasso !== undefined && isFinite(c.fasePasso))
+        c.fase = c.fasePasso * 360 / n;
+    }
   }
 
   function camHTML(c, i) {
@@ -1632,7 +1682,7 @@ var MC = (function () {
       h += '<div class="row"><label>' + F.label + '</label>';
       if (F.t === 'rng') {
         h += '<input type="range" data-c="' + F.k + '" data-i="' + i + '" min="' + F.min + '" max="' + F.max + '" step="' + F.step + '" value="' + c[F.k] + '">' +
-          '<span class="num">' + F.fmt(c[F.k]) + '</span>';
+          '<span class="num">' + F.fmt(c[F.k], c) + '</span>';
       } else if (F.k === 'preench') {
         h += '<select data-c="preench" data-i="' + i + '">';
         for (var p = 0; p < MC.PREENCH.length; p++)
@@ -1696,20 +1746,30 @@ var MC = (function () {
     if (el.dataset.g) {
       k = el.dataset.g;
       cfg[k] = el.type === 'checkbox' ? el.checked : (el.type === 'color' ? el.value : parseFloat(el.value));
+      if (k === 'sym') espelhaFase();
       if (k === 'sym' || k === 'nivelUnico') drawPanel(); else syncGlobals();
       schedule();
     } else if (el.dataset.c) {
       var i = +el.dataset.i, ck = el.dataset.c, c = cfg.camadas[i];
       if (el.type === 'checkbox') { c[ck] = el.checked; drawPanel(); }
       else if (el.type === 'color') { c[ck] = el.value; drawPanel(); }
-      else if (el.tagName === 'SELECT') { c[ck] = el.dataset.num ? parseFloat(el.value) : el.value; drawPanel(); }
+      else if (el.tagName === 'SELECT') {
+        c[ck] = el.dataset.num ? parseFloat(el.value) : el.value;
+        if (ck === 'mult') espelhaFase();
+        drawPanel();
+      }
       else {
         c[ck] = parseFloat(el.value);
         if (ck === 'r0' && c.r0 > c.r1 - 0.01) c.r1 = Math.min(1, c.r0 + 0.01);
         if (ck === 'r1' && c.r1 < c.r0 + 0.01) c.r0 = Math.max(0, c.r1 - 0.01);
         if (ck === 'nivel') drawPanel();
         var n = el.parentNode.querySelector('.num');
-        for (var f = 0; f < CAM_FIELDS.length; f++) if (CAM_FIELDS[f].k === ck && n) n.textContent = CAM_FIELDS[f].fmt(c[ck]);
+        for (var f = 0; f < CAM_FIELDS.length; f++) if (CAM_FIELDS[f].k === ck && n) n.textContent = CAM_FIELDS[f].fmt(c[ck], c);
+        // mantém `fase` em graus coerente, para quem abrir o .json numa versão antiga
+        if (ck === 'fasePasso' || ck === 'mult') {
+          var nn = Math.max(1, Math.round(cfg.sym * c.mult));
+          c.fase = (c.fasePasso || 0) * 360 / nn;
+        }
       }
       schedule();
     }
@@ -1730,13 +1790,14 @@ var MC = (function () {
   });
   document.getElementById('addcam').addEventListener('click', function () {
     var last = cfg.camadas[cfg.camadas.length - 1];
-    cfg.camadas.push(C({ r0: last ? Math.min(0.9, last.r1) : 0.3, r1: 0.98, nivel: last ? last.nivel : 1 }));
+    cfg.camadas.push(C({ r0: last ? Math.min(0.9, last.r1) : 0.3, r1: 0.98,
+      nivel: last ? last.nivel : 1, fasePasso: 0 }));
     open = {}; open[cfg.camadas.length - 1] = true; drawPanel(); schedule();
   });
   document.querySelectorAll('.preset').forEach(function (b) {
     b.addEventListener('click', function () {
       var diam = cfg.diam;
-      cfg = Object.assign(MC.defaults(), PRESETS[b.dataset.preset]());
+      cfg = migraFase(Object.assign(MC.defaults(), PRESETS[b.dataset.preset]()));
       cfg.diam = diam;
       open = {}; drawPanel(); schedule();
     });
@@ -2145,6 +2206,7 @@ var MC = (function () {
         if (!o.camadas || !o.camadas.length) throw new Error('sem camadas');
         cfg = Object.assign(MC.defaults(), o);
         cfg.camadas = o.camadas.map(function (x) { return C(x); });
+        migraFase(cfg);
         open = {}; drawPanel(); schedule();
       } catch (err) { alert('Arquivo inválido: ' + err.message); }
     };
@@ -2154,7 +2216,7 @@ var MC = (function () {
   document.getElementById('fmt').addEventListener('change', updateStats);
   window.addEventListener('resize', function () { schedule(); });
 
-  cfg = Object.assign(MC.defaults(), PRESETS.incenso());
+  cfg = migraFase(Object.assign(MC.defaults(), PRESETS.incenso()));
   drawPanel();
   schedule();
 })();

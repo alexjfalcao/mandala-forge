@@ -97,6 +97,18 @@ milímetros**. Confundir os dois é o erro mais fácil de cometer aqui.
 }
 ```
 
+### Fase: passo, não grau
+
+`fasePasso` é a posição do elemento **dentro do seu passo**, com 1 passo = `360/n`. Meio
+passo continua meio passo quando a simetria muda: trocar `sym` de 10 para 12 leva a fase de
+18° para 15° sozinha, e as camadas não se desalinham entre si. Fase em graus absolutos era
+o oposto — cada troca de simetria exigia retocar camada por camada, e camadas com `mult`
+diferente nunca casavam com o mesmo valor.
+
+`prepare` usa `fasePasso` quando ele é um número finito e cai em `fase` (graus) quando não
+é, então `.json` antigo continua abrindo igual. A UI converte na carga (`migraFase`) e
+mantém `fase` como espelho em graus, para quem abrir o arquivo numa versão anterior do app.
+
 ### Camada
 
 ```js
@@ -108,7 +120,8 @@ milímetros**. Confundir os dois é o erro mais fácil de cometer aqui.
   larg: 0.9,          // largura relativa ao setor (1 = encosta no vizinho)
   base: 0.8,          // expoente da extremidade interna
   ponta: 1.0,         // expoente da extremidade externa
-  fase: 0,            // graus
+  fase: 0,            // graus — LEGADO, só vale se fasePasso for nulo
+  fasePasso: 0,       // fração do passo da simetria (1 passo = 360/n)
   nivel: 1,           // patamar: altura = nivel * degrau
   borda: true,        // desenha o filete de contorno externo?
   preench: 'nenhum',  // nenhum | contornos | nervuras | gotaint | pontoint
