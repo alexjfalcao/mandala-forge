@@ -85,7 +85,7 @@ def ler_grade(caminho):
     n_reg, = struct.unpack_from("<I", dados, 16)
     regioes = []
     for i in range(n_reg):
-        # z0 é a cota do fundo: 0 no normal, topo da chapa quando `chapaUnica`
+        # z0 é a cota do fundo: 0 no normal, topo da base quando `baseSolida`
         z, r, g, b, _, z0 = struct.unpack_from("<fBBBBf", dados, 20 + i * 12)
         regioes.append({"z": z, "z0": z0, "cor": "#%02x%02x%02x" % (r, g, b)})
     cob = np.frombuffer(dados, dtype=np.uint8, offset=20 + n_reg * 12)
@@ -128,8 +128,8 @@ def poligonos_da_regiao(cobertura, eixo, tolerancia, area_minima, disco=None):
 
 
 def extrudar(poligonos, altura, z0=0.0):
-    """Extruda de `z0` até `altura`. Com a chapa numa cor só, as poças começam
-    no topo da chapa em vez do plano da mesa."""
+    """Extruda de `z0` até `altura`. Com a base sólida, as poças começam no topo
+    da base em vez do plano da mesa."""
     malhas = []
     for p in poligonos:
         try:

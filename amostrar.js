@@ -17,7 +17,7 @@
 //   float32 raio         mm — raio real da peça (o disco é recortado nele)
 //   uint32  nRegioes
 //   por região: float32 altura, uint8 r, g, b, uint8 pad, float32 z0
-//               (z0 é a cota do FUNDO: 0 no normal, topo da chapa com chapaUnica)
+//               (z0 é a cota do FUNDO: 0 no normal, topo da base com baseSolida)
 //   uint16  N*N*nRegioes ... NÃO: cobertura por região é grande demais.
 //   Em vez disso: uint8 N*N*nRegioes com a cobertura 0..255 de cada região.
 const fs = require('fs');
@@ -101,9 +101,9 @@ function main() {
     if (s.id < 0) return zReal;
     return base + s.nivel * cfg.degrau + (s.fio >= 0.5 ? cfg.fioH : 0);
   }
-  // Com `chapaUnica` a chapa sai numa cor só, de 0 até `base`, e o desenho é
+  // Com `baseSolida` a base sai numa cor só, de 0 até `base`, e o desenho é
   // extrudado do topo dela para cima — o mesmo que `cobertura()` faz no HTML.
-  const base = MC.baseMM(cfg), chapa = !!cfg.chapaUnica;
+  const base = cfg.base, solida = !!cfg.baseSolida;
 
   const total = N * N;
   const acumulado = [];                                              // por região: Uint16Array
@@ -127,8 +127,8 @@ function main() {
           const zReal = MC.altura(cfg, P, rr, th, o);
           const z = alturaDiscreta(o, zReal), cor = corDe(o);
           const cel = iy * N + ix;
-          const ids = chapa ? [idRegiao(cfg.corBase, base, 0), idRegiao(cor, z, base)]
-                            : [idRegiao(cor, z, 0)];
+          const ids = solida ? [idRegiao(cfg.corBase, base, 0), idRegiao(cor, z, base)]
+                             : [idRegiao(cor, z, 0)];
           for (const id of ids) {
             if (id < 0) continue;
             while (acumulado.length <= id) acumulado.push(new Uint16Array(total));
@@ -174,7 +174,7 @@ function main() {
     // devolve o que o Python precisa para montar o cone — assim a config é
     // resolvida num lugar só, seja ela um .json ou um preset do HTML
     cfg: {
-      diam: cfg.diam, base: base, corBase: cfg.corBase,
+      diam: cfg.diam, base: cfg.base, corBase: cfg.corBase,
       cone: cfg.cone, coneH: cfg.coneH, coneC: cfg.coneC,
       furo: cfg.furo, furoP: cfg.furoP
     },

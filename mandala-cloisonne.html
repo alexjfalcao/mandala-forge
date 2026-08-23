@@ -139,14 +139,13 @@
       <fieldset>
         <legend>Placa</legend>
         <div class="row"><label>Diâmetro</label><input type="range" data-g="diam" min="50" max="300" step="1"><span class="num" data-v="diam"></span></div>
-        <div class="row" data-nao="chapaUnica"><label>Base</label><input type="range" data-g="base" min="1" max="10" step="0.1"><span class="num" data-v="base"></span></div>
-        <div class="row"><label>Base sólida</label><input type="checkbox" data-g="chapaUnica"><span class="num"></span></div>
-        <div class="row" data-only="chapaUnica"><label>Camadas</label><input type="range" data-g="baseCam" min="1" max="20" step="1"><span class="num" data-v="baseCam"></span></div>
+        <div class="row"><label>Base</label><input type="range" data-g="base" min="0.4" max="10" step="0.2"><span class="num" data-v="base"></span></div>
+        <div class="row"><label>Base sólida</label><input type="checkbox" data-g="baseSolida"><span class="num"></span></div>
         <div class="row"><label>Simetria</label><input type="range" data-g="sym" min="3" max="36" step="1"><span class="num" data-v="sym"></span></div>
         <div class="row"><label>Rotação</label><input type="range" data-g="rot" min="0" max="360" step="1"><span class="num" data-v="rot"></span></div>
         <div class="row"><label>Aro</label><input type="range" data-g="aro" min="0" max="20" step="0.5"><span class="num" data-v="aro"></span></div>
         <div class="row"><label>Altura do aro</label><input type="range" data-g="aroH" min="0" max="6" step="0.1"><span class="num" data-v="aroH"></span></div>
-        <p class="hint" data-only="chapaUnica"><b>Base sólida</b> imprime a base inteira em <b>cor da placa</b> — duas camadas por padrão, 0,4 mm — e só o desenho por cima é que sai colorido. Sem ela, cada poça é extrudada desde o zero e a cor atravessa a peça toda, gastando purga do AMS à toa. A espessura passa a ser medida em camadas de 0,2 mm — suba para 10 ou 15 se a peça for grande, porque com duas camadas um disco de 120 mm fica com 0,4 mm de chapa e empena.</p>
+        <p class="hint" data-only="baseSolida"><b>Base sólida</b> imprime a base inteira em <b>cor da placa</b>, com a espessura do campo <b>Base</b>, e só o desenho por cima é que sai colorido. Sem ela, cada poça é extrudada desde o zero e a cor atravessa a peça toda, gastando purga do AMS à toa. O slider da base vai de 0,4 mm (duas camadas de 0,2) a 10 mm; abaixo de 1 mm um disco de 120 mm empena.</p>
       </fieldset>
 
       <fieldset>
@@ -313,8 +312,7 @@ var MC = (function () {
       aro: 4, aroH: 1.2,
       fio: 0.9, fioH: 1.0, degrau: 0.7,
       cone: 22, coneH: 6, coneC: 0.75, furo: 3, furoP: 9,
-      modo: 'placa', conn: 0, connW: 1.6, suave: true, nivelUnico: true,
-      chapaUnica: false, baseCam: 2,
+      modo: 'placa', conn: 0, connW: 1.6, suave: true, nivelUnico: true, baseSolida: false,
       corBase: '#5b2a7a', corFio: '#f6f2e8', luz: 315, verniz: 0.45,
       camadas: [
         camada({ motivo: 'anel', mult: 1, r0: 0.16, r1: 0.82, nivel: 0, preench: 'nenhum', cor: '#2b1330' }),
@@ -520,19 +518,9 @@ var MC = (function () {
     return out;
   }
 
-  /* ---- espessura da chapa, em mm ----
-     Com `chapaUnica` a chapa é medida em CAMADAS de impressão, não em mm: ela
-     existe para ser a menina-dos-olhos do AMS — a peça inteira apoiada numa
-     casca fina de uma cor só, com as poças coloridas por cima. Duas camadas
-     (0,4 mm) é o padrão. Fora desse modo vale o `base` em mm do painel. */
-  var ALT_CAMADA = 0.2;
-  function baseMM(cfg) {
-    return cfg.chapaUnica ? Math.max(1, Math.round(cfg.baseCam || 2)) * ALT_CAMADA : cfg.base;
-  }
-
   /* ---- altura em mm no ponto (rmm em MILÍMETROS) ---- */
   function altura(cfg, P, rmm, th, out) {
-    var R = cfg.diam / 2, base = baseMM(cfg);
+    var R = cfg.diam / 2, base = cfg.base;
     out = out || {};
     if (cfg.cone > 0 && rmm < cfg.cone / 2) {
       out.id = -2; out.fio = 0; out.nivel = 0;
@@ -572,7 +560,7 @@ var MC = (function () {
 
   /* ---- altura máxima possível (para normalizar o preview) ---- */
   function alturaMax(cfg) {
-    var base = baseMM(cfg), m = base + cfg.aroH, i;
+    var base = cfg.base, m = base + cfg.aroH, i;
     for (i = 0; i < cfg.camadas.length; i++) {
       if (!cfg.camadas[i].on) continue;
       var niv = cfg.nivelUnico ? 1 : cfg.camadas[i].nivel;
@@ -1271,10 +1259,10 @@ var MC = (function () {
     var o = {}, mapa = {}, regs = [], cov = [];
     var total = N * N, inc = 1 / (SUB * SUB);
     var ix, iy, sx, sy;
-    var base = baseMM(cfg), chapa = !!cfg.chapaUnica;
+    var base = cfg.base, solida = !!cfg.baseSolida;
 
-    /* Cada amostra vai para a região (cor, do z0 até o z). Sem `chapaUnica` há
-       uma região por amostra, extrudada do zero; com ele há duas — a chapa, de
+    /* Cada amostra vai para a região (cor, do z0 até o z). Sem `baseSolida` há
+       uma região por amostra, extrudada do zero; com ele há duas — a base, de
        0 até `base`, e o que estiver por cima, de `base` até o z do ponto. */
     function marca(cor, z, z0, cel) {
       if (z <= z0 + 1e-6) return;                                    // espessura nula
@@ -1306,7 +1294,7 @@ var MC = (function () {
               cor = o.fio >= 0.5 ? cfg.corFio : ((o.banda % 2 === 1 && o.cor2) ? o.cor2 : o.cor);
             }
             var cel = iy * N + ix;
-            if (chapa) { marca(cfg.corBase, base, 0, cel); marca(cor, zq, base, cel); }
+            if (solida) { marca(cfg.corBase, base, 0, cel); marca(cor, zq, base, cel); }
             else marca(cor, zq, 0, cel);
           }
         }
@@ -1502,7 +1490,7 @@ var MC = (function () {
     var rc = cfg.cone / 2;
     if (!(rc > 0)) return null;
     seg = seg || 192;
-    var base = baseMM(cfg), alt = cfg.coneH, curva = Math.max(0.1, cfg.coneC);
+    var base = cfg.base, alt = cfg.coneH, curva = Math.max(0.1, cfg.coneC);
     var perfil = [], passos = 40, i, k;
     var rf = cfg.furo > 0 ? cfg.furo / 2 : 0;
     if (rf > 0) {
@@ -1622,7 +1610,7 @@ var MC = (function () {
     buildIndexed: buildIndexed,
     cobertura: cobertura, malhaRegiao: malhaRegiao, coneMalha: coneMalha, buildContorno: buildContorno,
     dist: dist, perfil: perfil, amostra: amostra, altura: altura, alturaMax: alturaMax,
-    solid: solid, alturaNo: alturaNo, baseMM: baseMM, ALT_CAMADA: ALT_CAMADA, resolution: resolution, resolucaoContorno: resolucaoContorno, buildMesh: buildMesh,
+    solid: solid, alturaNo: alturaNo, resolution: resolution, resolucaoContorno: resolucaoContorno, buildMesh: buildMesh,
     to3MF: to3MF, toOBJ: toOBJ, audit: audit, clamp: clamp
   };
 })();
@@ -1672,8 +1660,7 @@ var MC = (function () {
         diam: 120, base: 3, sym: 10, rot: 0,
         aro: 3.5, aroH: 1.0, fio: 0.8, fioH: 0.9, degrau: 0.5,
         cone: 14, coneH: 5, coneC: 0.7, furo: 3, furoP: 8,
-        modo: 'placa', conn: 0, connW: 1.6, suave: true, nivelUnico: true,
-      chapaUnica: false, baseCam: 2,
+        modo: 'placa', conn: 0, connW: 1.6, suave: true, nivelUnico: true, baseSolida: false,
         corBase: '#5b2a7a', corFio: '#f6f2e8', luz: 315, verniz: 0.35,
         camadas: [
           C({ motivo: 'anel', mult: 1, r0: 0.11, r1: 0.90, nivel: 0, borda: false, cor: '#2c1233' }),
@@ -1958,7 +1945,7 @@ var MC = (function () {
 
   var GFMT = {
     diam: function (v) { return v + ' mm'; }, base: mm,
-    baseCam: function (v) { return v + ' cam'; }, sym: function (v) { return v + '×'; },
+    sym: function (v) { return v + '×'; },
     rot: deg, aro: mm, aroH: mm, fio: function (v) { return v.toFixed(2) + ' mm'; }, fioH: mm,
     degrau: function (v) { return v.toFixed(2) + ' mm'; },
     cone: function (v) { return v ? v.toFixed(1) + ' mm' : 'sem'; }, coneH: mm, coneC: num,
@@ -2082,9 +2069,9 @@ var MC = (function () {
     b.addEventListener('click', function () {
       // trocar de desenho não mexe no que é decisão de IMPRESSÃO: tamanho,
       // nome do projeto e o modo de chapa continuam como o usuário deixou
-      var diam = cfg.diam, nome = cfg.nome, chapa = cfg.chapaUnica, bc = cfg.baseCam;
+      var diam = cfg.diam, nome = cfg.nome, solida = cfg.baseSolida;
       cfg = migraFase(Object.assign(MC.defaults(), PRESETS[b.dataset.preset]()));
-      cfg.diam = diam; cfg.nome = nome; cfg.chapaUnica = chapa; cfg.baseCam = bc;
+      cfg.diam = diam; cfg.nome = nome; cfg.baseSolida = solida;
       open = {}; drawPanel(); schedule();
     });
   });

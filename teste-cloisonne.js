@@ -333,13 +333,13 @@ function confere3MF(buf, g) {
 // Grade pequena de propósito — o que se testa aqui é a topologia, não o
 // acabamento. É onde moram as armadilhas do marching squares: cruzamento em
 // cima do nó, sela desconectada e T-junction contra retângulo fundido.
-async function checaContorno(chapa) {
-  console.log(chapa ? '\nvia por contorno, chapa numa cor só:'
-                    : '\nvia por contorno + 3MF + OBJ:');
+async function checaContorno(solida) {
+  console.log(solida ? '\nvia por contorno, base sólida:'
+                     : '\nvia por contorno + 3MF + OBJ:');
   let ruins = 0;
   for (const [name, cfg0] of cases) {
     const cfg = clone(cfg0);
-    if (chapa) { cfg.chapaUnica = true; cfg.baseCam = 2; }
+    if (solida) cfg.baseSolida = true;
     const g = MC.buildContorno(clone(cfg), 120, 3);
     let tot = 0, abertas = 0, degen = 0;
     for (const p of g.pecas) {
@@ -366,11 +366,11 @@ async function checaContorno(chapa) {
     let ok = abertas === 0 && degen === 0 && g.pecas.length > 0 &&
       maxR * 2 <= cfg.diam + celula && minZ >= -1e-6;
 
-    // Com a chapa numa cor só, nenhuma peça COLORIDA pode encostar no plano:
-    // a cor tem que começar no topo da chapa. É o que corta a purga do AMS —
-    // se uma poça ainda for extrudada desde o zero, o ganho evaporou.
-    if (chapa) {
-      const base = MC.baseMM(cfg);
+    // Com a base sólida, nenhuma peça COLORIDA pode encostar no plano: a cor
+    // tem que começar no topo da base. É o que corta a purga do AMS — se uma
+    // poça ainda for extrudada desde o zero, o ganho evaporou.
+    if (solida) {
+      const base = cfg.base;
       for (const p of g.pecas) {
         if (p.cor === cfg.corBase) continue;
         let z = Infinity;

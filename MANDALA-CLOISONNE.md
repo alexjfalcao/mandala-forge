@@ -57,7 +57,6 @@ MC.dist(g, r, th, o)           // distância assinada ao motivo (fração do rai
 MC.amostra(P, r, th, out)      // quem reivindica o ponto → { id, nivel, fio, banda, cor }
 MC.altura(cfg, P, rmm, th, out)     // altura em MILÍMETROS (rmm em mm)
 MC.alturaMax(cfg)              // teto da peça, em mm
-MC.baseMM(cfg)                 // espessura da chapa em mm (baseCam×0,2 com chapaUnica)
 MC.solid(cfg, P, rmm, th, out) // há material aqui?
 MC.resolution(cfg, q)          // { nr, nt } para 'teste'|'bom'|'alta'|'max'
 MC.buildIndexed(cfg, res, cor) // um sólido só: { vx, nv, idx, tris, mat, paleta, ... }
@@ -81,9 +80,8 @@ milímetros**. Confundir os dois é o erro mais fácil de cometer aqui.
 
 ```js
 {
-  diam: 120, base: 3,     // mm — Ø e espessura da chapa (ignorado com chapaUnica)
-  chapaUnica: false,      // chapa numa cor só, com o desenho extrudado por cima dela
-  baseCam: 2,             // com chapaUnica: espessura da chapa, em camadas de 0,2 mm
+  diam: 120, base: 3,     // mm — Ø e espessura da base
+  baseSolida: false,      // base numa cor só, com o desenho extrudado por cima dela
   sym: 10, rot: 0,        // simetria e rotação global (graus)
 
   aro: 4, aroH: 1.2,      // mm — borda externa lisa e o quanto ela sobe
@@ -196,17 +194,15 @@ para 105 mil triângulos. Desligue para escalonar as camadas pelo campo `nivel`.
 
 Para deixar as poças rentes à chapa em vez de 0,5 mm acima dela, zere o `degrau`.
 
-**`chapaUnica`** muda de onde cada cor SAI, não a altura dela. Desligado (padrão), toda
+**`baseSolida`** muda de onde cada cor SAI, não a altura dela. Desligado (padrão), toda
 região é extrudada do plano da mesa até o seu `z` — a cor da poça atravessa a peça inteira e
-o AMS purga um volume que ninguém vai ver. Ligado, a peça vira duas fatias: a chapa, em
-`corBase`, de 0 até `baseMM(cfg)`, e o desenho, extrudado do topo dela para cima. O filamento
+o AMS purga um volume que ninguém vai ver. Ligado, a peça vira duas fatias: a base, em
+`corBase`, de 0 até `cfg.base`, e o desenho, extrudado do topo dela para cima. O filamento
 colorido cai de 31,9 cm³ para 8,9 cm³ no preset padrão — 72% a menos — e o número não muda
-com a espessura da chapa, porque só a cor da placa engorda.
+com a espessura da base, porque só a cor da placa engorda.
 
-Nesse modo a espessura é medida em **camadas de impressão de 0,2 mm** (`baseCam`, padrão 2),
-não no `base` em mm do painel: `baseMM(cfg)` é quem decide, e todo mundo (`altura`,
-`alturaMax`, `cobertura`, `coneMalha`, `amostrar.js`) passa por ela. Duas camadas num disco
-de 120 mm dão 0,4 mm de chapa, que empena — o painel avisa e o slider vai até 20.
+A espessura continua sendo o **`base` em mm** do painel nos dois modos; o slider vai de
+0,4 mm (duas camadas de 0,2) a 10 mm, em passos de 0,2 para cair sempre em camada inteira.
 
 
 `amostra` percorre as camadas **em ordem do array e a última que reivindica vence** — é
@@ -268,8 +264,8 @@ recorte). Células inteiramente dentro são fundidas em retângulos, senão áre
 explodiriam a contagem.
 
 `cobertura()` decide de quais regiões cada amostra participa, e `malhaRegiao(cov, N, quadro,
-passo, z, z0)` extruda uma delas de `z0` até `z`. Sem `chapaUnica` é uma região por amostra,
-com `z0 = 0`; com ele são duas — a chapa e o que está por cima. Só a cota do fundo muda: a
+passo, z, z0)` extruda uma delas de `z0` até `z`. Sem `baseSolida` é uma região por amostra,
+com `z0 = 0`; com ele são duas — a base e o que está por cima. Só a cota do fundo muda: a
 topologia do prisma é a mesma, e é por isso que empilhar não fura a malha.
 
 ⚠️ **Três armadilhas, todas com teste na suíte:**
@@ -288,9 +284,9 @@ topologia do prisma é a mesma, e é por isso que empilhar não fura a malha.
    triângulos colineares). Sem isso, a aresta longa do retângulo não casa com as arestas
    curtas dos vizinhos e a malha abre.
 
-⚠️ E uma quarta, dentro do meshing e descoberta ligando `chapaUnica`: o **vértice central do
+⚠️ E uma quarta, dentro do meshing e descoberta ligando `baseSolida`: o **vértice central do
 leque do fundo** tinha a cota `0` escrita à mão, enquanto todos os outros vêm de `topo ? z :
-z0`. Com o fundo em z=0 ninguém percebia; com a chapa empilhada, cada retângulo fundido
+z0`. Com o fundo em z=0 ninguém percebia; com a base empilhada, cada retângulo fundido
 puxava um bico até a mesa. Se aparecer outra cota literal em `malhaRegiao`, é bug.
 
 E uma quinta, fora do meshing: a **moldura de amostragem precisa sobrar duas células além
@@ -326,8 +322,8 @@ Grade por qualidade (`QUAL_CONT`), independente da polar:
 
 - **O cone central não é região**: é curvo, então sai como sólido de revolução
   (`trimesh.creation.revolve`), com o furo cego no perfil.
-- **A cor atravessa toda a espessura**, a menos que `chapaUnica` esteja ligado: aí a chapa
-  sai numa cor só, de 0 até `baseMM(cfg)`, e cada região colorida é extrudada do topo dela
+- **A cor atravessa toda a espessura**, a menos que `baseSolida` esteja ligado: aí a base
+  sai numa cor só, de 0 até `cfg.base`, e cada região colorida é extrudada do topo dela
   para cima. O `.bin` carrega esse `z0` por região — foi o que levou o magic de `MCR2` para
   **`MCR3`** (cabeçalho de 12 bytes por região em vez de 8: `float32 z`, `uint8 r,g,b`,
   `uint8 pad`, `float32 z0`). Os dois lados conhecem o formato à mão; mexer num sem o outro

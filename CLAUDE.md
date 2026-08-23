@@ -124,17 +124,16 @@ Consequências práticas ao mexer:
   `pi·D/nt` e abaixo de ~3 células por filete a borda sai em escada. A qualidade `fino`
   (220×2880) troca resolução radial por angular e dá 6,9 células por filete com menos
   triângulos que `max`. Alargar o filete não resolve — acima de ~1,2 mm ele engole as poças.
-- **`cfg.chapaUnica`** (padrão desligado) parte a peça em duas fatias: a chapa, em `corBase`,
-  de 0 até `baseMM(cfg)`, e o desenho, extrudado do topo dela para cima. Sem ele toda região
-  sai do plano da mesa e a cor da poça atravessa a peça inteira — 31,9 cm³ de filamento
-  colorido no preset padrão contra 8,9 cm³ com a chapa ligada. Nesse modo a espessura é
-  medida em **camadas de 0,2 mm** (`cfg.baseCam`, padrão 2), não no `cfg.base` em mm:
-  `baseMM(cfg)` é a fonte única, e `altura`, `alturaMax`, `cobertura`, `coneMalha` e
-  `amostrar.js` passam por ela.
+- **`cfg.baseSolida`** (padrão desligado) parte a peça em duas fatias: a base, em `corBase`,
+  de 0 até `cfg.base`, e o desenho, extrudado do topo dela para cima. Sem ele toda região sai
+  do plano da mesa e a cor da poça atravessa a peça inteira — 31,9 cm³ de filamento colorido
+  no preset padrão contra 8,9 cm³ com a base sólida ligada. A espessura é o `cfg.base` em mm
+  nos dois modos; o slider vai de 0,4 a 10 mm em passos de 0,2, para cair sempre em camada
+  inteira.
 - `malhaRegiao(cov, N, quadro, passo, z, z0)` extruda de `z0` (padrão 0) até `z`. Toda cota
   de fundo vem de `topo ? z : z0` — **cota literal ali é bug**: o vértice central do leque do
-  fundo tinha `0` escrito à mão, e só apareceu ao ligar a chapa, puxando um bico até a mesa
-  em cada retângulo fundido.
+  fundo tinha `0` escrito à mão, e só apareceu ao ligar a base sólida, puxando um bico até a
+  mesa em cada retângulo fundido.
 - O `.bin` da via por contorno é **`MCR3`**: 12 bytes por região (`float32 z`, `uint8 r,g,b`,
   `uint8 pad`, `float32 z0`), não mais 8. `amostrar.js` e `exportar.py` conhecem o formato à
   mão; mexer num sem o outro dá "arquivo de grade inválido ou de versão antiga".
