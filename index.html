@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mandala Forge — mandala em relevo que imprime colorida</title>
+<meta name="description" content="Desenhe uma mandala cloisonné no navegador e baixe um 3MF que o Bambu Studio abre com as cores já nos extrusores certos. Sem instalar, sem baixar nada.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230f1116'/><circle cx='16' cy='16' r='9' fill='none' stroke='%23d2c2a4' stroke-width='2'/><circle cx='16' cy='16' r='3' fill='%23d2c2a4'/></svg>">
+<style>
+  :root{
+    /* Mesmos tokens do app: o cromo recua e as mandalas trazem a cor. */
+    --bg:#0f1116; --sup:#171a22; --sup2:#1e222c; --line:#2a2f3c;
+    --txt:#e6e9f0; --dim:#98a0b3; --acc:#d2c2a4; --acc2:#ada490; --on-acc:#17140c;
+    --ok:#6ec48b;
+    --fs-sm:12.5px; --fs:15px; --fs-lg:20px;
+    --e:cubic-bezier(.16,1,.3,1);
+    --pad:clamp(20px,5vw,64px);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth;accent-color:var(--acc)}
+  ::selection{background:var(--acc);color:var(--on-acc)}
+  :focus-visible{outline:2px solid var(--acc2);outline-offset:3px;border-radius:4px}
+  ::-webkit-scrollbar{width:11px}
+  ::-webkit-scrollbar-track{background:var(--bg)}
+  ::-webkit-scrollbar-thumb{background:#33394a;border-radius:6px}
+  ::-webkit-scrollbar-thumb:hover{background:#414962}
+  body{
+    margin:0;background:var(--bg);color:var(--txt);
+    font:var(--fs)/1.6 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  img{max-width:100%;height:auto;display:block}
+  h1,h2,h3{text-wrap:balance;margin:0}
+  p{text-wrap:pretty}
+  a{color:inherit}
+  .env{max-width:1180px;margin:0 auto;padding-inline:var(--pad)}
+
+  /* ---------- topo ---------- */
+  .topo{
+    position:sticky;top:0;z-index:20;background:rgba(15,17,22,.86);
+    border-bottom:1px solid var(--line);backdrop-filter:blur(10px);
+  }
+  .topo .env{display:flex;align-items:center;gap:14px;height:58px}
+  .marca{font-size:var(--fs);font-weight:600;letter-spacing:.05em;text-transform:uppercase;flex:1;white-space:nowrap}
+  .marca b{color:var(--acc);font-weight:600}
+  .idiomas{display:flex;gap:5px}
+  .idiomas button{
+    width:28px;height:20px;padding:0;background:none;border:1px solid var(--line);
+    border-radius:3px;cursor:pointer;line-height:0;overflow:hidden;opacity:.45;
+    transition:opacity .16s var(--e),border-color .16s var(--e);
+  }
+  .idiomas button svg{width:100%;height:100%;display:block}
+  .idiomas button:hover{opacity:.85}
+  .idiomas button[aria-pressed=true]{opacity:1;border-color:var(--acc)}
+
+  .btn{
+    display:inline-flex;align-items:center;gap:9px;background:var(--acc);color:var(--on-acc);
+    border:1px solid var(--acc);border-radius:7px;padding:11px 20px;font:inherit;font-weight:600;
+    text-decoration:none;cursor:pointer;white-space:nowrap;
+    transition:transform .16s var(--e),box-shadow .16s var(--e),filter .16s var(--e);
+  }
+  .btn:hover{filter:brightness(1.06);transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.45)}
+  .btn.fina{padding:8px 15px;font-size:var(--fs-sm)}
+  .btn.fantasma{background:none;color:var(--txt);border-color:var(--line)}
+  .btn.fantasma:hover{border-color:var(--acc2);filter:none}
+  .btn svg{width:15px;height:15px;flex:0 0 15px}
+
+  /* ---------- herói ---------- */
+  .heroi{padding:clamp(40px,6vw,76px) 0 clamp(28px,4vw,44px)}
+  .heroi .env{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);
+              gap:clamp(24px,5vw,60px);align-items:center}
+  .heroi .dizeres{min-width:0}
+  /* A peça ocupa a metade que sobrava. Não é decoração: é o produto, e ela
+     carrega toda a cor da primeira viewport. */
+  .heroi .peca{
+    position:relative;display:grid;place-items:center;min-width:0;
+    filter:drop-shadow(0 26px 60px rgba(0,0,0,.55));
+  }
+  .heroi .peca img{width:min(100%,540px)}
+  .heroi .peca::before{
+    content:"";position:absolute;inset:6% 6% auto 6%;aspect-ratio:1;border-radius:50%;
+    background:radial-gradient(circle at 50% 42%, rgba(210,194,164,.13), transparent 62%);
+  }
+  .heroi h1{
+    font-size:clamp(2.2rem,5vw,3.9rem);line-height:1.04;letter-spacing:-.035em;
+    font-weight:700;max-width:14ch;
+  }
+  .heroi h1 em{font-style:normal;color:var(--acc);display:block}
+  .heroi .lede{color:var(--dim);font-size:clamp(1rem,1.9vw,1.2rem);max-width:56ch;margin:22px 0 0}
+  .acoes{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:30px}
+  .selo{color:var(--dim);font-size:var(--fs-sm)}
+  .selo b{color:var(--txt);font-weight:600}
+
+  /* ---------- a tira ---------- */
+  .faixa-tira{padding:0 0 clamp(44px,7vw,80px)}
+  .tira{margin-top:0}
+  .tira ol{
+    list-style:none;margin:0;padding:0;display:grid;gap:clamp(8px,1.4vw,16px);
+    grid-template-columns:repeat(5,1fr);align-items:start;
+  }
+  .tira li{position:relative}
+  .tira li::after{
+    content:"";position:absolute;top:calc(50% - 26px);right:calc(clamp(8px,1.4vw,16px) / -2 - 4px);
+    width:8px;height:8px;border-right:1.5px solid var(--line);border-top:1.5px solid var(--line);
+    transform:rotate(45deg);
+  }
+  .tira li:last-child::after{display:none}
+  .quadro{
+    display:block;width:100%;background:none;border:1px solid var(--line);border-radius:12px;
+    padding:0;cursor:pointer;overflow:hidden;color:inherit;text-align:left;font:inherit;
+    transition:border-color .2s var(--e),transform .2s var(--e),background .2s var(--e);
+  }
+  .quadro:hover{border-color:var(--acc2);transform:translateY(-2px)}
+  .quadro[aria-current=true]{border-color:var(--acc);background:var(--sup2)}
+  .quadro .arte{
+    aspect-ratio:1;display:grid;place-items:center;background:var(--sup);
+    border-bottom:1px solid var(--line);overflow:hidden;
+  }
+  .quadro .arte img{width:86%}
+  .quadro .rot{display:flex;align-items:baseline;gap:7px;padding:9px 11px 10px}
+  .quadro .n{
+    font-variant-numeric:tabular-nums;font-size:var(--fs-sm);color:var(--acc);font-weight:600;
+  }
+  .quadro .nm{font-size:var(--fs-sm);color:var(--dim);line-height:1.3}
+  .quadro[aria-current=true] .nm{color:var(--txt)}
+
+  /* ---------- seções do processo ---------- */
+  .passo{
+    padding:clamp(52px,7vw,88px) 0 clamp(52px,7vw,88px);
+    border-top:1px solid var(--line);scroll-margin-top:70px;
+  }
+  .passo:first-of-type{border-top:none}
+  .passo .env{display:grid;gap:clamp(28px,5vw,64px);grid-template-columns:1fr 1fr;align-items:center}
+  .passo.espelha .arte-grande{order:2}
+  .passo h2{
+    font-size:clamp(1.6rem,3.4vw,2.5rem);line-height:1.1;letter-spacing:-.025em;font-weight:700;
+    margin-bottom:16px;
+  }
+  .passo .marca-passo{
+    display:inline-flex;align-items:center;gap:9px;color:var(--acc);
+    font-size:var(--fs-sm);font-variant-numeric:tabular-nums;font-weight:600;margin-bottom:18px;
+  }
+  .passo .marca-passo i{
+    width:26px;height:1px;background:var(--acc);display:block;opacity:.5;font-style:normal;
+  }
+  .passo p{color:var(--dim);max-width:60ch}
+  .passo p + p{margin-top:14px}
+  .passo .arte-grande{
+    background:var(--sup);border:1px solid var(--line);border-radius:16px;padding:clamp(14px,3vw,34px);
+    display:grid;place-items:center;box-shadow:0 18px 50px rgba(0,0,0,.35);
+  }
+
+  /* peças por cor, abertas em leque */
+  .leque{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%}
+  .leque figure{margin:0;background:var(--sup2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .leque img{width:100%}
+  .leque figcaption{
+    display:flex;align-items:center;gap:6px;padding:6px 8px;font-size:var(--fs-sm);color:var(--dim);
+    font-variant-numeric:tabular-nums;border-top:1px solid var(--line);
+  }
+  .leque .pt{width:9px;height:9px;border-radius:2px;flex:0 0 9px;border:1px solid rgba(255,255,255,.22)}
+
+  /* painel de dados do fatiador */
+  .fatia{width:100%;font-variant-numeric:tabular-nums}
+  .fatia .cab{
+    display:flex;align-items:center;gap:9px;padding-bottom:14px;margin-bottom:16px;
+    border-bottom:1px solid var(--line);font-size:var(--fs-sm);color:var(--dim);
+  }
+  .fatia .pill svg{width:13px;height:13px;flex:0 0 13px}
+  .fatia .pill{
+    display:inline-flex;align-items:center;gap:6px;color:var(--ok);border:1px solid #2f4f3c;
+    background:#152119;border-radius:99px;padding:3px 10px;font-weight:600;white-space:nowrap;
+  }
+  .fatia table{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
+  .fatia td{padding:7px 0;border-bottom:1px solid rgba(42,47,60,.6)}
+  .fatia tr:last-child td{border-bottom:none}
+  .fatia td:first-child{color:var(--dim);width:1%;white-space:nowrap;padding-right:12px}
+  .fatia td:last-child{text-align:right;font-weight:600}
+  .fatia .barra{display:flex;align-items:center;gap:8px}
+  .fatia .barra i{height:7px;border-radius:2px;display:block;min-width:3px}
+  .fatia .tot{
+    display:flex;justify-content:space-between;margin-top:16px;padding-top:14px;
+    border-top:1px solid var(--line);font-size:var(--fs-sm);
+  }
+  .fatia .tot b{font-weight:600}
+  .nota{color:var(--dim);font-size:var(--fs-sm);margin-top:14px;line-height:1.5}
+
+  /* ---------- galeria ---------- */
+  .galeria{padding:clamp(60px,8vw,100px) 0;border-top:1px solid var(--line)}
+  .galeria h2{font-size:clamp(1.6rem,3.4vw,2.4rem);letter-spacing:-.025em;font-weight:700;max-width:20ch}
+  .galeria .sub{color:var(--dim);margin:14px 0 34px;max-width:62ch}
+  .grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:clamp(12px,2vw,22px)}
+  .grade figure{margin:0;background:var(--sup);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .grade img{width:100%;background:var(--sup)}
+  .grade figcaption{padding:10px 12px;font-size:var(--fs-sm);color:var(--dim);border-top:1px solid var(--line)}
+
+  /* ---------- ficha ---------- */
+  .ficha{padding:clamp(60px,8vw,100px) 0;border-top:1px solid var(--line)}
+  .ficha h2{font-size:clamp(1.6rem,3.4vw,2.4rem);letter-spacing:-.025em;font-weight:700;max-width:20ch}
+  .lista{margin:34px 0 0;padding:0;list-style:none;display:grid;gap:0;
+         grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+  .lista li{padding:20px 0;border-top:1px solid var(--line)}
+  .lista li:nth-child(-n+2){}
+  .lista h3{font-size:var(--fs);font-weight:600;margin-bottom:7px}
+  .lista p{color:var(--dim);font-size:var(--fs-sm);margin:0;max-width:44ch}
+  .lista .num{color:var(--acc);font-variant-numeric:tabular-nums}
+
+  /* ---------- fecho ---------- */
+  .fecho{
+    padding:clamp(56px,8vw,96px) 0;border-top:1px solid var(--line);background:var(--sup);
+  }
+  .fecho .env{display:flex;flex-wrap:wrap;gap:28px;align-items:center;justify-content:space-between}
+  .fecho h2{font-size:clamp(1.5rem,3vw,2.2rem);letter-spacing:-.025em;font-weight:700;max-width:18ch}
+  .fecho p{color:var(--dim);margin:12px 0 0;max-width:46ch}
+  .rodape{border-top:1px solid var(--line);padding:26px 0;color:var(--dim);font-size:var(--fs-sm)}
+  .rodape .env{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between}
+
+  @media (max-width:860px){
+    .heroi .env{grid-template-columns:1fr}
+    .heroi .peca{order:-1;max-width:380px;margin-inline:auto}
+    .heroi .peca img{width:100%}
+    .passo .env{grid-template-columns:1fr}
+    .passo.espelha .arte-grande{order:0}
+    .tira ol{grid-template-columns:repeat(3,1fr)}
+    .tira li:nth-child(3)::after{display:none}
+  }
+  @media (max-width:560px){
+    .tira ol{grid-template-columns:repeat(2,1fr)}
+    .tira li::after{display:none}
+    .leque{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    *{transition-duration:.01ms !important;animation-duration:.01ms !important}
+  }
+</style>
+</head>
+<body>
+<!--
+IMPECCABLE DIRECTION CONTRACT — index.html · surface: landing · mode: persuade · seed a02cc703 (form 6 of 7)
+THESIS: a página é o pipeline. Cinco quadros em ordem, do traço ao fatiador, e cada um mostra
+saída real do próprio motor. Recusa o hero de claim + grade de cards de ícone.
+OWN-WORLD: herda o mundo do app. Quase-preto frio (#0f1116/#171a22/#1e222c), acento champanhe
+#d2c2a4 como única cor de ação, sans do sistema em três degraus, cantos de 7 a 16px, sombra com
+deslocamento e blur. A cor da página vem das mandalas em PNG transparente, não do cromo.
+STORY: o visitante entende que é uma peça de parede desenhada em minutos, acredita porque vê o
+arquivo saindo colorido com dado real do fatiador, e clica em abrir o gerador.
+FIRST VIEWPORT: título em 4.6rem à esquerda com a linha de acento em champanhe, lede em 56ch,
+CTA champanhe sólido; abaixo, a tira de cinco quadros ocupando a largura toda, quadro 1 ativo.
+FORM: tira do processo — forma 6 da minha lista ordenada, travada pelo usuário. seed a02cc703.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+-->
+
+<header class="topo">
+  <div class="env">
+    <span class="marca">Mandala <b>Forge</b></span>
+    <span class="idiomas">
+      <button type="button" data-lang="pt" data-i18n-aria="idioma.pt" data-i18n-title="idioma.pt" aria-pressed="true">
+        <svg viewBox="0 0 28 20" aria-hidden="true"><rect width="28" height="20" fill="#009b3a"/><path d="M14 2.6 25.6 10 14 17.4 2.4 10Z" fill="#fedf00"/><circle cx="14" cy="10" r="4.4" fill="#002776"/><path d="M9.9 8.3a10 10 0 0 1 8.2 2.5" stroke="#fff" stroke-width="1.15" fill="none"/></svg>
+      </button>
+      <button type="button" data-lang="en" data-i18n-aria="idioma.en" data-i18n-title="idioma.en" aria-pressed="false">
+        <svg viewBox="0 0 28 20" aria-hidden="true"><rect width="28" height="20" fill="#f4f4f6"/><g fill="#b22234"><rect width="28" height="1.54"/><rect y="3.08" width="28" height="1.54"/><rect y="6.15" width="28" height="1.54"/><rect y="9.23" width="28" height="1.54"/><rect y="12.31" width="28" height="1.54"/><rect y="15.38" width="28" height="1.54"/><rect y="18.46" width="28" height="1.54"/></g><rect width="12.4" height="10.77" fill="#3c3b6e"/><g fill="#fff"><circle cx="2.6" cy="2.2" r=".72"/><circle cx="6.2" cy="2.2" r=".72"/><circle cx="9.8" cy="2.2" r=".72"/><circle cx="4.4" cy="4.3" r=".72"/><circle cx="8" cy="4.3" r=".72"/><circle cx="2.6" cy="6.4" r=".72"/><circle cx="6.2" cy="6.4" r=".72"/><circle cx="9.8" cy="6.4" r=".72"/><circle cx="4.4" cy="8.5" r=".72"/><circle cx="8" cy="8.5" r=".72"/></g></svg>
+      </button>
+    </span>
+    <a class="btn fina" id="cta-topo" href="mandala-cloisonne.html" data-i18n="cta.curto">Abrir o gerador</a>
+  </div>
+</header>
+
+<main>
+  <section class="heroi">
+    <div class="env">
+      <div class="dizeres">
+      <h1><span data-i18n="heroi.t1">Você desenha a mandala.</span><em data-i18n="heroi.t2">A impressora esmalta.</em></h1>
+      <p class="lede" data-i18n="heroi.lede">Filete em alto-relevo represando poças de esmalte, no navegador. Sai um 3MF que o Bambu Studio abre com cada cor já no extrusor certo — sem diálogo de importação, sem acertar nada à mão.</p>
+      <div class="acoes">
+        <a class="btn" id="cta-heroi" href="mandala-cloisonne.html">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2 8h12M9 3l5 5-5 5"/></svg>
+          <span data-i18n="cta.longo">Abrir o gerador</span>
+        </a>
+        <span class="selo" data-i18n="heroi.selo">Roda no navegador. Nada para instalar, nada para baixar.</span>
+      </div>
+      </div>
+      <div class="peca">
+        <img src="img/3-pocas.webp" width="760" height="760" data-i18n-alt="alt.3" alt="" loading="eager" decoding="async" fetchpriority="high">
+      </div>
+
+    </div>
+  </section>
+
+  <section class="faixa-tira">
+    <div class="env">
+      <nav class="tira" aria-label="etapas do processo" id="tira">
+        <ol>
+          <li><button class="quadro" data-vai="p1" aria-current="true">
+            <span class="arte"><img src="img/1-traco.webp" width="760" height="760" alt="" loading="eager" decoding="async"></span>
+            <span class="rot"><span class="n">1</span><span class="nm" data-i18n="tira.1">Traço</span></span>
+          </button></li>
+          <li><button class="quadro" data-vai="p2">
+            <span class="arte"><img src="img/2-filete.webp" width="760" height="760" alt="" loading="lazy" decoding="async"></span>
+            <span class="rot"><span class="n">2</span><span class="nm" data-i18n="tira.2">Filete</span></span>
+          </button></li>
+          <li><button class="quadro" data-vai="p3">
+            <span class="arte"><img src="img/3-pocas.webp" width="760" height="760" alt="" loading="lazy" decoding="async"></span>
+            <span class="rot"><span class="n">3</span><span class="nm" data-i18n="tira.3">Poças</span></span>
+          </button></li>
+          <li><button class="quadro" data-vai="p4">
+            <span class="arte"><img src="img/4-pecas.webp" width="760" height="760" alt="" loading="lazy" decoding="async"></span>
+            <span class="rot"><span class="n">4</span><span class="nm" data-i18n="tira.4">Peças</span></span>
+          </button></li>
+          <li><button class="quadro" data-vai="p5">
+            <span class="arte"><img src="img/gal-1.webp" width="460" height="460" alt="" loading="lazy" decoding="async"></span>
+            <span class="rot"><span class="n">5</span><span class="nm" data-i18n="tira.5">Fatiado</span></span>
+          </button></li>
+        </ol>
+      </nav>
+    </div>
+  </section>
+
+  <section class="passo" id="p1">
+    <div class="env">
+      <div class="arte-grande"><img src="img/1-traco.webp" width="760" height="760" data-i18n-alt="alt.1" alt="" loading="lazy" decoding="async"></div>
+      <div>
+        <span class="marca-passo"><i></i>1 · <span data-i18n="tira.1">Traço</span></span>
+        <h2 data-i18n="p1.h">Camadas empilhadas, não um desenho só</h2>
+        <p data-i18n="p1.a">Sete motivos — folha, gota, arco, ponto, cunha, losango, anel — repetidos pela simetria que você escolhe. Cada camada tem sua faixa de raio, sua fase e seu preenchimento.</p>
+        <p data-i18n="p1.b">A ordem da pilha é ordem de pintura: quem está por cima cobre quem está embaixo. É o mesmo modelo mental de quem desenha em papel vegetal sobreposto.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="passo espelha" id="p2">
+    <div class="env">
+      <div>
+        <span class="marca-passo"><i></i>2 · <span data-i18n="tira.2">Filete</span></span>
+        <h2 data-i18n="p2.h">O fio sobe e represa o esmalte</h2>
+        <p data-i18n="p2.a">Cloisonné é isso: um fio de metal em alto-relevo cercando cada forma, e a tinta acumulada no miolo rebaixado. Aqui o fio é geometria, com largura e altura em milímetros.</p>
+        <p data-i18n="p2.b">A altura não vem de um campo somado. Cada motivo sabe onde está sua borda, por distância assinada, e é isso que permite contorno elevado, contornos aninhados e nervuras internas.</p>
+      </div>
+      <div class="arte-grande"><img src="img/2-filete.webp" width="760" height="760" data-i18n-alt="alt.2" alt="" loading="lazy" decoding="async"></div>
+    </div>
+  </section>
+
+  <section class="passo" id="p3">
+    <div class="env">
+      <div class="arte-grande"><img src="img/3-pocas.webp" width="760" height="760" data-i18n-alt="alt.3" alt="" loading="lazy" decoding="async"></div>
+      <div>
+        <span class="marca-passo"><i></i>3 · <span data-i18n="tira.3">Poças</span></span>
+        <h2 data-i18n="p3.h">A cor entra onde o fio deixou</h2>
+        <p data-i18n="p3.a">Nove paletas prontas, ou a sua. Trocar de paleta preserva o desenho: cores iguais continuam iguais, e a placa e o filete vão para o par escuro/claro.</p>
+        <p data-i18n="p3.b">Passou dos quatro slots do AMS? Um botão funde os pares mais parecidos em Lab, que é o que o olho enxerga, até sobrar o número que você pedir. O filete nunca é fundido.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="passo espelha" id="p4">
+    <div class="env">
+      <div>
+        <span class="marca-passo"><i></i>4 · <span data-i18n="tira.4">Peças</span></span>
+        <h2 data-i18n="p4.h">Um sólido fechado por cor</h2>
+        <p data-i18n="p4.a">A malha não sai por grade, que deixaria a borda em escada. Sai por curvas de nível: cada cor vira um sólido fechado próprio, com borda lisa e estanqueidade verificada.</p>
+        <p data-i18n="p4.b">São essas seis peças que o 3MF manda para seis extrusores. A associação é escrita no arquivo, não deduzida pelo fatiador.</p>
+      </div>
+      <div class="arte-grande">
+        <div class="leque" id="leque"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="passo" id="p5">
+    <div class="env">
+      <div class="arte-grande">
+        <div class="fatia">
+          <div class="cab">
+            <span class="pill">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5"/></svg>
+              return_code: 0
+            </span>
+            <span data-i18n="fatia.cab">Bambu Studio CLI · H2C bico 0.4</span>
+          </div>
+          <table id="tabela-fatia"></table>
+          <div class="tot">
+            <span data-i18n="fatia.total">Total</span>
+            <span><b>52,1 g</b> · <b id="tempo">4 h 13 min</b></span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <span class="marca-passo"><i></i>5 · <span data-i18n="tira.5">Fatiado</span></span>
+        <h2 data-i18n="p5.h">O fatiador abre e entende</h2>
+        <p data-i18n="p5.a">Estes números são desta peça, a mesma dos quadros anteriores, passada pelo CLI do Bambu Studio. Seis filamentos, cada um no extrusor que o arquivo mandou, sem nenhum passo manual no meio.</p>
+        <p data-i18n="p5.b">Quatro impressoras validadas do mesmo jeito: H2C, A1, P1S e X1 Carbon. O perfil de cada uma vai gravado no projeto, com a mesa e o gcode certos.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="galeria">
+    <div class="env">
+      <h2 data-i18n="gal.h">Seis peças, seis paletas</h2>
+      <p class="sub" data-i18n="gal.sub">Todas as imagens desta página são saída real do gerador, renderizadas pelo mesmo motor que exporta o arquivo. Nenhuma foto, nenhuma montagem.</p>
+      <div class="grade" id="galeria"></div>
+    </div>
+  </section>
+
+  <section class="ficha">
+    <div class="env">
+      <h2 data-i18n="fic.h">O que já está resolvido</h2>
+      <ul class="lista" id="ficha"></ul>
+    </div>
+  </section>
+</main>
+
+<section class="fecho">
+  <div class="env">
+    <div>
+      <h2 data-i18n="fec.h">Sua primeira mandala está a um clique</h2>
+      <p data-i18n="fec.p">Abre no navegador, já com um desenho pronto para você mexer. Nada para instalar, nada para cadastrar.</p>
+    </div>
+    <a class="btn" id="cta-fecho" href="mandala-cloisonne.html">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2 8h12M9 3l5 5-5 5"/></svg>
+      <span data-i18n="cta.longo">Abrir o gerador</span>
+    </a>
+  </div>
+</section>
+
+<footer class="rodape">
+  <div class="env">
+    <span data-i18n="rod.a">Mandala Forge · gerador de mandala em filete e esmalte</span>
+    <span data-i18n="rod.b">Um arquivo HTML, zero dependências.</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  /* Dados REAIS desta peça: `lotus` exportado pelo motor e fatiado no CLI do
+     Bambu Studio (H2C, bico 0.4). Nada aqui é estimativa. */
+  var FATIA = {
+    filamentos: [
+      { cor: '#1d3b2a', g: 16.9 }, { cor: '#f2efe4', g: 18.1 },
+      { cor: '#d9a441', g: 3.9 },  { cor: '#7fbf6a', g: 3.4 },
+      { cor: '#e0705a', g: 7.3 },  { cor: '#bfd8a0', g: 2.5 }
+    ],
+    totalG: 52.1, minutos: 253, triangulos: 989888
+  };
+  var PECAS = FATIA.filamentos.map(function (f, i) { return { cor: f.cor, n: i + 1 }; });
+  var GALERIA = [
+    { img: 'gal-1', k: 'g.incenso' }, { img: 'gal-2', k: 'g.talavera' },
+    { img: 'gal-3', k: 'g.renda' },   { img: 'gal-4', k: 'g.sol' },
+    { img: 'gal-5', k: 'g.lotus' },   { img: 'gal-6', k: 'g.talavera2' }
+  ];
+
+  var I18N = {
+    pt: {
+      'doc.titulo': 'Mandala Forge — mandala em relevo que imprime colorida',
+      'idioma.pt': 'Página em português', 'idioma.en': 'Switch page to English',
+      'cta.curto': 'Abrir o gerador', 'cta.longo': 'Abrir o gerador',
+      'heroi.t1': 'Você desenha a mandala.', 'heroi.t2': 'A impressora esmalta.',
+      'heroi.lede': 'Filete em alto-relevo represando poças de esmalte, no navegador. Sai um 3MF que o Bambu Studio abre com cada cor já no extrusor certo, sem diálogo de importação e sem acertar nada à mão.',
+      'heroi.selo': 'Roda no navegador. Nada para instalar, nada para baixar.',
+      'tira.1': 'Traço', 'tira.2': 'Filete', 'tira.3': 'Poças', 'tira.4': 'Peças', 'tira.5': 'Fatiado',
+      'alt.1': 'A mandala com todas as camadas na cor da placa, mostrando só as linhas do filete.',
+      'alt.2': 'A mesma mandala como mapa de altura em cinza: quanto mais claro, mais alto o relevo.',
+      'alt.3': 'A mandala colorida, com cada poça de esmalte na sua cor.',
+      'p1.h': 'Camadas empilhadas, não um desenho só',
+      'p1.a': 'Sete motivos (folha, gota, arco, ponto, cunha, losango, anel) repetidos pela simetria que você escolhe. Cada camada tem sua faixa de raio, sua fase e seu preenchimento.',
+      'p1.b': 'A ordem da pilha é ordem de pintura: quem está por cima cobre quem está embaixo. É o mesmo modelo mental de quem desenha em papel vegetal sobreposto.',
+      'p2.h': 'O fio sobe e represa o esmalte',
+      'p2.a': 'Cloisonné é isso: um fio de metal em alto-relevo cercando cada forma, e a tinta acumulada no miolo rebaixado. Aqui o fio é geometria, com largura e altura em milímetros.',
+      'p2.b': 'A altura não vem de um campo somado. Cada motivo sabe onde está sua borda, por distância assinada, e é isso que permite contorno elevado, contornos aninhados e nervuras internas.',
+      'p3.h': 'A cor entra onde o fio deixou',
+      'p3.a': 'Nove paletas prontas, ou a sua. Trocar de paleta preserva o desenho: cores iguais continuam iguais, e a placa e o filete vão para o par escuro/claro.',
+      'p3.b': 'Passou dos quatro slots do AMS? Um botão funde os pares mais parecidos em Lab, que é o que o olho enxerga, até sobrar o número que você pedir. O filete nunca é fundido.',
+      'p4.h': 'Um sólido fechado por cor',
+      'p4.a': 'A malha não sai por grade, que deixaria a borda em escada. Sai por curvas de nível: cada cor vira um sólido fechado próprio, com borda lisa e estanqueidade verificada.',
+      'p4.b': 'São essas seis peças que o 3MF manda para seis extrusores. A associação é escrita no arquivo, não deduzida pelo fatiador.',
+      'p5.h': 'O fatiador abre e entende',
+      'p5.a': 'Estes números são desta peça, a mesma dos quadros anteriores, passada pelo CLI do Bambu Studio. Seis filamentos, cada um no extrusor que o arquivo mandou, sem nenhum passo manual no meio.',
+      'p5.b': 'Quatro impressoras validadas do mesmo jeito: H2C, A1, P1S e X1 Carbon. O perfil de cada uma vai gravado no projeto, com a mesa e o gcode certos.',
+      'fatia.cab': 'Bambu Studio CLI · H2C bico 0.4', 'fatia.total': 'Total',
+      'fatia.ext': 'extrusor ', 'fatia.tri': ' triângulos',
+      'gal.h': 'Seis peças, seis paletas',
+      'gal.sub': 'Todas as imagens desta página são saída real do gerador, renderizadas pelo mesmo motor que exporta o arquivo. Nenhuma foto, nenhuma montagem.',
+      'g.incenso': 'incensário · paleta fogo', 'g.talavera': 'talavera · paleta água',
+      'g.renda': 'renda · paleta lua', 'g.sol': 'sol · paleta terra',
+      'g.lotus': 'lótus · paleta vitral', 'g.talavera2': 'talavera · paleta sol',
+      'fic.h': 'O que já está resolvido',
+      'f1.h': 'Cor sem passo manual', 'f1.p': 'O 3MF sai como projeto do Bambu: peça i para o extrusor i+1, com a cor do filamento i+1 escrita junto. Sem Import Model, sem Color Count.',
+      'f2.h': 'Menos purga no AMS', 'f2.p': 'Com a base sólida ligada, o filamento colorido do preset padrão cai de 31,9 cm³ para 8,9 cm³. A base inteira sai numa cor só.',
+      'f3.h': 'Quatro impressoras', 'f3.p': 'H2C, A1, P1S e X1 Carbon, cada uma com mesa, altura e gcode próprios gravados no arquivo. Todas fatiam com return_code 0 no CLI.',
+      'f4.h': 'Borda lisa, malha fechada', 'f4.p': 'Exportação por curvas de nível, não por grade. Zero arestas abertas em toda configuração, conferido por uma suíte de 11 casos mais fuzz.',
+      'f5.h': 'Furo para pendurar', 'f5.p': 'Passante, dentro do aro, com aviso quando a parede fica fina demais para aguentar o peso.',
+      'f6.h': 'Desfaz de verdade', 'f6.p': '⌘Z e ⇧⌘Z valem para tudo: apagar camada, trocar de paleta, reduzir cores. Zoom e panorâmica nas três vistas.',
+      'fec.h': 'Sua primeira mandala está a um clique',
+      'fec.p': 'Abre no navegador, já com um desenho pronto para você mexer. Nada para instalar, nada para cadastrar.',
+      'rod.a': 'Mandala Forge · gerador de mandala em filete e esmalte',
+      'rod.b': 'Um arquivo HTML, zero dependências.'
+    },
+    en: {
+      'doc.titulo': 'Mandala Forge — relief mandalas that print in colour',
+      'idioma.pt': 'Mudar a página para português', 'idioma.en': 'Page in English',
+      'cta.curto': 'Open the generator', 'cta.longo': 'Open the generator',
+      'heroi.t1': 'You draw the mandala.', 'heroi.t2': 'The printer enamels it.',
+      'heroi.lede': 'Raised wire damming pools of enamel, in the browser. Out comes a 3MF that Bambu Studio opens with every colour already on the right extruder, with no import dialog and nothing to fix by hand.',
+      'heroi.selo': 'Runs in the browser. Nothing to install, nothing to download.',
+      'tira.1': 'Line', 'tira.2': 'Wire', 'tira.3': 'Pools', 'tira.4': 'Parts', 'tira.5': 'Sliced',
+      'alt.1': 'The mandala with every layer in the plate colour, showing only the wire lines.',
+      'alt.2': 'The same mandala as a grey height map: lighter means higher relief.',
+      'alt.3': 'The mandala in colour, every enamel pool in its own hue.',
+      'p1.h': 'Stacked layers, not one drawing',
+      'p1.a': 'Seven motifs (leaf, teardrop, arc, dot, wedge, diamond, ring) repeated by the symmetry you choose. Each layer has its own radius band, phase and fill.',
+      'p1.b': 'The stack order is paint order: whatever sits on top covers what is underneath. Same mental model as drawing on stacked tracing paper.',
+      'p2.h': 'The wire rises and dams the enamel',
+      'p2.a': 'That is what cloisonné is: a raised metal wire around every shape, with the colour pooled in the recessed middle. Here the wire is geometry, with width and height in millimetres.',
+      'p2.b': 'The height does not come from a summed field. Every motif knows where its own edge is, by signed distance, and that is what allows raised outlines, nested outlines and inner veins.',
+      'p3.h': 'Colour goes where the wire left room',
+      'p3.a': 'Nine ready palettes, or your own. Swapping palettes preserves the drawing: colours that matched still match, and the plate and wire go to the dark/light pair.',
+      'p3.b': 'Past the four AMS slots? One button merges the closest pairs in Lab, which is what the eye sees, until only the number you asked for is left. The wire is never merged.',
+      'p4.h': 'One closed solid per colour',
+      'p4.a': 'The mesh does not come off a grid, which would leave the edge stepped. It comes off contour lines: every colour becomes its own closed solid, smooth-edged and watertight.',
+      'p4.b': 'These six parts are what the 3MF sends to six extruders. The mapping is written into the file, not guessed by the slicer.',
+      'p5.h': 'The slicer opens it and understands',
+      'p5.a': 'These numbers are from this piece, the same one in the frames above, run through the Bambu Studio CLI. Six filaments, each on the extruder the file asked for, with no manual step in between.',
+      'p5.b': 'Four printers validated the same way: H2C, A1, P1S and X1 Carbon. Each profile is written into the project, with the right bed and the right gcode.',
+      'fatia.cab': 'Bambu Studio CLI · H2C 0.4 nozzle', 'fatia.total': 'Total',
+      'fatia.ext': 'extruder ', 'fatia.tri': ' triangles',
+      'gal.h': 'Six pieces, six palettes',
+      'gal.sub': 'Every image on this page is real output from the generator, rendered by the same engine that exports the file. No photos, no mockups.',
+      'g.incenso': 'censer · fire palette', 'g.talavera': 'talavera · water palette',
+      'g.renda': 'lace · moon palette', 'g.sol': 'sun · earth palette',
+      'g.lotus': 'lotus · stained-glass palette', 'g.talavera2': 'talavera · sun palette',
+      'fic.h': 'What is already solved',
+      'f1.h': 'Colour with no manual step', 'f1.p': 'The 3MF ships as a Bambu project: part i to extruder i+1, with the colour of filament i+1 written alongside. No Import Model, no Color Count.',
+      'f2.h': 'Less AMS purge', 'f2.p': 'With the solid base on, coloured filament in the default preset drops from 31.9 cm³ to 8.9 cm³. The whole base prints in a single colour.',
+      'f3.h': 'Four printers', 'f3.p': 'H2C, A1, P1S and X1 Carbon, each with its own bed, height and gcode written into the file. All four slice with return_code 0 in the CLI.',
+      'f4.h': 'Smooth edge, closed mesh', 'f4.p': 'Export by contour lines, not by grid. Zero open edges in every configuration, checked by a suite of 11 cases plus fuzz.',
+      'f5.h': 'A hole to hang it by', 'f5.p': 'Through the rim, with a warning when the wall gets too thin to take the weight.',
+      'f6.h': 'Undo that works', 'f6.p': '⌘Z and ⇧⌘Z cover everything: deleting a layer, changing palette, reducing colours. Zoom and pan in all three views.',
+      'fec.h': 'Your first mandala is one click away',
+      'fec.p': 'It opens in the browser with a drawing already on screen for you to push around. Nothing to install, no sign-up.',
+      'rod.a': 'Mandala Forge · cloisonné mandala generator',
+      'rod.b': 'One HTML file, zero dependencies.'
+    }
+  };
+
+  var lang = (function () {
+    var u = new URLSearchParams(location.search).get('lang');
+    if (u && I18N[u]) return u;
+    return /^pt/i.test(navigator.language || '') ? 'pt' : 'en';
+  })();
+  function t(k, a) {
+    var d = I18N[lang] || I18N.pt;
+    var v = d[k] !== undefined ? d[k] : I18N.pt[k];
+    if (v === undefined) return k;
+    return a !== undefined ? v.split('{0}').join(a) : v;
+  }
+  var nf = function (n, casas) {
+    return n.toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US',
+      { minimumFractionDigits: casas || 0, maximumFractionDigits: casas || 0 });
+  };
+
+  /* ---- blocos montados por JS ---- */
+  function montaLeque() {
+    var el = document.getElementById('leque'), h = '';
+    PECAS.forEach(function (p) {
+      h += '<figure><img src="img/peca-' + p.n + '.webp" width="420" height="420" alt="" loading="lazy" decoding="async">' +
+           '<figcaption><span class="pt" style="background:' + p.cor + '"></span>' +
+           t('fatia.ext') + p.n + '</figcaption></figure>';
+    });
+    el.innerHTML = h;
+  }
+  function montaFatia() {
+    var maior = Math.max.apply(null, FATIA.filamentos.map(function (f) { return f.g; }));
+    var h = '';
+    FATIA.filamentos.forEach(function (f, i) {
+      h += '<tr><td>' + t('fatia.ext') + (i + 1) + '</td>' +
+           '<td><span class="barra"><i style="background:' + f.cor + ';width:' +
+           (f.g / maior * 100).toFixed(1) + '%"></i></span></td>' +
+           '<td>' + nf(f.g, 1) + ' g</td></tr>';
+    });
+    document.getElementById('tabela-fatia').innerHTML = h;
+    var hh = Math.floor(FATIA.minutos / 60), mm = FATIA.minutos % 60;
+    document.getElementById('tempo').textContent = hh + ' h ' + mm + ' min';
+  }
+  function montaGaleria() {
+    var h = '';
+    GALERIA.forEach(function (g) {
+      h += '<figure><img src="img/' + g.img + '.webp" width="460" height="460" alt="" loading="lazy" decoding="async">' +
+           '<figcaption>' + t(g.k) + '</figcaption></figure>';
+    });
+    document.getElementById('galeria').innerHTML = h;
+  }
+  function montaFicha() {
+    var h = '';
+    for (var i = 1; i <= 6; i++)
+      h += '<li><h3>' + t('f' + i + '.h') + '</h3><p>' + t('f' + i + '.p') + '</p></li>';
+    document.getElementById('ficha').innerHTML = h;
+  }
+
+  /* ---- idioma ---- */
+  function aplicaIdioma() {
+    document.documentElement.lang = lang === 'pt' ? 'pt-BR' : 'en';
+    document.title = t('doc.titulo');
+    document.querySelectorAll('[data-i18n]').forEach(function (el) { el.textContent = t(el.dataset.i18n); });
+    var at = { 'data-i18n-title': 'title', 'data-i18n-aria': 'aria-label', 'data-i18n-alt': 'alt' };
+    Object.keys(at).forEach(function (d) {
+      document.querySelectorAll('[' + d + ']').forEach(function (el) {
+        el.setAttribute(at[d], t(el.getAttribute(d)));
+      });
+    });
+    document.querySelectorAll('[data-lang]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
+    });
+    // o idioma atravessa o link: quem abre o gerador continua na mesma língua
+    ['cta-topo', 'cta-heroi', 'cta-fecho'].forEach(function (id) {
+      var a = document.getElementById(id);
+      if (a) a.href = 'mandala-cloisonne.html?lang=' + lang;
+    });
+    montaLeque(); montaFatia(); montaGaleria(); montaFicha();
+  }
+  document.querySelectorAll('[data-lang]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (b.dataset.lang === lang) return;
+      lang = b.dataset.lang;
+      try {
+        var u = new URL(location.href);
+        u.searchParams.set('lang', lang);
+        history.replaceState(null, '', u);
+      } catch (e) { /* sem permissão de history: o idioma vale a sessão */ }
+      aplicaIdioma();
+    });
+  });
+
+  /* ---- a tira acompanha a rolagem ----
+     Movimento único e autoral da página: a tira é um filmstrip, e o que ele faz
+     na vida é avançar. Nada de revelar seção por seção. */
+  var quadros = [].slice.call(document.querySelectorAll('.quadro'));
+  quadros.forEach(function (q) {
+    q.addEventListener('click', function () {
+      var alvo = document.getElementById(q.dataset.vai);
+      if (alvo) alvo.scrollIntoView({ block: 'start' });
+    });
+  });
+  function marca(id) {
+    quadros.forEach(function (q) {
+      q.setAttribute('aria-current', String(q.dataset.vai === id));
+    });
+  }
+  if ('IntersectionObserver' in window) {
+    var obs = new IntersectionObserver(function (ents) {
+      ents.forEach(function (e) { if (e.isIntersecting) marca(e.target.id); });
+    }, { rootMargin: '-45% 0px -45% 0px' });
+    ['p1', 'p2', 'p3', 'p4', 'p5'].forEach(function (id) {
+      var s = document.getElementById(id);
+      if (s) obs.observe(s);
+    });
+  }
+
+  aplicaIdioma();
+})();
+</script>
+</body>
+</html>
