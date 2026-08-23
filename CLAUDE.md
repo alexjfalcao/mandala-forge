@@ -250,6 +250,25 @@ qualquer coisa numa `.row`, lembre que `fieldset` só não estoura o painel por 
 `min-width:0` no CSS (o UA lhe dá `min-inline-size:min-content`, e o `input[type=range]` tem
 largura intrínseca de ~130 px).
 
+**Desfazer é `marca()` + `hist`/`futuro`, no bloco de UI.** `cfg` é serializável e pequeno
+(~4 kB), então 40 snapshots custam menos que um quadro do preview. `marca()` guarda o estado
+**antes** da mudança e tem que ser chamada antes de escrever em `cfg` — os pontos de mutação
+são o `input` de `#scroll` (global e camada), as ações `del/dup/up/down`, `addcam`, clique de
+preset, `aplicaPaleta`, `reduzCores` e a importação de `.json`. Se você acrescentar outro,
+acrescente o `marca()` junto.
+
+A coalescência por chave (`'g:'+k`, `'c:'+i+':'+ck`, janela de 700 ms) é o que faz um arraste
+de slider valer **um** passo e não um por pixel — 21 eventos de `input` viram um `⌘Z`. O
+atalho não dispara quando o foco está num campo de texto, porque ali o `⌘Z` é do campo.
+
+`aviso()` mostra o toast: um passo desfeito pode não mexer em nada visível (uma camada
+recolhida que volta), e sem a confirmação o `⌘Z` parece não ter funcionado.
+
+**Alvos de 24 px na linha de camada, com o `×` separado.** Eram de 11×12 a 16×12 px
+encostados, e o `×` (que apaga) colava no `⧉` (que duplica). O chevron é um `<button>` de
+verdade, com `aria-expanded`: era um `<span>` dentro de uma `<div>`, e abrir uma camada não
+tinha como ser feito pelo teclado.
+
 **O acento é champanhe (`--acc:#d2c2a4`), e a crômática baixa é de propósito.** O conteúdo
 desta tela é uma mandala colorida: cromo saturado brigaria com ela. O que dá o ar caro é a
 temperatura quente do acento contra o quase-preto frio dos neutros, que ficam como estão —

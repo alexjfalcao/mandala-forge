@@ -907,6 +907,18 @@ print(m.is_watertight, m.is_winding_consistent, m.volume, m.euler_number)
 - **Presets**: `incensário` (reprodução da foto de referência), `lótus`, `talavera`,
   `renda` (vazado), `sol`, `aleatório`. **O app abre no `aleatório`** — os fixos continuam a
   um clique na barra, e trocar de preset preserva `diam` e `nome`.
+- **Desfazer** (`marca()`, `hist`, `futuro`): `cfg` é serializável e pequeno, então o
+  histórico é a coisa mais barata do app — 40 snapshots. `marca()` guarda o estado **antes**
+  da mudança; chame-a antes de escrever em `cfg`, em qualquer ponto de mutação novo. Os que
+  existem hoje: `input` de `#scroll` (global e camada), `del/dup/up/down`, `addcam`, preset,
+  `aplicaPaleta`, `reduzCores` e importação de `.json`. A coalescência por chave (700 ms) faz
+  um arraste de slider valer um passo só. `⌘Z`/`Ctrl+Z` desfaz, `⇧⌘Z`/`Ctrl+Y` refaz, e o
+  atalho se cala quando o foco está num campo de texto. `aviso()` confirma no toast, porque um
+  passo desfeito pode não mexer em nada visível.
+- **A linha de camada tem alvos de 24 px** e o `×` fica separado do `⧉` por margem. Eram
+  11×12 px encostados: errar de alvo custava a camada, e não havia volta. O chevron é um
+  `<button>` com `aria-expanded`, não um `<span>` — sem isso não dava para abrir camada pelo
+  teclado.
 - **Acento champanhe, crômática baixa de propósito.** `--acc:#d2c2a4`, `--acc2:#ada490`,
   `--on-acc:#17140c`. O conteúdo da tela é uma mandala colorida, então o cromo recua para ela
   ler. O ar caro vem da temperatura quente contra o quase-preto frio dos neutros: **não tinte

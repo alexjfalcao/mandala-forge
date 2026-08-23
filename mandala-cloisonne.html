@@ -131,15 +131,31 @@
   /* ---------- camadas ---------- */
   .cam{border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:var(--panel2);overflow:hidden}
   .cam.off{opacity:.45}
-  .chead{display:flex;align-items:center;gap:7px;padding:7px 9px;cursor:pointer;user-select:none;background:#1b1f29}
+  .chead{display:flex;align-items:center;gap:6px;padding:3px 6px 3px 2px;cursor:pointer;user-select:none;background:#1b1f29}
   .sw{width:11px;height:11px;border-radius:3px;flex:0 0 11px;border:1px solid rgba(255,255,255,.25);display:inline-block}
   .chead .name{flex:1;font-size:var(--fs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .chead .meta{color:var(--dim);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
-  .chead .chev{color:var(--dim);transition:transform .15s;font-size:var(--fs-sm)}
-  .cam.open .chev{transform:rotate(90deg)}
+  /* O chevron é um <button> de verdade: era um <span> dentro de uma <div>, e
+     abrir uma camada não tinha como ser feito pelo teclado. */
+  .chead .chev{
+    flex:0 0 24px;width:24px;height:24px;padding:0;background:none;border:none;
+    color:var(--dim);cursor:pointer;font-size:var(--fs-sm);line-height:1;
+  }
+  .chead .chev span{display:inline-block;transition:transform .15s}
+  .cam.open .chev span{transform:rotate(90deg)}
+  .chead .chev:hover{color:var(--txt)}
   .cbody{display:none;padding:4px 9px 9px;border-top:1px solid var(--line)}
   .cam.open .cbody{display:block}
-  .icon{background:none;border:none;color:var(--dim);cursor:pointer;font-size:var(--fs);padding:0 2px;line-height:1}
+  /* 24×24 e não 11×12. Os quatro ficavam encostados, e o × (que apaga, sem
+     confirmar) colava no ⧉ (que duplica): errar de alvo custava a camada. */
+  .icon{
+    flex:0 0 24px;width:24px;height:24px;padding:0;background:none;border:none;
+    color:var(--dim);cursor:pointer;font-size:var(--fs);line-height:1;border-radius:4px;
+  }
+  .icon:hover{background:#252a36}
+  /* o destrutivo fica separado do resto e avisa a cor no hover */
+  .icon.perigo{margin-left:6px}
+  .icon.perigo:hover{color:var(--bad);background:#2a1a18}
   /* linha "reduzir para N [botão]": o número fica estreito para sobrar largura
      ao botão, que é quem carrega o texto de retorno ("3 cores fundidas") */
   .row input.alvo{flex:0 0 52px;text-align:right}
@@ -178,6 +194,21 @@
   select.sel,input.sel{background:#12151c;color:var(--txt);border:1px solid var(--line);border-radius:5px;padding:6px 8px;font:inherit;font-size:var(--fs)}
   input.sel::placeholder{color:var(--dim)}
   #s-swatches{display:inline-flex;gap:4px;vertical-align:-1px}
+  /* Confirma o que acabou de acontecer. Um passo desfeito pode não mexer em
+     nada visível, e aí sem isto o ⌘Z parece não ter funcionado. */
+  .toast{
+    position:absolute;left:50%;bottom:18px;transform:translate(-50%,6px);
+    background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+    border-radius:99px;padding:6px 14px;font-size:var(--fs-sm);
+    box-shadow:0 8px 24px rgba(0,0,0,.5);pointer-events:none;
+    opacity:0;transition:opacity .16s cubic-bezier(.16,1,.3,1),transform .16s cubic-bezier(.16,1,.3,1);
+  }
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+  @media (prefers-reduced-motion:reduce){
+    .toast{transition:opacity .01s}
+    .toast.on{transform:translate(-50%,0)}
+    .chead .chev span{transition:none}
+  }
   .hud{position:absolute;left:12px;bottom:10px;color:var(--dim);font-size:var(--fs-sm);background:rgba(12,14,19,.65);padding:4px 9px;border-radius:5px;pointer-events:none}
   @media (max-width:860px){
     .app{flex-direction:column}
@@ -291,8 +322,10 @@
 
   <div popover class="pop" id="aj-camadas">
     <h3>Camadas</h3>
-    <p>A ordem é de pintura, não de soma: a camada de cima cobre as de baixo. Use ▲ e ▼ para reordenar.</p>
+    <p>A lista corre <em>de baixo para cima</em>: a primeira linha é a camada mais funda, e a última é a que fica por cima de todas.</p>
+    <p>A ordem é de pintura, não de soma: quem está por cima cobre quem está embaixo. ▲ e ▼ movem a camada na lista.</p>
     <p>Cada linha traz o motivo e quantas repetições ele tem ao redor do círculo. Clique para abrir os controles.</p>
+    <p>Errou? <em>⌘Z</em> (ou Ctrl+Z) desfaz, e ⇧⌘Z refaz. Vale para tudo: apagar camada, trocar paleta, reduzir cores.</p>
   </div>
 
   <div popover class="pop" id="aj-cores">
@@ -327,6 +360,7 @@
     <div class="stage">
       <canvas id="cv"></canvas>
       <div class="hud" id="hud"></div>
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
     </div>
 
     <div class="foot">
@@ -2018,16 +2052,19 @@ var MC = (function () {
 
   function camHTML(c, i) {
     var h = '<div class="cam' + (open[i] ? ' open' : '') + (c.on ? '' : ' off') + '" data-i="' + i + '">';
+    var nm = nomeMotivo(c.motivo);
     h += '<div class="chead" data-toggle="' + i + '">' +
-      '<span class="chev">&#9654;</span>' +
+      '<button class="chev" data-toggle="' + i + '" aria-expanded="' + (open[i] ? 'true' : 'false') +
+        '" aria-label="' + (open[i] ? 'recolher' : 'abrir') + ' a camada ' + nm + '"><span>&#9654;</span></button>' +
       '<span class="sw" style="background:' + c.cor + '"></span>' +
-      '<span class="name">' + nomeMotivo(c.motivo) + '</span>' +
+      '<span class="name">' + nm + '</span>' +
       '<span class="meta">' + Math.round(cfg.sym * c.mult) + '×' + (cfg.nivelUnico ? '' : ' · n' + c.nivel) + '</span>' +
-      '<button class="icon" data-act="up" data-i="' + i + '" title="descer na pilha">&#9650;</button>' +
-      '<button class="icon" data-act="down" data-i="' + i + '" title="subir na pilha">&#9660;</button>' +
-      '<button class="icon" data-act="dup" data-i="' + i + '" title="duplicar">&#10697;</button>' +
-      '<button class="icon" data-act="del" data-i="' + i + '" title="remover">&times;</button>' +
-      '<input type="checkbox" data-c="on" data-i="' + i + '"' + (c.on ? ' checked' : '') + '>' +
+      '<button class="icon" data-act="up" data-i="' + i + '" title="mover para cima na lista" aria-label="mover ' + nm + ' para cima na lista">&#9650;</button>' +
+      '<button class="icon" data-act="down" data-i="' + i + '" title="mover para baixo na lista" aria-label="mover ' + nm + ' para baixo na lista">&#9660;</button>' +
+      '<button class="icon" data-act="dup" data-i="' + i + '" title="duplicar" aria-label="duplicar a camada ' + nm + '">&#10697;</button>' +
+      '<button class="icon perigo" data-act="del" data-i="' + i + '" title="apagar" aria-label="apagar a camada ' + nm + '">&times;</button>' +
+      '<input type="checkbox" data-c="on" data-i="' + i + '"' + (c.on ? ' checked' : '') +
+        ' aria-label="mostrar a camada ' + nm + '">' +
       '</div><div class="cbody">';
 
     h += '<div class="row"><label>Motivo</label><select data-c="motivo" data-i="' + i + '">';
@@ -2175,6 +2212,63 @@ var MC = (function () {
     espelhaHex(document);
   }
 
+  /* ---------------- desfazer ------------------------------------------------
+     `cfg` é serializável e pequeno (uns 4 kB), então o histórico é a coisa mais
+     barata do app: 40 snapshots custam menos que um quadro do preview. Antes
+     disso apagar uma camada ou fundir cores não tinha volta, e a interface
+     chegava a documentar isso em vez de resolver.
+
+     `marca()` guarda o estado ANTES da mudança e precisa ser chamada antes de
+     escrever em `cfg`. A coalescência por chave é o que faz um arraste de
+     slider valer um passo, e não um por pixel. */
+  var HIST_MAX = 40;
+  var hist = [], futuro = [], marcoT = 0, marcoK = '';
+  function marca(chave) {
+    var t = Date.now();
+    if (chave && chave === marcoK && t - marcoT < 700) { marcoT = t; return; }
+    marcoK = chave || ''; marcoT = t;
+    hist.push(JSON.stringify(cfg));
+    if (hist.length > HIST_MAX) hist.shift();
+    futuro.length = 0;
+  }
+  function restaura(json) {
+    cfg = JSON.parse(json);
+    marcoK = ''; marcoT = 0;                       // não coalesce com o que vier depois
+    open = {}; drawPanel(); schedule();
+  }
+  function desfaz() {
+    if (!hist.length) return aviso('nada para desfazer');
+    futuro.push(JSON.stringify(cfg));
+    restaura(hist.pop());
+    aviso('desfeito' + (hist.length ? '' : ' (fim do histórico)'));
+  }
+  function refaz() {
+    if (!futuro.length) return aviso('nada para refazer');
+    hist.push(JSON.stringify(cfg));
+    restaura(futuro.pop());
+    aviso('refeito');
+  }
+  /* Um passo desfeito pode não mexer em nada visível (uma camada recolhida que
+     volta, por exemplo), então o aviso é o que confirma que aconteceu. */
+  var avisoT = null;
+  function aviso(txt) {
+    var el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = txt;
+    el.classList.add('on');
+    clearTimeout(avisoT);
+    avisoT = setTimeout(function () { el.classList.remove('on'); }, 1600);
+  }
+  document.addEventListener('keydown', function (e) {
+    if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+    var t = document.activeElement;
+    // no campo de texto o Ctrl+Z é do campo, não nosso
+    if (t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && t.type === 'text'))) return;
+    var k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); desfaz(); }
+    else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); refaz(); }
+  });
+
   /* ---------------- eventos do painel ---------------- */
   var scroll = document.getElementById('scroll');
   scroll.addEventListener('input', function (e) {
@@ -2192,6 +2286,7 @@ var MC = (function () {
     }
     if (el.dataset.g) {
       k = el.dataset.g;
+      marca('g:' + k);
       cfg[k] = el.type === 'checkbox' ? el.checked
              : (el.type === 'color' || el.type === 'text' ? el.value : parseFloat(el.value));
       if (k === 'nome') return;                                   // só batiza arquivos, não redesenha
@@ -2200,6 +2295,7 @@ var MC = (function () {
       schedule();
     } else if (el.dataset.c) {
       var i = +el.dataset.i, ck = el.dataset.c, c = cfg.camadas[i];
+      marca('c:' + i + ':' + ck);
       if (el.type === 'checkbox') { c[ck] = el.checked; drawPanel(); }
       else if (el.type === 'color') { c[ck] = el.value; drawPanel(); }
       else if (el.tagName === 'SELECT') {
@@ -2238,8 +2334,8 @@ var MC = (function () {
       return;
     }
     var pil = el.closest ? el.closest('[data-pal]') : null;
-    if (pil) { aplicaPaleta(pil.dataset.pal); return; }
-    if (el.dataset.modo) { cfg.modo = el.dataset.modo; syncGlobals(); schedule(); return; }
+    if (pil) { marca(); aplicaPaleta(pil.dataset.pal); return; }
+    if (el.dataset.modo) { marca(); cfg.modo = el.dataset.modo; syncGlobals(); schedule(); return; }
     if (a === 'reduz') {
       var alvo = MC.clamp(parseInt(document.getElementById('alvocor').value, 10) || 4, 2, 8);
       var n = reduzCores(alvo);
@@ -2250,7 +2346,14 @@ var MC = (function () {
     }
     if (a) {
       e.stopPropagation();
-      if (a === 'del' && cfg.camadas.length > 1) cfg.camadas.splice(i, 1);
+      // a última camada não sai: sem ela não há desenho. Antes isso era um `if`
+      // silencioso, e o clique simplesmente não fazia nada.
+      if (a === 'del' && cfg.camadas.length <= 1) {
+        aviso('a última camada não pode ser apagada'); return;
+      }
+      marca();
+      var nome = nomeMotivo(cfg.camadas[i].motivo);
+      if (a === 'del') { cfg.camadas.splice(i, 1); aviso(nome + ' apagada · ⌘Z desfaz'); }
       if (a === 'dup') cfg.camadas.splice(i + 1, 0, JSON.parse(JSON.stringify(cfg.camadas[i])));
       if (a === 'up' && i > 0) cfg.camadas.splice(i - 1, 0, cfg.camadas.splice(i, 1)[0]);
       if (a === 'down' && i < cfg.camadas.length - 1) cfg.camadas.splice(i + 1, 0, cfg.camadas.splice(i, 1)[0]);
@@ -2260,6 +2363,7 @@ var MC = (function () {
     if (head && el.tagName !== 'INPUT') { i = +head.dataset.toggle; open[i] = !open[i]; drawPanel(); }
   });
   document.getElementById('addcam').addEventListener('click', function () {
+    marca();
     var last = cfg.camadas[cfg.camadas.length - 1];
     cfg.camadas.push(C({ r0: last ? Math.min(0.9, last.r1) : 0.3, r1: 0.98,
       nivel: last ? last.nivel : 1, fasePasso: 0 }));
@@ -2269,6 +2373,7 @@ var MC = (function () {
     b.addEventListener('click', function () {
       // trocar de desenho não mexe no que é decisão de IMPRESSÃO: tamanho,
       // nome do projeto e o modo de chapa continuam como o usuário deixou
+      marca();
       var diam = cfg.diam, nome = cfg.nome, solida = cfg.baseSolida;
       cfg = migraFase(Object.assign(MC.defaults(), PRESETS[b.dataset.preset]()));
       cfg.diam = diam; cfg.nome = nome; cfg.baseSolida = solida;
@@ -2393,6 +2498,7 @@ var MC = (function () {
     // que o usuário pede é o de slots do AMS, o mesmo que o badge mostra
     var resto = alvo - (vistas[fio] ? 1 : 0);
     if (cores.length <= resto) return 0;
+    marca();
 
     var lab = {}, i, j;
     cores.forEach(function (h) { lab[h] = labDe(h); });
@@ -2938,10 +3044,12 @@ var MC = (function () {
       try {
         var o = JSON.parse(rd.result);
         if (!o.camadas || !o.camadas.length) throw new Error('sem camadas');
+        marca();
         cfg = Object.assign(MC.defaults(), o);
         cfg.camadas = o.camadas.map(function (x) { return C(x); });
         migraFase(cfg);
         open = {}; drawPanel(); schedule();
+        aviso('configuração carregada · ⌘Z desfaz');
       } catch (err) { alert('Arquivo inválido: ' + err.message); }
     };
     rd.readAsText(f); e.target.value = '';
