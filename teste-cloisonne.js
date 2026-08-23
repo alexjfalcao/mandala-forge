@@ -333,10 +333,13 @@ function confere3MF(buf, g) {
 // Grade pequena de propósito — o que se testa aqui é a topologia, não o
 // acabamento. É onde moram as armadilhas do marching squares: cruzamento em
 // cima do nó, sela desconectada e T-junction contra retângulo fundido.
-async function checaContorno() {
-  console.log('\nvia por contorno + 3MF + OBJ:');
+async function checaContorno(chapa) {
+  console.log(chapa ? '\nvia por contorno, chapa numa cor só:'
+                    : '\nvia por contorno + 3MF + OBJ:');
   let ruins = 0;
-  for (const [name, cfg] of cases) {
+  for (const [name, cfg0] of cases) {
+    const cfg = clone(cfg0);
+    if (chapa) { cfg.chapaUnica = true; cfg.baseCam = 2; }
     const g = MC.buildContorno(clone(cfg), 120, 3);
     let tot = 0, abertas = 0, degen = 0;
     for (const p of g.pecas) {
@@ -362,6 +365,23 @@ async function checaContorno() {
     const celula = cfg.diam / 120;
     let ok = abertas === 0 && degen === 0 && g.pecas.length > 0 &&
       maxR * 2 <= cfg.diam + celula && minZ >= -1e-6;
+
+    // Com a chapa numa cor só, nenhuma peça COLORIDA pode encostar no plano:
+    // a cor tem que começar no topo da chapa. É o que corta a purga do AMS —
+    // se uma poça ainda for extrudada desde o zero, o ganho evaporou.
+    if (chapa) {
+      const base = MC.baseMM(cfg);
+      for (const p of g.pecas) {
+        if (p.cor === cfg.corBase) continue;
+        let z = Infinity;
+        for (let i = 0; i < p.nv; i++) if (p.vx[i * 3 + 2] < z) z = p.vx[i * 3 + 2];
+        if (z < base - 1e-6) {
+          console.log('    ✗ peça ' + p.cor + ' desce até z=' + z.toFixed(3) +
+                      ', deveria parar em ' + base.toFixed(3));
+          ok = false;
+        }
+      }
+    }
 
     // 3MF: pacote válido e, principalmente, a associação cor → peça → filamento
     // escrita de forma explícita (nada de basematerials nem de cor aproximada)
@@ -535,7 +555,8 @@ async function checaContorno() {
 
 (async () => {
   fail += checaIndexada();
-  fail += await checaContorno();
+  fail += await checaContorno(false);
+  fail += await checaContorno(true);
   console.log(fail === 0 ? '\nTODOS OS TESTES PASSARAM' : '\n' + fail + ' CASO(S) COM FALHA');
   process.exit(fail ? 1 : 0);
 })();

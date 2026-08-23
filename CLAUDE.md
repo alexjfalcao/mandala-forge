@@ -23,7 +23,7 @@ face; a via por contorno extrai curvas de nível sub-pixel e extruda um sólido 
 
 **Ela não reimplementa a matemática**: `amostrar.js` carrega o mesmo bloco `mandala-core`
 em `vm` e só despeja o resultado. Se você mudar a geometria no HTML, ela acompanha sozinha.
-O que precisa acompanhar à mão é o **formato do `.bin`** (magic `MCR2`), que os dois lados
+O que precisa acompanhar à mão é o **formato do `.bin`** (magic `MCR3`), que os dois lados
 conhecem.
 
 `exportar.py preset:<nome>` puxa os presets recortando o literal `var PRESETS` do bloco de
@@ -124,6 +124,20 @@ Consequências práticas ao mexer:
   `pi·D/nt` e abaixo de ~3 células por filete a borda sai em escada. A qualidade `fino`
   (220×2880) troca resolução radial por angular e dá 6,9 células por filete com menos
   triângulos que `max`. Alargar o filete não resolve — acima de ~1,2 mm ele engole as poças.
+- **`cfg.chapaUnica`** (padrão desligado) parte a peça em duas fatias: a chapa, em `corBase`,
+  de 0 até `baseMM(cfg)`, e o desenho, extrudado do topo dela para cima. Sem ele toda região
+  sai do plano da mesa e a cor da poça atravessa a peça inteira — 31,9 cm³ de filamento
+  colorido no preset padrão contra 8,9 cm³ com a chapa ligada. Nesse modo a espessura é
+  medida em **camadas de 0,2 mm** (`cfg.baseCam`, padrão 2), não no `cfg.base` em mm:
+  `baseMM(cfg)` é a fonte única, e `altura`, `alturaMax`, `cobertura`, `coneMalha` e
+  `amostrar.js` passam por ela.
+- `malhaRegiao(cov, N, quadro, passo, z, z0)` extruda de `z0` (padrão 0) até `z`. Toda cota
+  de fundo vem de `topo ? z : z0` — **cota literal ali é bug**: o vértice central do leque do
+  fundo tinha `0` escrito à mão, e só apareceu ao ligar a chapa, puxando um bico até a mesa
+  em cada retângulo fundido.
+- O `.bin` da via por contorno é **`MCR3`**: 12 bytes por região (`float32 z`, `uint8 r,g,b`,
+  `uint8 pad`, `float32 z0`), não mais 8. `amostrar.js` e `exportar.py` conhecem o formato à
+  mão; mexer num sem o outro dá "arquivo de grade inválido ou de versão antiga".
 - `cfg.nivelUnico` (padrão ligado) faz `prepare` ignorar o `nivel` das camadas e usar 1 em
   todas — mandala plana, só cone e aro com altura própria. `alturaMax` também respeita.
 - `filete()` devolve **fração 0..1** com borda macia dimensionada pela célula da grade, não

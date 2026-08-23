@@ -77,7 +77,7 @@ def amostrar(config, destino, grade, sub):
 
 def ler_grade(caminho):
     dados = open(caminho, "rb").read()
-    if dados[:4] != b"MCR2":
+    if dados[:4] != b"MCR3":
         sys.exit("arquivo de grade inválido ou de versão antiga")
     n, = struct.unpack_from("<I", dados, 4)
     quadro, = struct.unpack_from("<f", dados, 8)
@@ -85,9 +85,10 @@ def ler_grade(caminho):
     n_reg, = struct.unpack_from("<I", dados, 16)
     regioes = []
     for i in range(n_reg):
-        z, r, g, b, _ = struct.unpack_from("<fBBBB", dados, 20 + i * 8)
-        regioes.append({"z": z, "cor": "#%02x%02x%02x" % (r, g, b)})
-    cob = np.frombuffer(dados, dtype=np.uint8, offset=20 + n_reg * 8)
+        # z0 é a cota do fundo: 0 no normal, topo da chapa quando `chapaUnica`
+        z, r, g, b, _, z0 = struct.unpack_from("<fBBBBf", dados, 20 + i * 12)
+        regioes.append({"z": z, "z0": z0, "cor": "#%02x%02x%02x" % (r, g, b)})
+    cob = np.frombuffer(dados, dtype=np.uint8, offset=20 + n_reg * 12)
     cob = cob.reshape(n_reg, n, n)
     return n, quadro, raio, regioes, cob
 
@@ -126,11 +127,15 @@ def poligonos_da_regiao(cobertura, eixo, tolerancia, area_minima, disco=None):
     return saida
 
 
-def extrudar(poligonos, altura):
+def extrudar(poligonos, altura, z0=0.0):
+    """Extruda de `z0` até `altura`. Com a chapa numa cor só, as poças começam
+    no topo da chapa em vez do plano da mesa."""
     malhas = []
     for p in poligonos:
         try:
-            m = trimesh.creation.extrude_polygon(p, altura)
+            m = trimesh.creation.extrude_polygon(p, altura - z0)
+            if z0:
+                m.apply_translation([0.0, 0.0, z0])
             if len(m.faces):
                 malhas.append(m)
         except Exception:
@@ -397,7 +402,7 @@ def main():
     print("extraindo contornos e extrudando…")
     for i, reg in enumerate(regioes):
         polys = poligonos_da_regiao(cob[i], eixo, args.tolerancia, args.area_minima, disco)
-        malhas = extrudar(polys, reg["z"])
+        malhas = extrudar(polys, reg["z"], reg.get("z0", 0.0))
         if not malhas:
             continue
         tri = sum(len(m.faces) for m in malhas)

@@ -139,11 +139,14 @@
       <fieldset>
         <legend>Placa</legend>
         <div class="row"><label>Diâmetro</label><input type="range" data-g="diam" min="50" max="300" step="1"><span class="num" data-v="diam"></span></div>
-        <div class="row"><label>Base</label><input type="range" data-g="base" min="1" max="10" step="0.1"><span class="num" data-v="base"></span></div>
+        <div class="row" data-nao="chapaUnica"><label>Base</label><input type="range" data-g="base" min="1" max="10" step="0.1"><span class="num" data-v="base"></span></div>
+        <div class="row"><label>Base sólida</label><input type="checkbox" data-g="chapaUnica"><span class="num"></span></div>
+        <div class="row" data-only="chapaUnica"><label>Camadas</label><input type="range" data-g="baseCam" min="1" max="20" step="1"><span class="num" data-v="baseCam"></span></div>
         <div class="row"><label>Simetria</label><input type="range" data-g="sym" min="3" max="36" step="1"><span class="num" data-v="sym"></span></div>
         <div class="row"><label>Rotação</label><input type="range" data-g="rot" min="0" max="360" step="1"><span class="num" data-v="rot"></span></div>
         <div class="row"><label>Aro</label><input type="range" data-g="aro" min="0" max="20" step="0.5"><span class="num" data-v="aro"></span></div>
         <div class="row"><label>Altura do aro</label><input type="range" data-g="aroH" min="0" max="6" step="0.1"><span class="num" data-v="aroH"></span></div>
+        <p class="hint" data-only="chapaUnica"><b>Base sólida</b> imprime a base inteira em <b>cor da placa</b> — duas camadas por padrão, 0,4 mm — e só o desenho por cima é que sai colorido. Sem ela, cada poça é extrudada desde o zero e a cor atravessa a peça toda, gastando purga do AMS à toa. A espessura passa a ser medida em camadas de 0,2 mm — suba para 10 ou 15 se a peça for grande, porque com duas camadas um disco de 120 mm fica com 0,4 mm de chapa e empena.</p>
       </fieldset>
 
       <fieldset>
@@ -311,6 +314,7 @@ var MC = (function () {
       fio: 0.9, fioH: 1.0, degrau: 0.7,
       cone: 22, coneH: 6, coneC: 0.75, furo: 3, furoP: 9,
       modo: 'placa', conn: 0, connW: 1.6, suave: true, nivelUnico: true,
+      chapaUnica: false, baseCam: 2,
       corBase: '#5b2a7a', corFio: '#f6f2e8', luz: 315, verniz: 0.45,
       camadas: [
         camada({ motivo: 'anel', mult: 1, r0: 0.16, r1: 0.82, nivel: 0, preench: 'nenhum', cor: '#2b1330' }),
@@ -516,24 +520,34 @@ var MC = (function () {
     return out;
   }
 
+  /* ---- espessura da chapa, em mm ----
+     Com `chapaUnica` a chapa é medida em CAMADAS de impressão, não em mm: ela
+     existe para ser a menina-dos-olhos do AMS — a peça inteira apoiada numa
+     casca fina de uma cor só, com as poças coloridas por cima. Duas camadas
+     (0,4 mm) é o padrão. Fora desse modo vale o `base` em mm do painel. */
+  var ALT_CAMADA = 0.2;
+  function baseMM(cfg) {
+    return cfg.chapaUnica ? Math.max(1, Math.round(cfg.baseCam || 2)) * ALT_CAMADA : cfg.base;
+  }
+
   /* ---- altura em mm no ponto (rmm em MILÍMETROS) ---- */
   function altura(cfg, P, rmm, th, out) {
-    var R = cfg.diam / 2;
+    var R = cfg.diam / 2, base = baseMM(cfg);
     out = out || {};
     if (cfg.cone > 0 && rmm < cfg.cone / 2) {
       out.id = -2; out.fio = 0; out.nivel = 0;
       if (cfg.furo > 0 && rmm < cfg.furo / 2)
-        return Math.max(0.8, cfg.base + cfg.coneH - cfg.furoP);
+        return Math.max(0.8, base + cfg.coneH - cfg.furoP);
       var u = rmm / (cfg.cone / 2);
-      return cfg.base + cfg.coneH * Math.pow(1 - u, Math.max(0.1, cfg.coneC));
+      return base + cfg.coneH * Math.pow(1 - u, Math.max(0.1, cfg.coneC));
     }
     if (cfg.aro > 0 && rmm > R - cfg.aro) {
       out.id = -3; out.fio = 0; out.nivel = 0;
-      return cfg.base + cfg.aroH;
+      return base + cfg.aroH;
     }
     amostra(P, rmm / R, th, out);
-    if (out.id < 0) return cfg.base;
-    return cfg.base + out.nivel * cfg.degrau + out.fio * cfg.fioH;
+    if (out.id < 0) return base;
+    return base + out.nivel * cfg.degrau + out.fio * cfg.fioH;
   }
 
   /* ---- altura de um nó da grade (a suavização mora em filete(), não aqui) ---- */
@@ -558,14 +572,14 @@ var MC = (function () {
 
   /* ---- altura máxima possível (para normalizar o preview) ---- */
   function alturaMax(cfg) {
-    var m = cfg.base + cfg.aroH, i;
+    var base = baseMM(cfg), m = base + cfg.aroH, i;
     for (i = 0; i < cfg.camadas.length; i++) {
       if (!cfg.camadas[i].on) continue;
       var niv = cfg.nivelUnico ? 1 : cfg.camadas[i].nivel;
-      var z = cfg.base + niv * cfg.degrau + cfg.fioH;
+      var z = base + niv * cfg.degrau + cfg.fioH;
       if (z > m) m = z;
     }
-    if (cfg.cone > 0) m = Math.max(m, cfg.base + cfg.coneH);
+    if (cfg.cone > 0) m = Math.max(m, base + cfg.coneH);
     return m;
   }
 
@@ -1257,6 +1271,21 @@ var MC = (function () {
     var o = {}, mapa = {}, regs = [], cov = [];
     var total = N * N, inc = 1 / (SUB * SUB);
     var ix, iy, sx, sy;
+    var base = baseMM(cfg), chapa = !!cfg.chapaUnica;
+
+    /* Cada amostra vai para a região (cor, do z0 até o z). Sem `chapaUnica` há
+       uma região por amostra, extrudada do zero; com ele há duas — a chapa, de
+       0 até `base`, e o que estiver por cima, de `base` até o z do ponto. */
+    function marca(cor, z, z0, cel) {
+      if (z <= z0 + 1e-6) return;                                    // espessura nula
+      var k = cor + '@' + z.toFixed(3) + '@' + z0.toFixed(3), id = mapa[k];
+      if (id === undefined) {
+        id = regs.length; regs.push({ cor: cor, z: z, z0: z0 }); mapa[k] = id;
+        cov.push(new Float32Array(total));
+      }
+      cov[id][cel] += inc;
+    }
+
     for (iy = 0; iy < N; iy++) {
       var yc = -quadro + (iy + 0.5) * passo;
       for (ix = 0; ix < N; ix++) {
@@ -1273,15 +1302,12 @@ var MC = (function () {
             var zr = altura(cfg, P, rr, th, o), zq, cor;
             if (o.id < 0) { zq = zr; cor = cfg.corBase; }             // placa e aro já são planos
             else {
-              zq = cfg.base + o.nivel * cfg.degrau + (o.fio >= 0.5 ? cfg.fioH : 0);
+              zq = base + o.nivel * cfg.degrau + (o.fio >= 0.5 ? cfg.fioH : 0);
               cor = o.fio >= 0.5 ? cfg.corFio : ((o.banda % 2 === 1 && o.cor2) ? o.cor2 : o.cor);
             }
-            var k = cor + '@' + zq.toFixed(3), id = mapa[k];
-            if (id === undefined) {
-              id = regs.length; regs.push({ cor: cor, z: zq }); mapa[k] = id;
-              cov.push(new Float32Array(total));
-            }
-            cov[id][iy * N + ix] += inc;
+            var cel = iy * N + ix;
+            if (chapa) { marca(cfg.corBase, base, 0, cel); marca(cor, zq, base, cel); }
+            else marca(cor, zq, 0, cel);
           }
         }
       }
@@ -1289,9 +1315,12 @@ var MC = (function () {
     return { N: N, quadro: quadro, raio: R, passo: passo, regs: regs, cov: cov };
   }
 
-  /* ---- malha fechada de UMA região, extrudada de z=0 até `z` ---- */
-  function malhaRegiao(cov, N, quadro, passo, z) {
+  /* ---- malha fechada de UMA região, extrudada de `z0` (padrão 0) até `z` ----
+     Só a cota do fundo muda: a topologia é idêntica, e a peça continua um
+     prisma fechado. É o que permite empilhar a chapa e as poças sem furar. */
+  function malhaRegiao(cov, N, quadro, passo, z, z0) {
     var M = N - 1;                                                    // quadrados da grade
+    z0 = z0 || 0;
     var vx = new Float32Array(1 << 14), nv = 0;
     var idx = new Uint32Array(1 << 15), nt = 0;
     var idN = new Int32Array(2 * N * N).fill(-1);                     // nós: topo e fundo
@@ -1312,17 +1341,17 @@ var MC = (function () {
     }
     function vNode(i, j, topo) {
       var k = (topo ? 0 : N * N) + i * N + j;
-      if (idN[k] < 0) idN[k] = vPush(px(j), py(i), topo ? z : 0);
+      if (idN[k] < 0) idN[k] = vPush(px(j), py(i), topo ? z : z0);
       return idN[k];
     }
     function vH(i, j, t, topo) {                                      // entre (i,j) e (i,j+1)
       var k = (topo ? 0 : N * N) + i * N + j;
-      if (idH[k] < 0) idH[k] = vPush(px(j) + t * passo, py(i), topo ? z : 0);
+      if (idH[k] < 0) idH[k] = vPush(px(j) + t * passo, py(i), topo ? z : z0);
       return idH[k];
     }
     function vV(i, j, t, topo) {                                      // entre (i,j) e (i+1,j)
       var k = (topo ? 0 : N * N) + i * N + j;
-      if (idV[k] < 0) idV[k] = vPush(px(j), py(i) + t * passo, topo ? z : 0);
+      if (idV[k] < 0) idV[k] = vPush(px(j), py(i) + t * passo, topo ? z : z0);
       return idV[k];
     }
 
@@ -1385,7 +1414,7 @@ var MC = (function () {
         for (k = j2; k >= j; k--) borda.push([i2 + 1, k]);
         for (k = i2; k >= i + 1; k--) borda.push([k, j]);
         var cxm = (px(j) + px(j2 + 1)) / 2, cym = (py(i) + py(i2 + 1)) / 2;
-        var ct = vPush(cxm, cym, z), cb = vPush(cxm, cym, 0);
+        var ct = vPush(cxm, cym, z), cb = vPush(cxm, cym, z0);
         for (k = 0; k < borda.length; k++) {
           var p1 = borda[k], p2 = borda[(k + 1) % borda.length];
           tri(ct, vNode(p1[0], p1[1], 1), vNode(p2[0], p2[1], 1));
@@ -1473,7 +1502,7 @@ var MC = (function () {
     var rc = cfg.cone / 2;
     if (!(rc > 0)) return null;
     seg = seg || 192;
-    var base = cfg.base, alt = cfg.coneH, curva = Math.max(0.1, cfg.coneC);
+    var base = baseMM(cfg), alt = cfg.coneH, curva = Math.max(0.1, cfg.coneC);
     var perfil = [], passos = 40, i, k;
     var rf = cfg.furo > 0 ? cfg.furo / 2 : 0;
     if (rf > 0) {
@@ -1542,7 +1571,7 @@ var MC = (function () {
     var porCor = {}, ordem = [], i;
     for (i = 0; i < C.regs.length; i++) {
       var reg = C.regs[i];
-      var m = malhaRegiao(C.cov[i], C.N, C.quadro, C.passo, reg.z);
+      var m = malhaRegiao(C.cov[i], C.N, C.quadro, C.passo, reg.z, reg.z0 || 0);
       if (!m.tris) continue;
       if (!porCor[reg.cor]) { porCor[reg.cor] = []; ordem.push(reg.cor); }
       porCor[reg.cor].push(m);
@@ -1593,7 +1622,7 @@ var MC = (function () {
     buildIndexed: buildIndexed,
     cobertura: cobertura, malhaRegiao: malhaRegiao, coneMalha: coneMalha, buildContorno: buildContorno,
     dist: dist, perfil: perfil, amostra: amostra, altura: altura, alturaMax: alturaMax,
-    solid: solid, alturaNo: alturaNo, resolution: resolution, resolucaoContorno: resolucaoContorno, buildMesh: buildMesh,
+    solid: solid, alturaNo: alturaNo, baseMM: baseMM, ALT_CAMADA: ALT_CAMADA, resolution: resolution, resolucaoContorno: resolucaoContorno, buildMesh: buildMesh,
     to3MF: to3MF, toOBJ: toOBJ, audit: audit, clamp: clamp
   };
 })();
@@ -1644,6 +1673,7 @@ var MC = (function () {
         aro: 3.5, aroH: 1.0, fio: 0.8, fioH: 0.9, degrau: 0.5,
         cone: 14, coneH: 5, coneC: 0.7, furo: 3, furoP: 8,
         modo: 'placa', conn: 0, connW: 1.6, suave: true, nivelUnico: true,
+      chapaUnica: false, baseCam: 2,
         corBase: '#5b2a7a', corFio: '#f6f2e8', luz: 315, verniz: 0.35,
         camadas: [
           C({ motivo: 'anel', mult: 1, r0: 0.11, r1: 0.90, nivel: 0, borda: false, cor: '#2c1233' }),
@@ -1927,7 +1957,8 @@ var MC = (function () {
   }
 
   var GFMT = {
-    diam: function (v) { return v + ' mm'; }, base: mm, sym: function (v) { return v + '×'; },
+    diam: function (v) { return v + ' mm'; }, base: mm,
+    baseCam: function (v) { return v + ' cam'; }, sym: function (v) { return v + '×'; },
     rot: deg, aro: mm, aroH: mm, fio: function (v) { return v.toFixed(2) + ' mm'; }, fioH: mm,
     degrau: function (v) { return v.toFixed(2) + ' mm'; },
     cone: function (v) { return v ? v.toFixed(1) + ' mm' : 'sem'; }, coneH: mm, coneC: num,
@@ -1948,10 +1979,19 @@ var MC = (function () {
     document.querySelectorAll('[data-modo]').forEach(function (b) {
       b.classList.toggle('on', b.dataset.modo === cfg.modo);
     });
+    // `data-only` mostra a linha quando a chave está ligada (número > 0 ou
+    // booleano verdadeiro); `data-nao` esconde. O modo do corpo é o único caso
+    // que não é uma chave de cfg.
+    function ligado(c) {
+      if (c === 'vazado') return cfg.modo === 'vazado';
+      var v = cfg[c];
+      return typeof v === 'number' ? v > 0 : !!v;
+    }
     document.querySelectorAll('[data-only]').forEach(function (el) {
-      var c = el.dataset.only;
-      var vis = c === 'vazado' ? cfg.modo === 'vazado' : (c === 'cone' ? cfg.cone > 0 : cfg.furo > 0);
-      el.style.display = vis ? '' : 'none';
+      el.style.display = ligado(el.dataset.only) ? '' : 'none';
+    });
+    document.querySelectorAll('[data-nao]').forEach(function (el) {
+      el.style.display = ligado(el.dataset.nao) ? 'none' : '';
     });
     espelhaHex(document);
   }
@@ -2040,9 +2080,11 @@ var MC = (function () {
   });
   document.querySelectorAll('.preset').forEach(function (b) {
     b.addEventListener('click', function () {
-      var diam = cfg.diam, nome = cfg.nome;
+      // trocar de desenho não mexe no que é decisão de IMPRESSÃO: tamanho,
+      // nome do projeto e o modo de chapa continuam como o usuário deixou
+      var diam = cfg.diam, nome = cfg.nome, chapa = cfg.chapaUnica, bc = cfg.baseCam;
       cfg = migraFase(Object.assign(MC.defaults(), PRESETS[b.dataset.preset]()));
-      cfg.diam = diam; cfg.nome = nome;
+      cfg.diam = diam; cfg.nome = nome; cfg.chapaUnica = chapa; cfg.baseCam = bc;
       open = {}; drawPanel(); schedule();
     });
   });

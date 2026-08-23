@@ -57,6 +57,7 @@ MC.dist(g, r, th, o)           // distância assinada ao motivo (fração do rai
 MC.amostra(P, r, th, out)      // quem reivindica o ponto → { id, nivel, fio, banda, cor }
 MC.altura(cfg, P, rmm, th, out)     // altura em MILÍMETROS (rmm em mm)
 MC.alturaMax(cfg)              // teto da peça, em mm
+MC.baseMM(cfg)                 // espessura da chapa em mm (baseCam×0,2 com chapaUnica)
 MC.solid(cfg, P, rmm, th, out) // há material aqui?
 MC.resolution(cfg, q)          // { nr, nt } para 'teste'|'bom'|'alta'|'max'
 MC.buildIndexed(cfg, res, cor) // um sólido só: { vx, nv, idx, tris, mat, paleta, ... }
@@ -80,7 +81,9 @@ milímetros**. Confundir os dois é o erro mais fácil de cometer aqui.
 
 ```js
 {
-  diam: 120, base: 3,     // mm — Ø e espessura da chapa
+  diam: 120, base: 3,     // mm — Ø e espessura da chapa (ignorado com chapaUnica)
+  chapaUnica: false,      // chapa numa cor só, com o desenho extrudado por cima dela
+  baseCam: 2,             // com chapaUnica: espessura da chapa, em camadas de 0,2 mm
   sym: 10, rot: 0,        // simetria e rotação global (graus)
 
   aro: 4, aroH: 1.2,      // mm — borda externa lisa e o quanto ela sobe
@@ -193,6 +196,18 @@ para 105 mil triângulos. Desligue para escalonar as camadas pelo campo `nivel`.
 
 Para deixar as poças rentes à chapa em vez de 0,5 mm acima dela, zere o `degrau`.
 
+**`chapaUnica`** muda de onde cada cor SAI, não a altura dela. Desligado (padrão), toda
+região é extrudada do plano da mesa até o seu `z` — a cor da poça atravessa a peça inteira e
+o AMS purga um volume que ninguém vai ver. Ligado, a peça vira duas fatias: a chapa, em
+`corBase`, de 0 até `baseMM(cfg)`, e o desenho, extrudado do topo dela para cima. O filamento
+colorido cai de 31,9 cm³ para 8,9 cm³ no preset padrão — 72% a menos — e o número não muda
+com a espessura da chapa, porque só a cor da placa engorda.
+
+Nesse modo a espessura é medida em **camadas de impressão de 0,2 mm** (`baseCam`, padrão 2),
+não no `base` em mm do painel: `baseMM(cfg)` é quem decide, e todo mundo (`altura`,
+`alturaMax`, `cobertura`, `coneMalha`, `amostrar.js`) passa por ela. Duas camadas num disco
+de 120 mm dão 0,4 mm de chapa, que empena — o painel avisa e o slider vai até 20.
+
 
 `amostra` percorre as camadas **em ordem do array e a última que reivindica vence** — é
 pintura por cima, não soma. Por isso a ordem na pilha importa, e o painel tem ▲▼.
@@ -252,6 +267,11 @@ Cada célula emite o **seu pedaço recortado** pela curva de nível (marching sq
 recorte). Células inteiramente dentro são fundidas em retângulos, senão áreas lisas
 explodiriam a contagem.
 
+`cobertura()` decide de quais regiões cada amostra participa, e `malhaRegiao(cov, N, quadro,
+passo, z, z0)` extruda uma delas de `z0` até `z`. Sem `chapaUnica` é uma região por amostra,
+com `z0 = 0`; com ele são duas — a chapa e o que está por cima. Só a cota do fundo muda: a
+topologia do prisma é a mesma, e é por isso que empilhar não fura a malha.
+
 ⚠️ **Três armadilhas, todas com teste na suíte:**
 
 1. **Cruzamento em cima do nó.** Quando a cobertura vale exatamente o limiar, `t` dá 0 ou 1
@@ -268,7 +288,12 @@ explodiriam a contagem.
    triângulos colineares). Sem isso, a aresta longa do retângulo não casa com as arestas
    curtas dos vizinhos e a malha abre.
 
-E uma quarta, fora do meshing: a **moldura de amostragem precisa sobrar duas células além
+⚠️ E uma quarta, dentro do meshing e descoberta ligando `chapaUnica`: o **vértice central do
+leque do fundo** tinha a cota `0` escrita à mão, enquanto todos os outros vêm de `topo ? z :
+z0`. Com o fundo em z=0 ninguém percebia; com a chapa empilhada, cada retângulo fundido
+puxava um bico até a mesa. Se aparecer outra cota literal em `malhaRegiao`, é bug.
+
+E uma quinta, fora do meshing: a **moldura de amostragem precisa sobrar duas células além
 do disco** (`quadro = R·(1+4/N)`). Se o centro da célula mais externa cair dentro da peça, o
 contorno não tem onde fechar e a malha abre no aro inteiro.
 
@@ -286,13 +311,14 @@ Grade por qualidade (`QUAL_CONT`), independente da polar:
 ### Como funciona
 
 1. **`amostrar.js`** varre uma grade cartesiana com sub-amostragem (`--sub` por eixo) e,
-   para cada célula, guarda a **cobertura 0..255 de cada região**. Uma região é um par
-   (cor, altura). É a cobertura fracionária que permite o contorno sub-pixel depois.
+   para cada célula, guarda a **cobertura 0..255 de cada região**. Uma região é uma cor
+   entre duas cotas (`z0` até `z`). É a cobertura fracionária que permite o contorno
+   sub-pixel depois.
 2. A altura, que é contínua por causa da borda macia do filete, volta a ser **discreta**:
    cada região tem uma altura só, porque vira um prisma.
 3. **`exportar.py`** passa `contourpy` na cobertura de cada região no nível 0,5, monta
    polígonos com furos no shapely, simplifica (`--tolerancia`, 0,015 mm), recorta no disco
-   de Ø exato e extruda com `trimesh.creation.extrude_polygon`.
+   de Ø exato e extruda com `trimesh.creation.extrude_polygon`, transladando para `z0`.
 4. As regiões de mesma cor viram uma peça; cada peça vira um `<object>` e um extrusor no
    `Metadata/model_settings.config`.
 
@@ -300,8 +326,12 @@ Grade por qualidade (`QUAL_CONT`), independente da polar:
 
 - **O cone central não é região**: é curvo, então sai como sólido de revolução
   (`trimesh.creation.revolve`), com o furo cego no perfil.
-- **A cor atravessa toda a espessura**, igual à via por grade: cada região é extrudada de
-  z=0 até a sua altura.
+- **A cor atravessa toda a espessura**, a menos que `chapaUnica` esteja ligado: aí a chapa
+  sai numa cor só, de 0 até `baseMM(cfg)`, e cada região colorida é extrudada do topo dela
+  para cima. O `.bin` carrega esse `z0` por região — foi o que levou o magic de `MCR2` para
+  **`MCR3`** (cabeçalho de 12 bytes por região em vez de 8: `float32 z`, `uint8 r,g,b`,
+  `uint8 pad`, `float32 z0`). Os dois lados conhecem o formato à mão; mexer num sem o outro
+  faz `exportar.py` sair com "arquivo de grade inválido ou de versão antiga".
 - **As peças se tocam face a face** e os contornos de regiões vizinhas são extraídos
   independentemente, então pode haver costura sub-pixel entre elas. Para o fatiador isso é
   irrelevante (peças encostadas são o normal em multimaterial), mas não espere que a união
@@ -845,14 +875,11 @@ Três regras que economizam tempo:
 
 1. **Sem chanfro nos filetes** — as laterais são verticais. Um bisel de 0,3 mm no topo
    imprimiria e pintaria melhor.
-2. **A cor atravessa toda a espessura no modo peças.** Cortar as peças no topo da chapa
-   (chapa inteira numa cor, relevo colorido por cima) economizaria muita purga, mas exige
-   tratar as células onde o relevo tem altura zero, que gerariam triângulos degenerados.
-3. **Sem SVG** — as curvas de nível existem; um SVG por poça serviria de máscara de pintura
+2. **Sem SVG** — as curvas de nível existem; um SVG por poça serviria de máscara de pintura
    e para corte a laser.
-4. **`gotaint`/`pontoint` não têm cor própria** — saem na cor do filete, no preview e no 3MF. Um preenchimento
+3. **`gotaint`/`pontoint` não têm cor própria** — saem na cor do filete, no preview e no 3MF. Um preenchimento
    com cor independente exigiria um terceiro canal em `amostra`.
-5. **O 3D não tem sombra projetada nem oclusão** — a leitura do relevo depende só do Lambert.
-6. **O OBJ sai em dois arquivos** — o navegador dispara dois downloads. Um .zip resolveria,
+4. **O 3D não tem sombra projetada nem oclusão** — a leitura do relevo depende só do Lambert.
+5. **O OBJ sai em dois arquivos** — o navegador dispara dois downloads. Um .zip resolveria,
    mas obrigaria a descompactar antes de importar.
-7. Motivos que faltam: entrelaçado, espiral, escama (telha), e um motivo "texto radial".
+6. Motivos que faltam: entrelaçado, espiral, escama (telha), e um motivo "texto radial".

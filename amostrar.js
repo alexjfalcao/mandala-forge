@@ -7,16 +7,17 @@
 //
 //   node amostrar.js config.json saida.bin [--grade 2400] [--sub 3]
 //
-// Uma "região" é um par (cor, altura). O contorno de cada região é o que o
+// Uma "região" é uma cor entre duas cotas (z0 até altura). O contorno de cada região é o que o
 // Python transforma em sólido extrudado.
 //
 // Formato do .bin:
-//   uint32  magic 'MCR2'
+//   uint32  magic 'MCR3'
 //   uint32  N            lado da grade (N x N)
 //   float32 quadro       mm — meia-largura do quadro amostrado
 //   float32 raio         mm — raio real da peça (o disco é recortado nele)
 //   uint32  nRegioes
-//   por região: float32 altura, uint8 r, g, b, uint8 pad
+//   por região: float32 altura, uint8 r, g, b, uint8 pad, float32 z0
+//               (z0 é a cota do FUNDO: 0 no normal, topo da chapa com chapaUnica)
 //   uint16  N*N*nRegioes ... NÃO: cobertura por região é grande demais.
 //   Em vez disso: uint8 N*N*nRegioes com a cobertura 0..255 de cada região.
 const fs = require('fs');
@@ -78,10 +79,11 @@ function main() {
 
   // ---- descobre as regiões (cor, altura) presentes ----
   const chave = new Map(), regioes = [];
-  function idRegiao(cor, z) {
-    const k = cor + '@' + z.toFixed(4);
+  function idRegiao(cor, z, z0) {
+    if (z <= z0 + 1e-6) return -1;                                   // espessura nula
+    const k = cor + '@' + z.toFixed(4) + '@' + z0.toFixed(4);
     let id = chave.get(k);
-    if (id === undefined) { id = regioes.length; regioes.push({ cor, z }); chave.set(k, id); }
+    if (id === undefined) { id = regioes.length; regioes.push({ cor, z, z0 }); chave.set(k, id); }
     return id;
   }
   function corDe(s) {
@@ -97,8 +99,11 @@ function main() {
   // Placa e aro (id < 0) já são planos, então valem pelo valor real.
   function alturaDiscreta(s, zReal) {
     if (s.id < 0) return zReal;
-    return cfg.base + s.nivel * cfg.degrau + (s.fio >= 0.5 ? cfg.fioH : 0);
+    return base + s.nivel * cfg.degrau + (s.fio >= 0.5 ? cfg.fioH : 0);
   }
+  // Com `chapaUnica` a chapa sai numa cor só, de 0 até `base`, e o desenho é
+  // extrudado do topo dela para cima — o mesmo que `cobertura()` faz no HTML.
+  const base = MC.baseMM(cfg), chapa = !!cfg.chapaUnica;
 
   const total = N * N;
   const acumulado = [];                                              // por região: Uint16Array
@@ -117,16 +122,18 @@ function main() {
           if (rr > R) continue;
           const th = Math.atan2(y, x);
           if (!MC.solid(cfg, P, rr, th, o)) continue;
-          const cone = cfg.cone > 0 && rr < cfg.cone / 2;
-          let z, cor;
-          const zReal = MC.altura(cfg, P, rr, th, o);
-          if (cone) { z = zReal; cor = cfg.corBase; }
-          else { z = alturaDiscreta(o, zReal); cor = corDe(o); }
           // o cone é curvo: não vira região extrudada, sai à parte
-          const id = cone ? -1 : idRegiao(cor, z);
-          if (id < 0) continue;
-          while (acumulado.length <= id) acumulado.push(new Uint16Array(total));
-          acumulado[id][iy * N + ix]++;
+          if (cfg.cone > 0 && rr < cfg.cone / 2) continue;
+          const zReal = MC.altura(cfg, P, rr, th, o);
+          const z = alturaDiscreta(o, zReal), cor = corDe(o);
+          const cel = iy * N + ix;
+          const ids = chapa ? [idRegiao(cfg.corBase, base, 0), idRegiao(cor, z, base)]
+                            : [idRegiao(cor, z, 0)];
+          for (const id of ids) {
+            if (id < 0) continue;
+            while (acumulado.length <= id) acumulado.push(new Uint16Array(total));
+            acumulado[id][cel]++;
+          }
         }
       }
     }
@@ -135,15 +142,16 @@ function main() {
 
   // ---- grava ----
   const nR = regioes.length;
-  const cab = Buffer.alloc(20 + nR * 8);
-  cab.write('MCR2', 0, 'ascii');
+  const cab = Buffer.alloc(20 + nR * 12);
+  cab.write('MCR3', 0, 'ascii');
   cab.writeUInt32LE(N, 4);
   cab.writeFloatLE(quadro, 8);
   cab.writeFloatLE(R, 12);
   cab.writeUInt32LE(nR, 16);
   regioes.forEach((r, i) => {
-    const off = 20 + i * 8;
+    const off = 20 + i * 12;
     cab.writeFloatLE(r.z, off);
+    cab.writeFloatLE(r.z0 || 0, off + 8);
     const h = r.cor.replace('#', '');
     cab.writeUInt8(parseInt(h.substr(0, 2), 16), off + 4);
     cab.writeUInt8(parseInt(h.substr(2, 2), 16), off + 5);
@@ -162,15 +170,15 @@ function main() {
   console.error('');
   console.log(JSON.stringify({
     grade: N, sub: SUB, regioes: nR, segundos: +dt,
-    arquivo: saida, bytes: 20 + nR * 8 + total * nR,
+    arquivo: saida, bytes: 20 + nR * 12 + total * nR,
     // devolve o que o Python precisa para montar o cone — assim a config é
     // resolvida num lugar só, seja ela um .json ou um preset do HTML
     cfg: {
-      diam: cfg.diam, base: cfg.base, corBase: cfg.corBase,
+      diam: cfg.diam, base: base, corBase: cfg.corBase,
       cone: cfg.cone, coneH: cfg.coneH, coneC: cfg.coneC,
       furo: cfg.furo, furoP: cfg.furoP
     },
-    detalhe: regioes.map(r => ({ cor: r.cor, z: +r.z.toFixed(2) }))
+    detalhe: regioes.map(r => ({ cor: r.cor, z: +r.z.toFixed(2), z0: +(r.z0 || 0).toFixed(2) }))
   }, null, 1));
 }
 
