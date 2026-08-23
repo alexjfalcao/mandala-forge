@@ -900,13 +900,25 @@ print(m.is_watertight, m.is_winding_consistent, m.volume, m.euler_number)
   número que o usuário pede é o de slots do AMS.
   ⚠️ Só enxerga cor **visível**: uma camada inteiramente coberta por outra não entra na conta
   e sobrevive intocada, podendo reaparecer se a pilha for reordenada. E não há desfazer —
-  o hint manda salvar o `.json` antes.
+  a ajuda da seção manda salvar o `.json` antes.
   A suíte guarda a invariante que dá sentido ao botão: as cores que `varreCores()` conta são
   **exatamente** a paleta que `buildContorno` emite. Se a varredura perdesse uma cor, pedir 4
   daria 5 filamentos no 3MF.
 - **Presets**: `incensário` (reprodução da foto de referência), `lótus`, `talavera`,
   `renda` (vazado), `sol`, `aleatório`. **O app abre no `aleatório`** — os fixos continuam a
   um clique na barra, e trocar de preset preserva `diam` e `nome`.
+- **Ajuda em popover, não em parágrafo fixo.** O painel carregava 17 `<p class="hint">` e 518
+  palavras de explicação permanente, 36% da altura total (o fieldset *Cores* era 61% prosa).
+  Hoje cada seção tem um `?` no `<legend>` que abre um `<div popover class="pop">`, e sobrou
+  **um** texto inline: `#avisoPend`, que é estado e não documentação. Regra para texto novo:
+  se depende do valor de um campo, fica inline; se explica o que o campo faz, vai no popover.
+  ⚠️ O popover é o **nativo**, e não `position:absolute`, porque `#scroll` é `overflow-y:auto`
+  e recortaria qualquer coisa dentro dele. A posição é calculada em JS (`beforetoggle` para
+  ancorar no botão, `toggle` para corrigir quando a altura estoura embaixo), já que CSS anchor
+  positioning ainda é só do Chrome.
+- **Três tamanhos de fonte**, não cinco: `--fs-sm` 11px, `--fs` 12.5px, `--fs-lg` 15.5px. O
+  reset `input,button,select,textarea{font-size:inherit}` é obrigatório — sem ele os controles
+  caem no 13,333px do agente de usuário e reaparece um quarto degrau.
 - **Decoração dos controles** (`decoraControles`): os botões `−`/`+` de cada slider e o campo
   hex de cada seletor de cor **não estão no HTML**. São injetados depois que o painel existe e
   reinjetados a cada `drawPanel()`, porque `#cams` é reconstruído por `innerHTML`; o

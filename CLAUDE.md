@@ -250,6 +250,24 @@ qualquer coisa numa `.row`, lembre que `fieldset` só não estoura o painel por 
 `min-width:0` no CSS (o UA lhe dá `min-inline-size:min-content`, e o `input[type=range]` tem
 largura intrínseca de ~130 px).
 
+**Ajuda vai em popover, não em `<p class="hint">`.** O painel tinha 17 hints e 518 palavras
+de explicação permanente, 36% da altura total; o fieldset *Cores* sozinho era 61% prosa. Hoje
+cada seção tem um `?` no `<legend>` abrindo um `<div popover class="pop">`, e sobrou **um**
+texto inline: `#avisoPend`, que é estado condicional e não documentação. A regra ao acrescentar
+texto: se depende do valor de um campo, fica inline; se explica o que o campo faz, vai para o
+popover.
+
+O popover é o **nativo** (`popovertarget` + atributo `popover`), não `position:absolute`:
+`#scroll` é `overflow-y:auto` e recortaria qualquer coisa posicionada dentro dele. De graça
+vêm a top layer, o Esc e o fechar clicando fora. Ancorar com CSS anchor positioning só
+funciona no Chrome, então a posição é calculada em JS no `beforetoggle` e corrigida no
+`toggle`, quando a altura já é conhecida.
+
+A escala tipográfica tem **três degraus**: `--fs-sm` (11px), `--fs` (12.5px) e `--fs-lg`
+(15.5px). Eram cinco tamanhos entre 10 e 14px, o que é o mesmo que não ter hierarquia. O
+reset `input,button,select,textarea{font-size:inherit}` existe porque sem ele os controles
+caem no 13.333px do agente de usuário e reintroduzem um quarto tamanho.
+
 O enquadramento das três vistas mora em `view = {z, x, y}`. O `x`/`y` é **fração do menor
 lado do canvas**, não pixel — é o que faz o snapshot (que redimensiona o canvas antes de
 renderizar) sair com o mesmo enquadramento da tela. A roda dá zoom no cursor via

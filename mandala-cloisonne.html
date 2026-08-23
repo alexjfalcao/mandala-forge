@@ -9,14 +9,25 @@
     --bg:#0f1116; --panel:#171a22; --panel2:#1e222c; --line:#2a2f3c;
     --txt:#e6e9f0; --dim:#98a0b3; --acc:#c07ad8; --acc2:#7cc4d8;
     --ok:#6ec48b; --warn:#e0a458; --bad:#e06a5a;
+    /* Três degraus, não cinco. O painel tinha 10/11/11.5/12/14px espremidos em
+       4px de amplitude, o que é o mesmo que não ter hierarquia. Aqui: miúdo
+       (rótulo de apoio, aviso, badge), corrente (todo controle) e título. */
+    --fs-sm:11px; --fs:12.5px; --fs-lg:15.5px;
   }
   *{box-sizing:border-box}
   html,body{height:100%;margin:0}
   body{
     background:var(--bg); color:var(--txt);
-    font:13px/1.45 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font:var(--fs)/1.45 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     overflow:hidden;
   }
+  /* Sem isso os controles caem no 13.333px do agente de usuário e reintroduzem
+     um quarto tamanho, invisível na tela mas real na folha de estilo. */
+  input,button,select,textarea{font-family:inherit;font-size:inherit}
+  /* Um anel de foco desenhado, e só no teclado. O padrão do agente de usuário é
+     azul e briga com o acento; pior, `outline:none` solto pelo CSS apagava o
+     anel em alguns campos sem pôr nada no lugar. */
+  :focus-visible{outline:2px solid var(--acc2);outline-offset:2px;border-radius:4px}
   .app{display:flex;height:100vh}
 
   /* ---------- painel ---------- */
@@ -25,10 +36,10 @@
     display:flex;flex-direction:column;
   }
   .panel h1{
-    font-size:14px;margin:0;padding:14px 16px;border-bottom:1px solid var(--line);
+    font-size:var(--fs-lg);margin:0;padding:14px 16px;border-bottom:1px solid var(--line);
     letter-spacing:.04em;text-transform:uppercase;font-weight:600;
   }
-  .panel h1 small{display:block;text-transform:none;letter-spacing:0;color:var(--dim);font-weight:400;font-size:11px;margin-top:3px}
+  .panel h1 small{display:block;text-transform:none;letter-spacing:0;color:var(--dim);font-weight:400;font-size:var(--fs-sm);margin-top:3px}
   .scroll{overflow-y:auto;flex:1;padding:10px 12px 40px}
   .scroll::-webkit-scrollbar{width:10px}
   .scroll::-webkit-scrollbar-thumb{background:#2c3240;border-radius:6px}
@@ -36,42 +47,68 @@
   /* min-width:0 é obrigatório: o UA dá `min-inline-size:min-content` ao fieldset,
      e a largura intrínseca do input[type=range] o faria estourar o painel */
   fieldset{border:1px solid var(--line);border-radius:8px;margin:0 0 12px;padding:8px 10px 10px;background:var(--panel2);min-width:0}
-  legend{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);padding:0 5px}
+  legend{font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.06em;color:var(--dim);padding:0 5px}
   .row{display:flex;align-items:center;gap:6px;margin:6px 0}
-  .row>label{flex:0 0 86px;color:var(--dim);font-size:11.5px}
+  .row>label{flex:0 0 86px;color:var(--dim);font-size:var(--fs)}
   .row input[type=range]{flex:1;min-width:0;accent-color:var(--acc);height:18px}
-  .row .num{flex:0 0 54px;text-align:right;font-variant-numeric:tabular-nums;font-size:11.5px}
+  .row .num{flex:0 0 54px;text-align:right;font-variant-numeric:tabular-nums;font-size:var(--fs)}
   .row select,.row input[type=number],.row input[type=text]:not(.hexin){
-    flex:1;background:#12151c;color:var(--txt);border:1px solid var(--line);border-radius:5px;padding:4px 6px;font:inherit;font-size:12px;
+    flex:1;background:#12151c;color:var(--txt);border:1px solid var(--line);border-radius:5px;padding:4px 6px;font:inherit;font-size:var(--fs);
   }
   .row input[type=color]{width:34px;height:24px;padding:1px;background:#12151c;border:1px solid var(--line);border-radius:5px}
   /* botões de passo fino, injetados ao redor de cada slider por decoraControles() */
   .row .step{
     flex:0 0 18px;width:18px;height:18px;padding:0;line-height:1;
     background:#12151c;border:1px solid var(--line);color:var(--dim);
-    border-radius:4px;font:inherit;font-size:12px;cursor:pointer;user-select:none;
+    border-radius:4px;font:inherit;font-size:var(--fs);cursor:pointer;user-select:none;
   }
   .row .step:hover{color:var(--txt);border-color:var(--acc)}
   /* hex editável ao lado de cada seletor de cor */
   .row .hexin{
     flex:0 0 68px;width:68px;background:#12151c;color:var(--dim);border:1px solid var(--line);
-    border-radius:5px;padding:3px 5px;font:inherit;font-size:11px;font-variant-numeric:tabular-nums;
+    border-radius:5px;padding:3px 5px;font:inherit;font-size:var(--fs-sm);font-variant-numeric:tabular-nums;
     text-transform:uppercase;
   }
-  .row .hexin:focus{color:var(--txt);outline:none;border-color:var(--acc)}
+  .row .hexin:focus{color:var(--txt);border-color:var(--acc)}
   .row.seg{gap:4px}
   .seg button{
-    flex:1;background:#12151c;border:1px solid var(--line);color:var(--dim);border-radius:5px;padding:5px 4px;font:inherit;font-size:11.5px;cursor:pointer;
+    flex:1;background:#12151c;border:1px solid var(--line);color:var(--dim);border-radius:5px;padding:5px 4px;font:inherit;font-size:var(--fs);cursor:pointer;
   }
   .seg button.on{background:var(--acc);border-color:var(--acc);color:#1b0f22;font-weight:600}
-  .hint{color:var(--dim);font-size:11px;margin:6px 2px 0}
+  /* Sobrou UM lugar para texto solto no painel: o aviso condicional, que é
+     estado e não documentação. Toda explicação mora no `?` de cada seção. */
+  .hint{color:var(--dim);font-size:var(--fs-sm);margin:6px 2px 0}
   .hint.warn{color:var(--warn)}
   .hint.warn:empty{display:none}
+
+  /* ---------- ajuda em popover ----------
+     Popover NATIVO, não `position:absolute`: o painel é `overflow-y:auto` e
+     recortaria qualquer coisa posicionada dentro dele. De quebra, o nativo já
+     traz top layer, fechar com Esc e fechar clicando fora. */
+  .ajuda{
+    width:16px;height:16px;padding:0;margin-left:3px;vertical-align:-3px;
+    background:none;border:1px solid var(--line);color:var(--dim);border-radius:50%;
+    font:inherit;font-size:var(--fs-sm);line-height:1;cursor:pointer;
+  }
+  .ajuda:hover,.ajuda[aria-expanded=true]{color:var(--txt);border-color:var(--acc2)}
+  .pop{
+    position:fixed;inset:auto;margin:0;
+    width:min(340px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow-y:auto;
+    background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;
+    padding:12px 14px;box-shadow:0 14px 36px rgba(0,0,0,.55);
+    font-size:var(--fs-sm);line-height:1.55;
+  }
+  .pop h3{margin:0 0 7px;font-size:var(--fs);font-weight:600}
+  .pop p{margin:0 0 9px;color:var(--dim)}
+  .pop p:last-child{margin-bottom:0}
+  .pop em{font-style:normal;font-weight:600;color:var(--txt)}
+  .pop code{background:#12151c;border:1px solid var(--line);border-radius:3px;padding:1px 4px}
+  .pop::backdrop{background:transparent}
   .swatches{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 2px}
   /* pílulas das paletas preformatadas */
   .pal{
     display:flex;align-items:center;gap:5px;background:#12151c;border:1px solid var(--line);
-    color:var(--dim);border-radius:99px;padding:3px 9px 3px 4px;cursor:pointer;font:inherit;font-size:11.5px;
+    color:var(--dim);border-radius:99px;padding:3px 9px 3px 4px;cursor:pointer;font:inherit;font-size:var(--fs);
   }
   .pal:hover{color:var(--txt);border-color:var(--acc2)}
   .pal .pv{display:flex;gap:2px}
@@ -82,19 +119,19 @@
   .cam.off{opacity:.45}
   .chead{display:flex;align-items:center;gap:7px;padding:7px 9px;cursor:pointer;user-select:none;background:#1b1f29}
   .sw{width:11px;height:11px;border-radius:3px;flex:0 0 11px;border:1px solid rgba(255,255,255,.25);display:inline-block}
-  .chead .name{flex:1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .chead .meta{color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
-  .chead .chev{color:var(--dim);transition:transform .15s;font-size:10px}
+  .chead .name{flex:1;font-size:var(--fs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chead .meta{color:var(--dim);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
+  .chead .chev{color:var(--dim);transition:transform .15s;font-size:var(--fs-sm)}
   .cam.open .chev{transform:rotate(90deg)}
   .cbody{display:none;padding:4px 9px 9px;border-top:1px solid var(--line)}
   .cam.open .cbody{display:block}
-  .icon{background:none;border:none;color:var(--dim);cursor:pointer;font-size:12px;padding:0 2px;line-height:1}
+  .icon{background:none;border:none;color:var(--dim);cursor:pointer;font-size:var(--fs);padding:0 2px;line-height:1}
   /* linha "reduzir para N [botão]": o número fica estreito para sobrar largura
      ao botão, que é quem carrega o texto de retorno ("3 cores fundidas") */
   .row input.alvo{flex:0 0 52px;text-align:right}
   .row .act{
     flex:1;min-width:0;background:#12151c;color:var(--txt);border:1px solid var(--line);
-    border-radius:5px;padding:4px 6px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap
+    border-radius:5px;padding:4px 6px;font:inherit;font-size:var(--fs);cursor:pointer;white-space:nowrap
   }
   .row .act:hover{border-color:var(--acc);color:#fff}
   .icon:hover{color:var(--txt)}
@@ -105,17 +142,17 @@
   main{flex:1;display:flex;flex-direction:column;min-width:0}
   .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
   .bar .sp{flex:1}
-  .tab{background:#12151c;border:1px solid var(--line);color:var(--dim);border-radius:5px;padding:5px 12px;cursor:pointer;font:inherit;font-size:12px}
+  .tab{background:#12151c;border:1px solid var(--line);color:var(--dim);border-radius:5px;padding:5px 12px;cursor:pointer;font:inherit;font-size:var(--fs)}
   .tab.on{background:var(--panel2);color:var(--txt);border-color:var(--acc)}
-  .preset{background:#12151c;border:1px solid var(--line);color:var(--dim);border-radius:99px;padding:4px 11px;cursor:pointer;font:inherit;font-size:11.5px}
+  .preset{background:#12151c;border:1px solid var(--line);color:var(--dim);border-radius:99px;padding:4px 11px;cursor:pointer;font:inherit;font-size:var(--fs)}
   .preset:hover{color:var(--txt);border-color:var(--acc2)}
   .stage{flex:1;position:relative;background:radial-gradient(circle at 50% 45%, #1b1f29 0%, #0d0f14 70%);min-height:0}
   canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
   canvas.drag{cursor:grabbing}
   .foot{display:flex;align-items:center;gap:12px;padding:9px 14px;border-top:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
-  .stat{color:var(--dim);font-size:11.5px;font-variant-numeric:tabular-nums}
+  .stat{color:var(--dim);font-size:var(--fs);font-variant-numeric:tabular-nums}
   .stat b{color:var(--txt);font-weight:600}
-  .badge{padding:2px 8px;border-radius:99px;font-size:11px;border:1px solid}
+  .badge{padding:2px 8px;border-radius:99px;font-size:var(--fs-sm);border:1px solid}
   .badge.ok{color:var(--ok);border-color:#2f4f3c;background:#152119}
   .badge.warn{color:var(--warn);border-color:#4f402a;background:#211b12}
   .badge.bad{color:var(--bad);border-color:#5a2f2a;background:#211413}
@@ -124,10 +161,10 @@
   .btn:disabled{opacity:.6;cursor:progress}
   .btn.ghost{background:#12151c;color:var(--dim);border:1px solid var(--line);font-weight:400}
   .btn.ghost:hover{color:var(--txt)}
-  select.sel,input.sel{background:#12151c;color:var(--txt);border:1px solid var(--line);border-radius:5px;padding:6px 8px;font:inherit;font-size:12px}
+  select.sel,input.sel{background:#12151c;color:var(--txt);border:1px solid var(--line);border-radius:5px;padding:6px 8px;font:inherit;font-size:var(--fs)}
   input.sel::placeholder{color:var(--dim)}
   #s-swatches{display:inline-flex;gap:4px;vertical-align:-1px}
-  .hud{position:absolute;left:12px;bottom:10px;color:var(--dim);font-size:11px;background:rgba(12,14,19,.65);padding:4px 9px;border-radius:5px;pointer-events:none}
+  .hud{position:absolute;left:12px;bottom:10px;color:var(--dim);font-size:var(--fs-sm);background:rgba(12,14,19,.65);padding:4px 9px;border-radius:5px;pointer-events:none}
   @media (max-width:860px){
     .app{flex-direction:column}
     .panel{width:100%;flex:0 0 46vh}
@@ -142,13 +179,12 @@
     <div class="scroll" id="scroll">
 
       <fieldset>
-        <legend>Projeto</legend>
+        <legend>Projeto<button type="button" class="ajuda" popovertarget="aj-projeto" aria-label="ajuda sobre projeto">?</button></legend>
         <div class="row"><label>Nome</label><input type="text" data-g="nome" maxlength="60" placeholder="mandala"></div>
-        <p class="hint">Batiza os arquivos baixados (.3mf, .obj, .png, .json) e o título da peça dentro do 3MF.</p>
       </fieldset>
 
       <fieldset>
-        <legend>Placa</legend>
+        <legend>Placa<button type="button" class="ajuda" popovertarget="aj-placa" aria-label="ajuda sobre placa">?</button></legend>
         <div class="row"><label>Diâmetro</label><input type="range" data-g="diam" min="50" max="300" step="1"><span class="num" data-v="diam"></span></div>
         <div class="row"><label>Base</label><input type="range" data-g="base" min="0.4" max="10" step="0.2"><span class="num" data-v="base"></span></div>
         <div class="row"><label>Base sólida</label><input type="checkbox" data-g="baseSolida"><span class="num"></span></div>
@@ -156,72 +192,109 @@
         <div class="row"><label>Rotação</label><input type="range" data-g="rot" min="0" max="360" step="1"><span class="num" data-v="rot"></span></div>
         <div class="row"><label>Aro</label><input type="range" data-g="aro" min="0" max="20" step="0.5"><span class="num" data-v="aro"></span></div>
         <div class="row"><label>Altura do aro</label><input type="range" data-g="aroH" min="0" max="6" step="0.1"><span class="num" data-v="aroH"></span></div>
-        <p class="hint" data-only="baseSolida"><b>Base sólida</b> imprime a base inteira em <b>cor da placa</b>, com a espessura do campo <b>Base</b>, e só o desenho por cima é que sai colorido. Sem ela, cada poça é extrudada desde o zero e a cor atravessa a peça toda, gastando purga do AMS à toa. O slider da base vai de 0,4 mm (duas camadas de 0,2) a 10 mm; abaixo de 1 mm um disco de 120 mm empena.</p>
       </fieldset>
 
       <fieldset>
-        <legend>Filete</legend>
+        <legend>Filete<button type="button" class="ajuda" popovertarget="aj-filete" aria-label="ajuda sobre filete">?</button></legend>
         <div class="row"><label>Largura</label><input type="range" data-g="fio" min="0.3" max="3" step="0.05"><span class="num" data-v="fio"></span></div>
         <div class="row"><label>Altura</label><input type="range" data-g="fioH" min="0.2" max="4" step="0.05"><span class="num" data-v="fioH"></span></div>
         <div class="row"><label>Degrau</label><input type="range" data-g="degrau" min="0" max="3" step="0.05"><span class="num" data-v="degrau"></span></div>
         <div class="row"><label>Mesma altura</label><input type="checkbox" data-g="nivelUnico"><span class="num"></span></div>
         <div class="row"><label>Suavizar</label><input type="checkbox" data-g="suave"><span class="num"></span></div>
-        <p class="hint">O filete é a linha que sobe e represa o esmalte. O degrau é quanto cada nível de camada sobe em relação ao anterior.</p>
-        <p class="hint"><b>Mesma altura</b> põe todas as camadas no mesmo patamar — a mandala fica plana, com um nível para as poças e um para o filete. Cone e aro seguem com altura própria. Desligue para escalonar as camadas pelo campo <b>Nível</b> de cada uma.</p>
-        <p class="hint"><b>Suavizar</b> tira o serrilhado das bordas na malha exportada, trocando o degrau vertical por uma rampa de uma célula. Desligue só para comparar.</p>
       </fieldset>
 
       <fieldset>
-        <legend>Centro e furos</legend>
+        <legend>Centro e furos<button type="button" class="ajuda" popovertarget="aj-furos" aria-label="ajuda sobre centro e furos">?</button></legend>
         <div class="row"><label>Cone</label><input type="range" data-g="cone" min="0" max="70" step="0.5"><span class="num" data-v="cone"></span></div>
         <div class="row" data-only="cone"><label>Altura</label><input type="range" data-g="coneH" min="0" max="20" step="0.2"><span class="num" data-v="coneH"></span></div>
         <div class="row" data-only="cone"><label>Curvatura</label><input type="range" data-g="coneC" min="0.3" max="3" step="0.05"><span class="num" data-v="coneC"></span></div>
         <div class="row"><label>Furo</label><input type="range" data-g="furo" min="0" max="30" step="0.5"><span class="num" data-v="furo"></span></div>
         <div class="row" data-only="furo"><label>Profundidade</label><input type="range" data-g="furoP" min="1" max="30" step="0.5"><span class="num" data-v="furoP"></span></div>
-        <p class="hint" data-only="furo">Furo cego, para vareta de incenso. Sempre sobra pelo menos 0,8 mm de fundo.</p>
         <div class="row"><label>Pendurar</label><input type="range" data-g="pend" min="0" max="12" step="0.5"><span class="num" data-v="pend"></span></div>
         <div class="row" data-only="pend"><label>Ângulo</label><input type="range" data-g="pendA" min="0" max="360" step="5"><span class="num" data-v="pendA"></span></div>
         <div class="row" data-only="pend"><label>Posição no aro</label><input type="range" data-g="pendR" min="0.1" max="3" step="0.05"><span class="num" data-v="pendR"></span></div>
-        <p class="hint" data-only="pend">Furo <b>passante</b>, dentro do aro. O ângulo 90° é o topo da peça; a posição diz onde ele cai na largura do aro (0,5 é o meio).</p>
         <p class="hint warn" id="avisoPend" data-only="pend"></p>
       </fieldset>
 
       <fieldset>
-        <legend>Corpo</legend>
+        <legend>Corpo<button type="button" class="ajuda" popovertarget="aj-corpo" aria-label="ajuda sobre corpo">?</button></legend>
         <div class="row seg">
           <button data-modo="placa">Placa cheia</button>
           <button data-modo="vazado">Vazado</button>
         </div>
         <div class="row" data-only="vazado"><label>Conectores</label><input type="range" data-g="conn" min="0" max="36" step="1"><span class="num" data-v="conn"></span></div>
         <div class="row" data-only="vazado"><label>Largura</label><input type="range" data-g="connW" min="0.6" max="6" step="0.1"><span class="num" data-v="connW"></span></div>
-        <p class="hint" data-only="vazado">No vazado só fica material onde alguma camada desenha. O aro e os conectores é que seguram a peça inteira.</p>
       </fieldset>
 
       <fieldset>
-        <legend>Camadas <span style="color:var(--dim);font-size:10px;text-transform:none;letter-spacing:0">(de baixo para cima)</span></legend>
+        <legend>Camadas<button type="button" class="ajuda" popovertarget="aj-camadas" aria-label="ajuda sobre camadas">?</button></legend>
         <div id="cams"></div>
         <button class="addcam" id="addcam">+ adicionar camada</button>
       </fieldset>
 
       <fieldset>
-        <legend>Cores</legend>
+        <legend>Cores<button type="button" class="ajuda" popovertarget="aj-cores" aria-label="ajuda sobre cores">?</button></legend>
         <div class="swatches" id="paletas"></div>
-        <p class="hint">As paletas trocam as cores mantendo o desenho: cores iguais continuam iguais, e a placa e o filete vão para o par escuro/claro da paleta.</p>
         <div class="row"><label>Placa</label><input type="color" data-g="corBase"></div>
         <div class="row"><label>Filete</label><input type="color" data-g="corFio"></div>
         <div class="row"><label>Reduzir para</label><input type="number" class="alvo" id="alvocor" min="2" max="8" step="1" value="4"><button type="button" class="act" data-act="reduz">reduzir cores</button></div>
-        <p class="hint"><b>Reduzir cores</b> funde os pares mais parecidos até sobrar a quantidade pedida — 4 é o número de slots do AMS. A proximidade é medida em <b>Lab</b>, que é o que o olho vê, e em cada fusão vence a cor de <b>maior área</b>. O <b>filete</b> nunca é fundido: é ele que contorna cada poça.</p>
-        <p class="hint">Duas ressalvas: a conta só enxerga cor <b>visível</b>, então uma camada inteiramente coberta por outra não entra — e pode reaparecer se você reordenar a pilha depois. E a fusão <b>não tem desfazer</b>: salve o <code>.json</code> antes se quiser voltar.</p>
         <div class="row"><label>Luz</label><input type="range" data-g="luz" min="0" max="360" step="1"><span class="num" data-v="luz"></span></div>
         <div class="row"><label>Brilho</label><input type="range" data-g="verniz" min="0" max="1" step="0.02"><span class="num" data-v="verniz"></span></div>
-        <p class="hint">As cores valem para o preview <b>e para a exportação</b>: OBJ e 3MF as levam junto.</p>
-        <p class="hint">O OBJ sai em <b>dois arquivos</b> (.obj e .mtl) que precisam ficar na mesma pasta — o navegador vai pedir permissão para baixar os dois.</p>
-        <p class="hint">Para imprimir colorido prefira o <b>3MF · contorno</b>: ele mapeia uma peça para cada extrusor, direto, sem diálogo nenhum.</p>
-        <p class="hint">Os dois formatos saem pela mesma geometria por contorno — bordas lisas, um sólido fechado por cor. Se usar OBJ, o Bambu abre o <b>Import Model</b> e agrupa as cores: o <b>Color Count</b> vem no que o “Auto” escolher — costuma ser 2. Clique em <b>4</b> ou <b>8</b> e depois em <b>Apply</b>, senão ele funde tudo e as cores que aparecem são médias, não as suas.</p>
-        <p class="hint">Para uma grade ainda mais fina, salve o <b>.json</b> e exporte pela linha de comando: <code>python3 exportar.py minha.json peca.3mf</code> — mesma ideia, com shapely e trimesh fazendo o contorno. Veja o <code>MANDALA-CLOISONNE.md</code>.</p>
       </fieldset>
     </div>
   </aside>
+
+  <!-- Ajuda de cada seção. Fica fora do painel de propósito: popover nativo vai
+       para a top layer, então o `overflow-y:auto` do painel não o recorta. -->
+  <div popover class="pop" id="aj-projeto">
+    <h3>Projeto</h3>
+    <p>O nome batiza os arquivos que você baixa (.3mf, .obj, .png, .json) e vai no título da peça dentro do 3MF.</p>
+  </div>
+
+  <div popover class="pop" id="aj-placa">
+    <h3>Placa</h3>
+    <p>A base é a espessura da chapa, em milímetros. A escala começa em 0,4 mm, que são duas camadas de 0,2. Abaixo de 1 mm, um disco de 120 mm empena.</p>
+    <p>Ligar <em>base sólida</em> faz a chapa inteira sair na cor da placa, com o desenho colorido só por cima. Isso corta a purga do AMS. Sem ela, cada poça é extrudada desde o plano da mesa e a cor atravessa a peça toda.</p>
+  </div>
+
+  <div popover class="pop" id="aj-filete">
+    <h3>Filete</h3>
+    <p>O filete é a linha que sobe e represa o esmalte. O degrau diz quanto cada nível de camada sobe em relação ao anterior.</p>
+    <p>Com <em>mesma altura</em> ligada, todas as camadas ficam no mesmo patamar: um nível para as poças, um para o filete. Cone e aro mantêm altura própria. Desligue para escalonar camada a camada, pelo campo <em>Nível</em> de cada uma.</p>
+    <p>A opção <em>suavizar</em> troca o degrau vertical da borda por uma rampa de uma célula, tirando o serrilhado da malha exportada. Desligue só para comparar.</p>
+  </div>
+
+  <div popover class="pop" id="aj-furos">
+    <h3>Centro e furos</h3>
+    <p>O furo do centro é cego, feito para vareta de incenso. Sempre sobra pelo menos 0,8 mm de fundo.</p>
+    <p>O de pendurar é passante e fica dentro do aro. O ângulo 90° é o topo da peça; a posição diz onde ele cai na largura do aro, com 0,5 no meio.</p>
+  </div>
+
+  <div popover class="pop" id="aj-corpo">
+    <h3>Corpo</h3>
+    <p>No modo vazado o fundo da placa some e sobra só o desenho, que fica parecendo renda. O aro e os conectores é que seguram tudo junto.</p>
+  </div>
+
+  <div popover class="pop" id="aj-camadas">
+    <h3>Camadas</h3>
+    <p>A ordem é de pintura, não de soma: a camada de cima cobre as de baixo. Use ▲ e ▼ para reordenar.</p>
+    <p>Cada linha traz o motivo e quantas repetições ele tem ao redor do círculo. Clique para abrir os controles.</p>
+  </div>
+
+  <div popover class="pop" id="aj-cores">
+    <h3>Cores</h3>
+    <p>As paletas trocam as cores e preservam o desenho: cores iguais continuam iguais, e a placa e o filete vão para o par escuro/claro da paleta.</p>
+    <p>O botão <em>reduzir cores</em> funde os pares mais parecidos até sobrar a quantidade pedida. Quatro é o número de slots do AMS. A proximidade é medida em Lab, que é o que o olho enxerga, e em cada fusão vence a cor de maior área. O filete nunca é fundido, porque é ele que contorna cada poça.</p>
+    <p>Duas ressalvas. A conta só enxerga cor visível, então uma camada coberta por outra não entra, e pode reaparecer se você reordenar a pilha depois. E a fusão não tem desfazer: salve o <code>.json</code> antes se quiser voltar.</p>
+  </div>
+
+  <div popover class="pop" id="aj-export">
+    <h3>Exportação</h3>
+    <p>As cores valem para o preview e para o arquivo: OBJ e 3MF as levam junto. Os dois saem da mesma geometria por contorno, com bordas lisas e um sólido fechado por cor.</p>
+    <p>Para imprimir colorido, prefira <em>3MF · contorno</em>. Ele mapeia uma peça para cada extrusor, sem diálogo nenhum pelo caminho.</p>
+    <p>O OBJ sai em dois arquivos (.obj e .mtl) que precisam ficar na mesma pasta. No Bambu ele abre o <em>Import Model</em>, que agrupa as cores pelo <em>Color Count</em>. Esse valor vem no que o “Auto” escolher, quase sempre 2: clique em 4 ou 8 e depois em Apply, senão as cores que aparecem são médias, não as suas.</p>
+    <p>Para uma grade ainda mais fina, salve o <code>.json</code> e exporte pela linha de comando: <code>python3 exportar.py minha.json peca.3mf</code>. Detalhes no <code>MANDALA-CLOISONNE.md</code>.</p>
+  </div>
 
   <main>
     <div class="bar">
@@ -252,6 +325,7 @@
       <span class="sp" style="flex:1"></span>
       </div>
       <div class="foot">
+      <button type="button" class="ajuda" popovertarget="aj-export" aria-label="ajuda sobre exportação">?</button>
       <select id="fmt" class="sel">
         <option value="contorno" selected>Formato 3MF · colorido</option>
         <option value="obj">OBJ + MTL · colorido</option>
@@ -269,9 +343,9 @@
         <option value="png" selected>imagem: PNG</option>
         <option value="jpg">imagem: JPG</option>
       </select> -->
-      <button class="btn ghost" id="snap">Exportar imagem</button>
-      <button class="btn ghost" id="save">Exportar configuração</button>
-      <button class="btn ghost" id="load">Importar configuração</button>
+      <button class="btn ghost" id="snap">Salvar PNG</button>
+      <button class="btn ghost" id="save">Salvar .json</button>
+      <button class="btn ghost" id="load">Abrir .json</button>
       <input type="file" id="file" accept=".json,application/json" hidden>
     </div>
   </main>
@@ -2825,7 +2899,7 @@ var MC = (function () {
     setTimeout(function () {
       function restaura() {
         capturando = 0; cv.width = w; cv.height = h; render(1);
-        btn.disabled = false; btn.textContent = 'Salvar imagem';
+        btn.disabled = false; btn.textContent = 'Salvar PNG';
       }
       try {
         capturando = mult;
@@ -2865,6 +2939,29 @@ var MC = (function () {
   // abre sempre num desenho novo: o aleatório é o melhor ponto de partida, e os
   // presets fixos continuam a um clique na barra
   cfg = migraFase(Object.assign(MC.defaults(), PRESETS.aleatorio()));
+  /* ---- ajuda: ancora o popover no botão que o abriu ----------------------
+     O popover nativo nasce centrado na viewport. Ancorá-lo com CSS anchor
+     positioning só funciona no Chrome, então a conta é feita aqui: encosta na
+     direita do botão e desliza para dentro da tela quando estoura embaixo. */
+  document.querySelectorAll('.pop').forEach(function (pop) {
+    var botao = document.querySelector('[popovertarget="' + pop.id + '"]');
+    if (!botao) return;
+    botao.setAttribute('aria-expanded', 'false');
+    pop.addEventListener('beforetoggle', function (e) {
+      if (e.newState !== 'open') return;
+      var r = botao.getBoundingClientRect();
+      pop.style.left = Math.max(8, Math.min(r.right + 10, innerWidth - 348)) + 'px';
+      pop.style.top = Math.max(8, r.top - 6) + 'px';
+    });
+    pop.addEventListener('toggle', function (e) {
+      var aberto = e.newState === 'open';
+      botao.setAttribute('aria-expanded', String(aberto));
+      if (!aberto) return;
+      var h = pop.getBoundingClientRect().height, t = parseFloat(pop.style.top) || 0;
+      if (t + h > innerHeight - 8) pop.style.top = Math.max(8, innerHeight - h - 8) + 'px';
+    });
+  });
+
   drawPaletas();
   drawMaquinas();
   document.getElementById('maq').addEventListener('change', function () {
