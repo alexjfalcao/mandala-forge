@@ -2,7 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Textos de interface, comentários e documentação deste projeto são em **pt-BR** — mantenha esse padrão.
+**Comentários e documentação deste projeto são em pt-BR** — mantenha esse padrão.
+
+A **interface**, essa, fala duas línguas: pt-BR e inglês, por um dicionário no bloco de UI.
+Texto novo na tela entra como chave nos dois idiomas, nunca literal.
 
 ## Projeto
 
@@ -283,6 +286,27 @@ descartado por colidir com o âmbar do `--warn`: acento e aviso ficariam da mesm
 
 **As paletas da mandala (`PALETAS`) são CONTEÚDO, não cromo.** Elas descrevem o que vai ser
 impresso. Mexer no acento do painel não as toca.
+
+**A interface é bilíngue; o código não.** `var I18N = { pt: {...}, en: {...} }` no bloco de UI,
+com 173 chaves em cada, e `t(chave, a, b)` interpolando `{0}`/`{1}` (por `split`/`join`, porque
+uma frase pode repetir o mesmo marcador). O **pt é o fallback**: chave que falte no `en` sai em
+português em vez de sumir.
+
+No HTML estático o texto é marcado com `data-i18n` (textContent), `data-i18n-html` (innerHTML,
+para os popovers, que têm `<em>` e `<code>` dentro), `data-i18n-title`, `data-i18n-aria` e
+`data-i18n-ph`. `aplicaIdioma()` percorre esses atributos e depois **remonta** o que é gerado
+por JS: `drawPaletas`, `drawMaquinas`, `drawPanel`, `updateStats`, `render`.
+
+Sem `localStorage` no projeto, a escolha mora na **URL** (`?lang=en`, via `history.replaceState`),
+o que de quebra torna o link compartilhável já no idioma certo. Sem parâmetro, vale
+`navigator.language`.
+
+Os rótulos de `MC.MOTIVOS` e `MC.PREENCH` continuam em pt **no núcleo**, como dado; quem traduz
+é a UI, por slug (`t('mot.' + slug)`), com o rótulo do núcleo como último recurso. O núcleo não
+sabe que existe idioma, e a suíte não olha esses rótulos.
+
+⚠️ Cuidado com `t` como nome de variável local: `decoraControles` e `camHTML` tinham um `var t`
+que sombreava a função de tradução. Se um `t(...)` "não é função", é isso.
 
 **Ajuda vai em popover, não em `<p class="hint">`.** O painel tinha 17 hints e 518 palavras
 de explicação permanente, 36% da altura total; o fieldset *Cores* sozinho era 61% prosa. Hoje

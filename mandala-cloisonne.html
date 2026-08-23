@@ -51,7 +51,22 @@
   .panel h1{
     font-size:var(--fs-lg);margin:0;padding:14px 16px;border-bottom:1px solid var(--line);
     letter-spacing:.04em;text-transform:uppercase;font-weight:600;
+    display:flex;align-items:flex-start;gap:10px;
   }
+  .panel h1 .titulo{flex:1;min-width:0}
+  .panel h1 small{text-wrap:balance}
+  /* Bandeiras desenhadas em SVG, não emoji: 🇧🇷 e 🇺🇸 não renderizam no Windows,
+     onde o Chrome cai para as letras "BR" e "US". */
+  .idiomas{display:flex;gap:5px;flex:0 0 auto;padding-top:1px}
+  .idiomas button{
+    width:26px;height:19px;padding:0;background:none;border:1px solid var(--line);
+    border-radius:3px;cursor:pointer;line-height:0;overflow:hidden;opacity:.45;
+    transition:opacity .15s cubic-bezier(.16,1,.3,1),border-color .15s;
+  }
+  .idiomas button svg{width:100%;height:100%;display:block}
+  .idiomas button:hover{opacity:.85}
+  .idiomas button[aria-pressed=true]{opacity:1;border-color:var(--acc)}
+  @media (prefers-reduced-motion:reduce){ .idiomas button{transition:none} }
   .panel h1 small{display:block;text-transform:none;letter-spacing:0;color:var(--dim);font-weight:400;font-size:var(--fs-sm);margin-top:3px}
   .scroll{overflow-y:auto;flex:1;padding:10px 12px 40px}
   .scroll::-webkit-scrollbar{width:10px}
@@ -220,141 +235,115 @@
 <body>
 <div class="app">
   <aside class="panel">
-    <h1>Mandala Forge<small>filete em relevo + poças de esmalte · exporta com cor</small></h1>
+    <h1>
+      <span class="titulo">Mandala Forge<small data-i18n="app.sub"></small></span>
+      <span class="idiomas">
+        <button type="button" data-lang="pt" data-i18n-title="idioma.pt" data-i18n-aria="idioma.pt" aria-pressed="true">
+          <svg viewBox="0 0 28 20" aria-hidden="true"><rect width="28" height="20" fill="#009b3a"/><path d="M14 2.6 25.6 10 14 17.4 2.4 10Z" fill="#fedf00"/><circle cx="14" cy="10" r="4.4" fill="#002776"/><path d="M9.9 8.3a10 10 0 0 1 8.2 2.5" stroke="#fff" stroke-width="1.15" fill="none"/></svg>
+        </button>
+        <button type="button" data-lang="en" data-i18n-title="idioma.en" data-i18n-aria="idioma.en" aria-pressed="false">
+          <svg viewBox="0 0 28 20" aria-hidden="true"><rect width="28" height="20" fill="#f4f4f6"/><g fill="#b22234"><rect y="0" width="28" height="1.54"/><rect y="3.08" width="28" height="1.54"/><rect y="6.15" width="28" height="1.54"/><rect y="9.23" width="28" height="1.54"/><rect y="12.31" width="28" height="1.54"/><rect y="15.38" width="28" height="1.54"/><rect y="18.46" width="28" height="1.54"/></g><rect width="12.4" height="10.77" fill="#3c3b6e"/><g fill="#fff"><circle cx="2.6" cy="2.2" r=".72"/><circle cx="6.2" cy="2.2" r=".72"/><circle cx="9.8" cy="2.2" r=".72"/><circle cx="4.4" cy="4.3" r=".72"/><circle cx="8" cy="4.3" r=".72"/><circle cx="2.6" cy="6.4" r=".72"/><circle cx="6.2" cy="6.4" r=".72"/><circle cx="9.8" cy="6.4" r=".72"/><circle cx="4.4" cy="8.5" r=".72"/><circle cx="8" cy="8.5" r=".72"/></g></svg>
+        </button>
+      </span>
+    </h1>
     <div class="scroll" id="scroll">
 
       <fieldset>
-        <legend>Projeto<button type="button" class="ajuda" popovertarget="aj-projeto" aria-label="ajuda sobre projeto">?</button></legend>
-        <div class="row"><label>Nome</label><input type="text" data-g="nome" maxlength="60" placeholder="mandala"></div>
+        <legend><span data-i18n="fs.projeto">Projeto</span><button type="button" class="ajuda" popovertarget="aj-projeto" data-i18n-aria="aj.projeto">?</button></legend>
+        <div class="row"><label data-i18n="lb.nome">Nome</label><input type="text" data-g="nome" maxlength="60" data-i18n-ph="ph.nome" placeholder="mandala"></div>
       </fieldset>
 
       <fieldset>
-        <legend>Placa<button type="button" class="ajuda" popovertarget="aj-placa" aria-label="ajuda sobre placa">?</button></legend>
-        <div class="row"><label>Diâmetro</label><input type="range" data-g="diam" min="50" max="300" step="1"><span class="num" data-v="diam"></span></div>
-        <div class="row"><label>Base</label><input type="range" data-g="base" min="0.4" max="10" step="0.2"><span class="num" data-v="base"></span></div>
-        <div class="row"><label>Base sólida</label><input type="checkbox" data-g="baseSolida"><span class="num"></span></div>
-        <div class="row"><label>Simetria</label><input type="range" data-g="sym" min="3" max="36" step="1"><span class="num" data-v="sym"></span></div>
-        <div class="row"><label>Rotação</label><input type="range" data-g="rot" min="0" max="360" step="1"><span class="num" data-v="rot"></span></div>
-        <div class="row"><label>Aro</label><input type="range" data-g="aro" min="0" max="20" step="0.5"><span class="num" data-v="aro"></span></div>
-        <div class="row"><label>Altura do aro</label><input type="range" data-g="aroH" min="0" max="6" step="0.1"><span class="num" data-v="aroH"></span></div>
+        <legend><span data-i18n="fs.placa">Placa</span><button type="button" class="ajuda" popovertarget="aj-placa" data-i18n-aria="aj.placa">?</button></legend>
+        <div class="row"><label data-i18n="lb.diam">Diâmetro</label><input type="range" data-g="diam" min="50" max="300" step="1"><span class="num" data-v="diam"></span></div>
+        <div class="row"><label data-i18n="lb.base">Base</label><input type="range" data-g="base" min="0.4" max="10" step="0.2"><span class="num" data-v="base"></span></div>
+        <div class="row"><label data-i18n="lb.baseSolida">Base sólida</label><input type="checkbox" data-g="baseSolida"><span class="num"></span></div>
+        <div class="row"><label data-i18n="lb.sym">Simetria</label><input type="range" data-g="sym" min="3" max="36" step="1"><span class="num" data-v="sym"></span></div>
+        <div class="row"><label data-i18n="lb.rot">Rotação</label><input type="range" data-g="rot" min="0" max="360" step="1"><span class="num" data-v="rot"></span></div>
+        <div class="row"><label data-i18n="lb.aro">Aro</label><input type="range" data-g="aro" min="0" max="20" step="0.5"><span class="num" data-v="aro"></span></div>
+        <div class="row"><label data-i18n="lb.aroH">Altura do aro</label><input type="range" data-g="aroH" min="0" max="6" step="0.1"><span class="num" data-v="aroH"></span></div>
       </fieldset>
 
       <fieldset>
-        <legend>Filete<button type="button" class="ajuda" popovertarget="aj-filete" aria-label="ajuda sobre filete">?</button></legend>
-        <div class="row"><label>Largura</label><input type="range" data-g="fio" min="0.3" max="3" step="0.05"><span class="num" data-v="fio"></span></div>
-        <div class="row"><label>Altura</label><input type="range" data-g="fioH" min="0.2" max="4" step="0.05"><span class="num" data-v="fioH"></span></div>
-        <div class="row"><label>Degrau</label><input type="range" data-g="degrau" min="0" max="3" step="0.05"><span class="num" data-v="degrau"></span></div>
-        <div class="row"><label>Mesma altura</label><input type="checkbox" data-g="nivelUnico"><span class="num"></span></div>
-        <div class="row"><label>Suavizar</label><input type="checkbox" data-g="suave"><span class="num"></span></div>
+        <legend><span data-i18n="fs.filete">Filete</span><button type="button" class="ajuda" popovertarget="aj-filete" data-i18n-aria="aj.filete">?</button></legend>
+        <div class="row"><label data-i18n="lb.fio">Largura</label><input type="range" data-g="fio" min="0.3" max="3" step="0.05"><span class="num" data-v="fio"></span></div>
+        <div class="row"><label data-i18n="lb.fioH">Altura</label><input type="range" data-g="fioH" min="0.2" max="4" step="0.05"><span class="num" data-v="fioH"></span></div>
+        <div class="row"><label data-i18n="lb.degrau">Degrau</label><input type="range" data-g="degrau" min="0" max="3" step="0.05"><span class="num" data-v="degrau"></span></div>
+        <div class="row"><label data-i18n="lb.nivelUnico">Mesma altura</label><input type="checkbox" data-g="nivelUnico"><span class="num"></span></div>
+        <div class="row"><label data-i18n="lb.suave">Suavizar</label><input type="checkbox" data-g="suave"><span class="num"></span></div>
       </fieldset>
 
       <fieldset>
-        <legend>Centro e furos<button type="button" class="ajuda" popovertarget="aj-furos" aria-label="ajuda sobre centro e furos">?</button></legend>
-        <div class="row"><label>Cone</label><input type="range" data-g="cone" min="0" max="70" step="0.5"><span class="num" data-v="cone"></span></div>
-        <div class="row" data-only="cone"><label>Altura</label><input type="range" data-g="coneH" min="0" max="20" step="0.2"><span class="num" data-v="coneH"></span></div>
-        <div class="row" data-only="cone"><label>Curvatura</label><input type="range" data-g="coneC" min="0.3" max="3" step="0.05"><span class="num" data-v="coneC"></span></div>
-        <div class="row"><label>Furo</label><input type="range" data-g="furo" min="0" max="30" step="0.5"><span class="num" data-v="furo"></span></div>
-        <div class="row" data-only="furo"><label>Profundidade</label><input type="range" data-g="furoP" min="1" max="30" step="0.5"><span class="num" data-v="furoP"></span></div>
-        <div class="row"><label>Pendurar</label><input type="range" data-g="pend" min="0" max="12" step="0.5"><span class="num" data-v="pend"></span></div>
-        <div class="row" data-only="pend"><label>Ângulo</label><input type="range" data-g="pendA" min="0" max="360" step="5"><span class="num" data-v="pendA"></span></div>
-        <div class="row" data-only="pend"><label>Posição no aro</label><input type="range" data-g="pendR" min="0.1" max="3" step="0.05"><span class="num" data-v="pendR"></span></div>
+        <legend><span data-i18n="fs.furos">Centro e furos</span><button type="button" class="ajuda" popovertarget="aj-furos" data-i18n-aria="aj.furos">?</button></legend>
+        <div class="row"><label data-i18n="lb.cone">Cone</label><input type="range" data-g="cone" min="0" max="70" step="0.5"><span class="num" data-v="cone"></span></div>
+        <div class="row" data-only="cone"><label data-i18n="lb.coneH">Altura</label><input type="range" data-g="coneH" min="0" max="20" step="0.2"><span class="num" data-v="coneH"></span></div>
+        <div class="row" data-only="cone"><label data-i18n="lb.coneC">Curvatura</label><input type="range" data-g="coneC" min="0.3" max="3" step="0.05"><span class="num" data-v="coneC"></span></div>
+        <div class="row"><label data-i18n="lb.furo">Furo</label><input type="range" data-g="furo" min="0" max="30" step="0.5"><span class="num" data-v="furo"></span></div>
+        <div class="row" data-only="furo"><label data-i18n="lb.furoP">Profundidade</label><input type="range" data-g="furoP" min="1" max="30" step="0.5"><span class="num" data-v="furoP"></span></div>
+        <div class="row"><label data-i18n="lb.pend">Pendurar</label><input type="range" data-g="pend" min="0" max="12" step="0.5"><span class="num" data-v="pend"></span></div>
+        <div class="row" data-only="pend"><label data-i18n="lb.pendA">Ângulo</label><input type="range" data-g="pendA" min="0" max="360" step="5"><span class="num" data-v="pendA"></span></div>
+        <div class="row" data-only="pend"><label data-i18n="lb.pendR">Posição no aro</label><input type="range" data-g="pendR" min="0.1" max="3" step="0.05"><span class="num" data-v="pendR"></span></div>
         <p class="hint warn" id="avisoPend" data-only="pend"></p>
       </fieldset>
 
       <fieldset>
-        <legend>Corpo<button type="button" class="ajuda" popovertarget="aj-corpo" aria-label="ajuda sobre corpo">?</button></legend>
+        <legend><span data-i18n="fs.corpo">Corpo</span><button type="button" class="ajuda" popovertarget="aj-corpo" data-i18n-aria="aj.corpo">?</button></legend>
         <div class="row seg">
-          <button data-modo="placa">Placa cheia</button>
-          <button data-modo="vazado">Vazado</button>
+          <button data-modo="placa" data-i18n="bt.placa"></button>
+          <button data-modo="vazado" data-i18n="bt.vazado"></button>
         </div>
-        <div class="row" data-only="vazado"><label>Conectores</label><input type="range" data-g="conn" min="0" max="36" step="1"><span class="num" data-v="conn"></span></div>
-        <div class="row" data-only="vazado"><label>Largura</label><input type="range" data-g="connW" min="0.6" max="6" step="0.1"><span class="num" data-v="connW"></span></div>
+        <div class="row" data-only="vazado"><label data-i18n="lb.conn">Conectores</label><input type="range" data-g="conn" min="0" max="36" step="1"><span class="num" data-v="conn"></span></div>
+        <div class="row" data-only="vazado"><label data-i18n="lb.connW">Largura</label><input type="range" data-g="connW" min="0.6" max="6" step="0.1"><span class="num" data-v="connW"></span></div>
       </fieldset>
 
       <fieldset>
-        <legend>Camadas<button type="button" class="ajuda" popovertarget="aj-camadas" aria-label="ajuda sobre camadas">?</button></legend>
+        <legend><span data-i18n="fs.camadas">Camadas</span><button type="button" class="ajuda" popovertarget="aj-camadas" data-i18n-aria="aj.camadas">?</button></legend>
         <div id="cams"></div>
-        <button class="addcam" id="addcam">+ adicionar camada</button>
+        <button class="addcam" id="addcam" data-i18n="bt.addcam"></button>
       </fieldset>
 
       <fieldset>
-        <legend>Cores<button type="button" class="ajuda" popovertarget="aj-cores" aria-label="ajuda sobre cores">?</button></legend>
+        <legend><span data-i18n="fs.cores">Cores</span><button type="button" class="ajuda" popovertarget="aj-cores" data-i18n-aria="aj.cores">?</button></legend>
         <div class="swatches" id="paletas"></div>
-        <div class="row"><label>Placa</label><input type="color" data-g="corBase"></div>
-        <div class="row"><label>Filete</label><input type="color" data-g="corFio"></div>
-        <div class="row"><label>Reduzir para</label><input type="number" class="alvo" id="alvocor" min="2" max="8" step="1" value="4"><button type="button" class="act" data-act="reduz">reduzir cores</button></div>
-        <div class="row"><label>Luz</label><input type="range" data-g="luz" min="0" max="360" step="1"><span class="num" data-v="luz"></span></div>
-        <div class="row"><label>Brilho</label><input type="range" data-g="verniz" min="0" max="1" step="0.02"><span class="num" data-v="verniz"></span></div>
+        <div class="row"><label data-i18n="lb.corBase">Placa</label><input type="color" data-g="corBase"></div>
+        <div class="row"><label data-i18n="lb.corFio">Filete</label><input type="color" data-g="corFio"></div>
+        <div class="row"><label data-i18n="lb.reduzir">Reduzir para</label><input type="number" class="alvo" id="alvocor" min="2" max="8" step="1" value="4"><button type="button" class="act" data-act="reduz" data-i18n="bt.reduzir"></button></div>
+        <div class="row"><label data-i18n="lb.luz">Luz</label><input type="range" data-g="luz" min="0" max="360" step="1"><span class="num" data-v="luz"></span></div>
+        <div class="row"><label data-i18n="lb.verniz">Brilho</label><input type="range" data-g="verniz" min="0" max="1" step="0.02"><span class="num" data-v="verniz"></span></div>
       </fieldset>
     </div>
   </aside>
 
   <!-- Ajuda de cada seção. Fica fora do painel de propósito: popover nativo vai
        para a top layer, então o `overflow-y:auto` do painel não o recorta. -->
-  <div popover class="pop" id="aj-projeto">
-    <h3>Projeto</h3>
-    <p>O nome batiza os arquivos que você baixa (.3mf, .obj, .png, .json) e vai no título da peça dentro do 3MF.</p>
-  </div>
+  <div popover class="pop" id="aj-projeto" data-i18n-html="pop.projeto"></div>
 
-  <div popover class="pop" id="aj-placa">
-    <h3>Placa</h3>
-    <p>A base é a espessura da chapa, em milímetros. A escala começa em 0,4 mm, que são duas camadas de 0,2. Abaixo de 1 mm, um disco de 120 mm empena.</p>
-    <p>Ligar <em>base sólida</em> faz a chapa inteira sair na cor da placa, com o desenho colorido só por cima. Isso corta a purga do AMS. Sem ela, cada poça é extrudada desde o plano da mesa e a cor atravessa a peça toda.</p>
-  </div>
+  <div popover class="pop" id="aj-placa" data-i18n-html="pop.placa"></div>
 
-  <div popover class="pop" id="aj-filete">
-    <h3>Filete</h3>
-    <p>O filete é a linha que sobe e represa o esmalte. O degrau diz quanto cada nível de camada sobe em relação ao anterior.</p>
-    <p>Com <em>mesma altura</em> ligada, todas as camadas ficam no mesmo patamar: um nível para as poças, um para o filete. Cone e aro mantêm altura própria. Desligue para escalonar camada a camada, pelo campo <em>Nível</em> de cada uma.</p>
-    <p>A opção <em>suavizar</em> troca o degrau vertical da borda por uma rampa de uma célula, tirando o serrilhado da malha exportada. Desligue só para comparar.</p>
-  </div>
+  <div popover class="pop" id="aj-filete" data-i18n-html="pop.filete"></div>
 
-  <div popover class="pop" id="aj-furos">
-    <h3>Centro e furos</h3>
-    <p>O furo do centro é cego, feito para vareta de incenso. Sempre sobra pelo menos 0,8 mm de fundo.</p>
-    <p>O de pendurar é passante e fica dentro do aro. O ângulo 90° é o topo da peça; a posição diz onde ele cai na largura do aro, com 0,5 no meio.</p>
-  </div>
+  <div popover class="pop" id="aj-furos" data-i18n-html="pop.furos"></div>
 
-  <div popover class="pop" id="aj-corpo">
-    <h3>Corpo</h3>
-    <p>No modo vazado o fundo da placa some e sobra só o desenho, que fica parecendo renda. O aro e os conectores é que seguram tudo junto.</p>
-  </div>
+  <div popover class="pop" id="aj-corpo" data-i18n-html="pop.corpo"></div>
 
-  <div popover class="pop" id="aj-camadas">
-    <h3>Camadas</h3>
-    <p>A lista corre <em>de baixo para cima</em>: a primeira linha é a camada mais funda, e a última é a que fica por cima de todas.</p>
-    <p>A ordem é de pintura, não de soma: quem está por cima cobre quem está embaixo. ▲ e ▼ movem a camada na lista.</p>
-    <p>Cada linha traz o motivo e quantas repetições ele tem ao redor do círculo. Clique para abrir os controles.</p>
-    <p>Errou? <em>⌘Z</em> (ou Ctrl+Z) desfaz, e ⇧⌘Z refaz. Vale para tudo: apagar camada, trocar paleta, reduzir cores.</p>
-  </div>
+  <div popover class="pop" id="aj-camadas" data-i18n-html="pop.camadas"></div>
 
-  <div popover class="pop" id="aj-cores">
-    <h3>Cores</h3>
-    <p>As paletas trocam as cores e preservam o desenho: cores iguais continuam iguais, e a placa e o filete vão para o par escuro/claro da paleta.</p>
-    <p>O botão <em>reduzir cores</em> funde os pares mais parecidos até sobrar a quantidade pedida. Quatro é o número de slots do AMS. A proximidade é medida em Lab, que é o que o olho enxerga, e em cada fusão vence a cor de maior área. O filete nunca é fundido, porque é ele que contorna cada poça.</p>
-    <p>Duas ressalvas. A conta só enxerga cor visível, então uma camada coberta por outra não entra, e pode reaparecer se você reordenar a pilha depois. E a fusão não tem desfazer: salve o <code>.json</code> antes se quiser voltar.</p>
-  </div>
+  <div popover class="pop" id="aj-cores" data-i18n-html="pop.cores"></div>
 
-  <div popover class="pop" id="aj-export">
-    <h3>Exportação</h3>
-    <p>As cores valem para o preview e para o arquivo: OBJ e 3MF as levam junto. Os dois saem da mesma geometria por contorno, com bordas lisas e um sólido fechado por cor.</p>
-    <p>Para imprimir colorido, prefira <em>3MF · contorno</em>. Ele mapeia uma peça para cada extrusor, sem diálogo nenhum pelo caminho.</p>
-    <p>O OBJ sai em dois arquivos (.obj e .mtl) que precisam ficar na mesma pasta. No Bambu ele abre o <em>Import Model</em>, que agrupa as cores pelo <em>Color Count</em>. Esse valor vem no que o “Auto” escolher, quase sempre 2: clique em 4 ou 8 e depois em Apply, senão as cores que aparecem são médias, não as suas.</p>
-    <p>Para uma grade ainda mais fina, salve o <code>.json</code> e exporte pela linha de comando: <code>python3 exportar.py minha.json peca.3mf</code>. Detalhes no <code>MANDALA-CLOISONNE.md</code>.</p>
-  </div>
+  <div popover class="pop" id="aj-export" data-i18n-html="pop.export"></div>
 
   <main>
     <div class="bar">
-      <button class="tab on" data-tab="topo">Topo</button>
-      <button class="tab" data-tab="v3d">3D</button>
-      <button class="tab" data-tab="relevo">Relevo</button>
+      <button class="tab on" data-tab="topo" data-i18n="bt.topo"></button>
+      <button class="tab" data-tab="v3d" data-i18n="bt.v3d"></button>
+      <button class="tab" data-tab="relevo" data-i18n="bt.relevo"></button>
       <span class="sp"></span>
-      <button class="preset" data-preset="incenso">incensário</button>
-      <button class="preset" data-preset="lotus">lótus</button>
-      <button class="preset" data-preset="talavera">talavera</button>
-      <button class="preset" data-preset="renda">renda</button>
-      <button class="preset" data-preset="sol">sol</button>
-      <button class="preset" data-preset="aleatorio">aleatório</button>
+      <button class="preset" data-preset="incenso" data-i18n="pr.incenso"></button>
+      <button class="preset" data-preset="lotus" data-i18n="pr.lotus"></button>
+      <button class="preset" data-preset="talavera" data-i18n="pr.talavera"></button>
+      <button class="preset" data-preset="renda" data-i18n="pr.renda"></button>
+      <button class="preset" data-preset="sol" data-i18n="pr.sol"></button>
+      <button class="preset" data-preset="aleatorio" data-i18n="pr.aleatorio"></button>
     </div>
 
     <div class="stage">
@@ -364,8 +353,8 @@
     </div>
 
     <div class="foot">
-      <span class="stat">Ø <b id="s-diam"></b> · altura <b id="s-h"></b></span>
-      <span class="stat">malha <b id="s-tri"></b> · <b id="s-size"></b></span>
+      <span class="stat">Ø <b id="s-diam"></b> · <span data-i18n="ft.altura">altura</span> <b id="s-h"></b></span>
+      <span class="stat"><span data-i18n="ft.malha">malha</span> <b id="s-tri"></b> · <b id="s-size"></b></span>
       <span class="badge ok" id="s-parts">1 peça</span>
       <span class="badge ok" id="s-cores">1 cor</span>
       <span class="badge ok" id="s-mesa"></span>
@@ -373,27 +362,27 @@
       <span class="sp" style="flex:1"></span>
       </div>
       <div class="foot">
-      <button type="button" class="ajuda" popovertarget="aj-export" aria-label="ajuda sobre exportação">?</button>
+      <button type="button" class="ajuda" popovertarget="aj-export" data-i18n-aria="aj.export">?</button>
       <select id="fmt" class="sel">
-        <option value="contorno" selected>Formato 3MF · colorido</option>
-        <option value="obj">OBJ + MTL · colorido</option>
+        <option value="contorno" selected data-i18n="op.contorno"></option>
+        <option value="obj" data-i18n="op.obj"></option>
       </select>
-      <select id="maq" class="sel" title="perfil de impressora gravado no 3MF"></select>
+      <select id="maq" class="sel" data-i18n-title="maq.title"></select>
       <select id="qual" class="sel">
-        <option value="teste">qualidade: teste</option>
-        <option value="bom" selected>qualidade: boa</option>
-        <option value="alta">qualidade: alta</option>
-        <option value="max">qualidade: máxima</option>
-        <option value="fino">qualidade: filete fino</option>
+        <option value="teste" data-i18n="q.teste"></option>
+        <option value="bom" selected data-i18n="q.bom"></option>
+        <option value="alta" data-i18n="q.alta"></option>
+        <option value="max" data-i18n="q.max"></option>
+        <option value="fino" data-i18n="q.fino"></option>
       </select>
-      <button class="btn" id="dl">Baixar modelo</button>
+      <button class="btn" id="dl" data-i18n="bt.dl"></button>
       <!-- <select id="imgfmt" class="sel">
         <option value="png" selected>imagem: PNG</option>
         <option value="jpg">imagem: JPG</option>
       </select> -->
-      <button class="btn ghost" id="snap">Salvar PNG</button>
-      <button class="btn ghost" id="save">Salvar .json</button>
-      <button class="btn ghost" id="load">Abrir .json</button>
+      <button class="btn ghost" id="snap" data-i18n="bt.snap"></button>
+      <button class="btn ghost" id="save" data-i18n="bt.save"></button>
+      <button class="btn ghost" id="load" data-i18n="bt.load"></button>
       <input type="file" id="file" accept=".json,application/json" hidden>
     </div>
   </main>
@@ -1840,15 +1829,15 @@ var MC = (function () {
      cinco tons para seis papéis, e repetir na poça mais clara é o que menos
      estraga o desenho. */
   var PALETAS = {
-    agua:   { rot: 'Água',   base: '#0B3954', fundo: '#087E8B', fio: '#D6F0EF', cores: ['#087E8B', '#3CAEA3', '#7BC8C4', '#D6F0EF'] },
-    ar:     { rot: 'Ar',     base: '#536878', fundo: '#7899A8', fio: '#F3F7F8', cores: ['#7899A8', '#A9C5D1', '#D3E3E8', '#F3F7F8'] },
-    fogo:   { rot: 'Fogo',   base: '#5C0A0A', fundo: '#A91B0D', fio: '#FFD166', cores: ['#A91B0D', '#E04424', '#F28C28', '#FFD166'] },
-    terra:  { rot: 'Terra',  base: '#49301F', fundo: '#704214', fio: '#D8C3A5', cores: ['#704214', '#9A6845', '#C49463', '#D8C3A5'] },
-    sol:    { rot: 'Sol',    base: '#7A4E00', fundo: '#B77900', fio: '#FFE8A3', cores: ['#B77900', '#D9A514', '#F2C94C', '#FFE8A3'] },
-    lua:    { rot: 'Lua',    base: '#171B3A', fundo: '#292F5B', fio: '#D9D8E8', cores: ['#292F5B', '#514F82', '#8584A6', '#D9D8E8'] },
-    dark:   { rot: 'Dark',   base: '#0B0D10', fundo: '#1B1F24', fio: '#A7ADB4', cores: ['#1B1F24', '#343A40', '#5C636A', '#A7ADB4'] },
-    vitral: { rot: 'Vitral', base: '#5b2a7a', fundo: '#2c1233', fio: '#f6f2e8', cores: ['#ee8a2b', '#f2d02c', '#b06fd0', '#e8536f'] },
-    jade:   { rot: 'Jade',   base: '#1d3b2a', fundo: '#0d2118', fio: '#f2efe4', cores: ['#d9a441', '#7fbf6a', '#e0705a', '#bfd8a0'] }
+    agua:   { rot: 'pal.agua',   base: '#0B3954', fundo: '#087E8B', fio: '#D6F0EF', cores: ['#087E8B', '#3CAEA3', '#7BC8C4', '#D6F0EF'] },
+    ar:     { rot: 'pal.ar',     base: '#536878', fundo: '#7899A8', fio: '#F3F7F8', cores: ['#7899A8', '#A9C5D1', '#D3E3E8', '#F3F7F8'] },
+    fogo:   { rot: 'pal.fogo',   base: '#5C0A0A', fundo: '#A91B0D', fio: '#FFD166', cores: ['#A91B0D', '#E04424', '#F28C28', '#FFD166'] },
+    terra:  { rot: 'pal.terra',  base: '#49301F', fundo: '#704214', fio: '#D8C3A5', cores: ['#704214', '#9A6845', '#C49463', '#D8C3A5'] },
+    sol:    { rot: 'pal.sol',    base: '#7A4E00', fundo: '#B77900', fio: '#FFE8A3', cores: ['#B77900', '#D9A514', '#F2C94C', '#FFE8A3'] },
+    lua:    { rot: 'pal.lua',    base: '#171B3A', fundo: '#292F5B', fio: '#D9D8E8', cores: ['#292F5B', '#514F82', '#8584A6', '#D9D8E8'] },
+    dark:   { rot: 'pal.dark',   base: '#0B0D10', fundo: '#1B1F24', fio: '#A7ADB4', cores: ['#1B1F24', '#343A40', '#5C636A', '#A7ADB4'] },
+    vitral: { rot: 'pal.vitral', base: '#5b2a7a', fundo: '#2c1233', fio: '#f6f2e8', cores: ['#ee8a2b', '#f2d02c', '#b06fd0', '#e8536f'] },
+    jade:   { rot: 'pal.jade',   base: '#1d3b2a', fundo: '#0d2118', fio: '#f2efe4', cores: ['#d9a441', '#7fbf6a', '#e0705a', '#bfd8a0'] }
   };
   var PAL_NOMES = Object.keys(PALETAS);
   // `dark` fica fora do sorteio: monocromática é uma escolha, não um acidente
@@ -1991,28 +1980,31 @@ var MC = (function () {
   }
 
   var CAM_FIELDS = [
-    { k: 'mult', t: 'sel', label: 'Repetições', num: true,
+    { k: 'mult', t: 'sel', label: 'cf.mult', num: true,
       opts: [[0.25, '¼ da simetria'], [0.5, '½ da simetria'], [1, '× 1'], [2, '× 2'], [3, '× 3'], [4, '× 4']] },
-    { k: 'r0', t: 'rng', label: 'Raio interno', min: 0, max: 1, step: 0.002, fmt: pct },
-    { k: 'r1', t: 'rng', label: 'Raio externo', min: 0, max: 1, step: 0.002, fmt: pct },
+    { k: 'r0', t: 'rng', label: 'cf.r0', min: 0, max: 1, step: 0.002, fmt: pct },
+    { k: 'r1', t: 'rng', label: 'cf.r1', min: 0, max: 1, step: 0.002, fmt: pct },
     // no anel a largura/fase não mexem no contorno (ele é uma volta inteira),
     // mas MEXEM no preenchimento: nervuras, gota e ponto internos são n-fold e
     // giram com a fase. Sem esses controles o interior do anel fica travado e
     // não dá para alinhá-lo com as camadas vizinhas ao mudar a simetria.
-    { k: 'larg', t: 'rng', label: 'Largura', min: 0.05, max: 2, step: 0.01, fmt: pct,
+    { k: 'larg', t: 'rng', label: 'cf.larg', min: 0.05, max: 2, step: 0.01, fmt: pct,
       nao: ['anel'], salvoSe: ['nervuras', 'gotaint', 'pontoint'] },
-    { k: 'base', t: 'rng', label: 'Base', min: 0.2, max: 3, step: 0.05, fmt: num, para: ['folha', 'gota', 'cunha'] },
-    { k: 'ponta', t: 'rng', label: 'Ponta', min: 0.2, max: 3, step: 0.05, fmt: num, para: ['folha', 'gota'] },
-    { k: 'fasePasso', t: 'rng', label: 'Fase (passo)', min: 0, max: 1, step: 1 / 24, fmt: passo,
+    { k: 'base', t: 'rng', label: 'cf.base', min: 0.2, max: 3, step: 0.05, fmt: num, para: ['folha', 'gota', 'cunha'] },
+    { k: 'ponta', t: 'rng', label: 'cf.ponta', min: 0.2, max: 3, step: 0.05, fmt: num, para: ['folha', 'gota'] },
+    { k: 'fasePasso', t: 'rng', label: 'cf.fasePasso', min: 0, max: 1, step: 1 / 24, fmt: passo,
       nao: ['anel'], salvoSe: ['nervuras', 'gotaint', 'pontoint'] },
-    { k: 'nivel', t: 'rng', label: 'Nível', min: 0, max: 6, step: 1, fmt: function (v) { return v + '×'; }, soltoSe: 'nivelUnico' },
-    { k: 'preench', t: 'sel', label: 'Interior', opts: null },
-    { k: 'passo', t: 'rng', label: 'Passo', min: 0.6, max: 8, step: 0.1, fmt: mm, se: ['contornos'] },
-    { k: 'linhas', t: 'rng', label: 'Nervuras', min: 1, max: 14, step: 1, fmt: function (v) { return v + '×'; }, se: ['nervuras'] },
-    { k: 'incl', t: 'rng', label: 'Inclinação', min: 0, max: 1.6, step: 0.02, fmt: num, se: ['nervuras'] }
+    { k: 'nivel', t: 'rng', label: 'cf.nivel', min: 0, max: 6, step: 1, fmt: function (v) { return v + '×'; }, soltoSe: 'nivelUnico' },
+    { k: 'preench', t: 'sel', label: 'cf.preench', opts: null },
+    { k: 'passo', t: 'rng', label: 'cf.passo', min: 0.6, max: 8, step: 0.1, fmt: mm, se: ['contornos'] },
+    { k: 'linhas', t: 'rng', label: 'cf.linhas', min: 1, max: 14, step: 1, fmt: function (v) { return v + '×'; }, se: ['nervuras'] },
+    { k: 'incl', t: 'rng', label: 'cf.incl', min: 0, max: 1.6, step: 0.02, fmt: num, se: ['nervuras'] }
   ];
 
+  /* O núcleo guarda o rótulo em pt como dado; quem traduz é a UI, por slug. */
   function nomeMotivo(m) {
+    var tr = t('mot.' + m);
+    if (tr !== 'mot.' + m) return tr;
     for (var i = 0; i < MC.MOTIVOS.length; i++) if (MC.MOTIVOS[i][0] === m) return MC.MOTIVOS[i][1];
     return m;
   }
@@ -2055,34 +2047,34 @@ var MC = (function () {
     var nm = nomeMotivo(c.motivo);
     h += '<div class="chead" data-toggle="' + i + '">' +
       '<button class="chev" data-toggle="' + i + '" aria-expanded="' + (open[i] ? 'true' : 'false') +
-        '" aria-label="' + (open[i] ? 'recolher' : 'abrir') + ' a camada ' + nm + '"><span>&#9654;</span></button>' +
+        '" aria-label="' + t(open[i] ? 'ic.recolher' : 'ic.abrir', nm) + '"><span>&#9654;</span></button>' +
       '<span class="sw" style="background:' + c.cor + '"></span>' +
       '<span class="name">' + nm + '</span>' +
       '<span class="meta">' + Math.round(cfg.sym * c.mult) + '×' + (cfg.nivelUnico ? '' : ' · n' + c.nivel) + '</span>' +
-      '<button class="icon" data-act="up" data-i="' + i + '" title="mover para cima na lista" aria-label="mover ' + nm + ' para cima na lista">&#9650;</button>' +
-      '<button class="icon" data-act="down" data-i="' + i + '" title="mover para baixo na lista" aria-label="mover ' + nm + ' para baixo na lista">&#9660;</button>' +
-      '<button class="icon" data-act="dup" data-i="' + i + '" title="duplicar" aria-label="duplicar a camada ' + nm + '">&#10697;</button>' +
-      '<button class="icon perigo" data-act="del" data-i="' + i + '" title="apagar" aria-label="apagar a camada ' + nm + '">&times;</button>' +
+      '<button class="icon" data-act="up" data-i="' + i + '" title="' + t('ic.up') + '" aria-label="' + t('ic.upA', nm) + '">&#9650;</button>' +
+      '<button class="icon" data-act="down" data-i="' + i + '" title="' + t('ic.down') + '" aria-label="' + t('ic.downA', nm) + '">&#9660;</button>' +
+      '<button class="icon" data-act="dup" data-i="' + i + '" title="' + t('ic.dup') + '" aria-label="' + t('ic.dupA', nm) + '">&#10697;</button>' +
+      '<button class="icon perigo" data-act="del" data-i="' + i + '" title="' + t('ic.del') + '" aria-label="' + t('ic.delA', nm) + '">&times;</button>' +
       '<input type="checkbox" data-c="on" data-i="' + i + '"' + (c.on ? ' checked' : '') +
-        ' aria-label="mostrar a camada ' + nm + '">' +
+        ' aria-label="' + t('ic.mostrar', nm) + '">' +
       '</div><div class="cbody">';
 
-    h += '<div class="row"><label>Motivo</label><select data-c="motivo" data-i="' + i + '">';
-    for (var t = 0; t < MC.MOTIVOS.length; t++)
-      h += '<option value="' + MC.MOTIVOS[t][0] + '"' + (c.motivo === MC.MOTIVOS[t][0] ? ' selected' : '') + '>' + MC.MOTIVOS[t][1] + '</option>';
+    h += '<div class="row"><label>' + t('cf.motivo') + '</label><select data-c="motivo" data-i="' + i + '">';
+    for (var mo = 0; mo < MC.MOTIVOS.length; mo++)
+      h += '<option value="' + MC.MOTIVOS[mo][0] + '"' + (c.motivo === MC.MOTIVOS[mo][0] ? ' selected' : '') + '>' + nomeMotivo(MC.MOTIVOS[mo][0]) + '</option>';
     h += '</select></div>';
 
     for (var f = 0; f < CAM_FIELDS.length; f++) {
       var F = CAM_FIELDS[f];
       if (!visivel(F, c)) continue;
-      h += '<div class="row"><label>' + F.label + '</label>';
+      h += '<div class="row"><label>' + t(F.label) + '</label>';
       if (F.t === 'rng') {
         h += '<input type="range" data-c="' + F.k + '" data-i="' + i + '" min="' + F.min + '" max="' + F.max + '" step="' + F.step + '" value="' + c[F.k] + '">' +
           '<span class="num">' + F.fmt(c[F.k], c) + '</span>';
       } else if (F.k === 'preench') {
         h += '<select data-c="preench" data-i="' + i + '">';
         for (var p = 0; p < MC.PREENCH.length; p++)
-          h += '<option value="' + MC.PREENCH[p][0] + '"' + (c.preench === MC.PREENCH[p][0] ? ' selected' : '') + '>' + MC.PREENCH[p][1] + '</option>';
+          h += '<option value="' + MC.PREENCH[p][0] + '"' + (c.preench === MC.PREENCH[p][0] ? ' selected' : '') + '>' + t('pre.' + MC.PREENCH[p][0]) + '</option>';
         h += '</select>';
       } else {
         h += '<select data-c="' + F.k + '" data-i="' + i + '"' + (F.num ? ' data-num="1"' : '') + '>';
@@ -2093,11 +2085,11 @@ var MC = (function () {
       h += '</div>';
     }
     if (c.preench === 'nervuras')
-      h += '<div class="row"><label>Espinha</label><input type="checkbox" data-c="espinha" data-i="' + i + '"' + (c.espinha ? ' checked' : '') + '></div>';
-    h += '<div class="row"><label>Contorno</label><input type="checkbox" data-c="borda" data-i="' + i + '"' + (c.borda !== false ? ' checked' : '') + '></div>';
-    h += '<div class="row"><label>Cor</label><input type="color" data-c="cor" data-i="' + i + '" value="' + c.cor + '"></div>';
+      h += '<div class="row"><label>' + t('cf.espinha') + '</label><input type="checkbox" data-c="espinha" data-i="' + i + '"' + (c.espinha ? ' checked' : '') + '></div>';
+    h += '<div class="row"><label>' + t('cf.borda') + '</label><input type="checkbox" data-c="borda" data-i="' + i + '"' + (c.borda !== false ? ' checked' : '') + '></div>';
+    h += '<div class="row"><label>' + t('cf.cor') + '</label><input type="color" data-c="cor" data-i="' + i + '" value="' + c.cor + '"></div>';
     if (c.preench === 'contornos')
-      h += '<div class="row"><label>Alterna</label><input type="color" data-c="cor2" data-i="' + i + '" value="' + c.cor2 + '"></div>';
+      h += '<div class="row"><label>' + t('cf.cor2') + '</label><input type="color" data-c="cor2" data-i="' + i + '" value="' + c.cor2 + '"></div>';
     return h + '</div></div>';
   }
 
@@ -2123,17 +2115,18 @@ var MC = (function () {
       menos.textContent = '−'; mais.textContent = '+';
       menos.dataset.d = '-1'; mais.dataset.d = '1';
       menos.type = mais.type = 'button';
-      menos.title = 'um passo para trás'; mais.title = 'um passo para frente';
+      menos.title = t('ic.menos'); mais.title = t('ic.mais');
       r.parentNode.insertBefore(menos, r);
       r.parentNode.insertBefore(mais, r.nextSibling);
     });
     root.querySelectorAll('input[type=color]:not([data-deco])').forEach(function (c) {
       c.dataset.deco = '1';
-      var t = document.createElement('input');
-      t.type = 'text'; t.className = 'hexin'; t.maxLength = 7;
-      t.spellcheck = false; t.value = c.value;
-      t.title = 'código da cor — pode digitar';
-      c.parentNode.insertBefore(t, c.nextSibling);
+      // `campo` e não `t`: `t` é a função de tradução, e o local a sombreava
+      var campo = document.createElement('input');
+      campo.type = 'text'; campo.className = 'hexin'; campo.maxLength = 7;
+      campo.spellcheck = false; campo.value = c.value;
+      campo.title = t('ic.hex');
+      c.parentNode.insertBefore(campo, c.nextSibling);
     });
     espelhaHex(root);
   }
@@ -2151,11 +2144,11 @@ var MC = (function () {
     sym: function (v) { return v + '×'; },
     rot: deg, aro: mm, aroH: mm, fio: function (v) { return v.toFixed(2) + ' mm'; }, fioH: mm,
     degrau: function (v) { return v.toFixed(2) + ' mm'; },
-    cone: function (v) { return v ? v.toFixed(1) + ' mm' : 'sem'; }, coneH: mm, coneC: num,
-    furo: function (v) { return v ? v.toFixed(1) + ' mm' : 'sem'; }, furoP: mm,
-    pend: function (v) { return v ? v.toFixed(1) + ' mm' : 'sem'; }, pendA: deg,
+    cone: function (v) { return v ? v.toFixed(1) + ' mm' : t('g.sem'); }, coneH: mm, coneC: num,
+    furo: function (v) { return v ? v.toFixed(1) + ' mm' : t('g.sem'); }, furoP: mm,
+    pend: function (v) { return v ? v.toFixed(1) + ' mm' : t('g.sem'); }, pendA: deg,
     pendR: function (v) { return Math.round(v * 100) + '%'; },
-    conn: function (v) { return v ? v + '×' : 'sem'; }, connW: mm, luz: deg, verniz: pct
+    conn: function (v) { return v ? v + '×' : t('g.sem'); }, connW: mm, luz: deg, verniz: pct
   };
   /* O furo de pendurar só faz sentido dentro do aro, e com parede que aguente
      o peso. Os dois casos ruins são silenciosos na tela — a peça continua
@@ -2168,12 +2161,9 @@ var MC = (function () {
       var R = cfg.diam / 2, rp = R - cfg.aro * cfg.pendR;
       var paredeFora = R - (rp + cfg.pend / 2);            // até a borda da peça
       var paredeDentro = (rp - cfg.pend / 2) - (R - cfg.aro);  // até o fim do aro
-      if (cfg.aro <= 0)
-        m = 'Sem aro, o furo cai em cima do desenho. Aumente o <b>Aro</b> ou desligue o furo.';
+      if (cfg.aro <= 0) m = t('av.semAro');
       else if (paredeFora < 0.8 || paredeDentro < 0.8)
-        m = 'Parede de ' + Math.max(0, Math.min(paredeFora, paredeDentro)).toFixed(1) +
-            ' mm entre o furo e a borda do aro — abaixo de 0,8 mm a peça rasga ao pendurar. ' +
-            'Afine o furo, alargue o aro ou mexa na posição.';
+        m = t('av.paredeFina', Math.max(0, Math.min(paredeFora, paredeDentro)).toFixed(1));
     }
     el.innerHTML = m;
   }
@@ -2212,6 +2202,272 @@ var MC = (function () {
     espelhaHex(document);
   }
 
+  /* ---------------- idioma ---------------------------------------------------
+     Duas línguas, um dicionário. As chaves são estáveis; o pt-BR é o fallback,
+     então uma chave que falte no en aparece em português em vez de sumir.
+
+     Não há `localStorage` neste projeto, então a escolha mora na URL
+     (`?lang=en`), que ainda tem a vantagem de tornar o link compartilhável já
+     no idioma certo. Sem parâmetro, vale o idioma do navegador.
+
+     Comentários e documentação seguem em pt-BR: o que fala duas línguas é a
+     interface, não o código. */
+  var I18N = {
+    pt: {
+      'doc.titulo': 'Mandala Forge — gerador de mandala em filete e esmalte',
+      'app.sub': 'filete em relevo + poças de esmalte · exporta com cor',
+      'idioma.pt': 'Interface em português', 'idioma.en': 'Switch interface to English',
+
+      'fs.projeto': 'Projeto', 'fs.placa': 'Placa', 'fs.filete': 'Filete',
+      'fs.furos': 'Centro e furos', 'fs.corpo': 'Corpo', 'fs.camadas': 'Camadas', 'fs.cores': 'Cores',
+      'aj.projeto': 'ajuda sobre projeto', 'aj.placa': 'ajuda sobre placa',
+      'aj.filete': 'ajuda sobre filete', 'aj.furos': 'ajuda sobre centro e furos',
+      'aj.corpo': 'ajuda sobre corpo', 'aj.camadas': 'ajuda sobre camadas',
+      'aj.cores': 'ajuda sobre cores', 'aj.export': 'ajuda sobre exportação',
+
+      'lb.nome': 'Nome', 'lb.diam': 'Diâmetro', 'lb.base': 'Base', 'lb.baseSolida': 'Base sólida',
+      'lb.sym': 'Simetria', 'lb.rot': 'Rotação', 'lb.aro': 'Aro', 'lb.aroH': 'Altura do aro',
+      'lb.fio': 'Largura', 'lb.fioH': 'Altura', 'lb.degrau': 'Degrau',
+      'lb.nivelUnico': 'Mesma altura', 'lb.suave': 'Suavizar',
+      'lb.cone': 'Cone', 'lb.coneH': 'Altura', 'lb.coneC': 'Curvatura',
+      'lb.furo': 'Furo', 'lb.furoP': 'Profundidade',
+      'lb.pend': 'Pendurar', 'lb.pendA': 'Ângulo', 'lb.pendR': 'Posição no aro',
+      'lb.conn': 'Conectores', 'lb.connW': 'Largura',
+      'lb.corBase': 'Placa', 'lb.corFio': 'Filete', 'lb.reduzir': 'Reduzir para',
+      'lb.luz': 'Luz', 'lb.verniz': 'Brilho',
+      'ph.nome': 'mandala',
+
+      'bt.placa': 'Placa cheia', 'bt.vazado': 'Vazado', 'bt.addcam': '+ adicionar camada',
+      'bt.reduzir': 'reduzir cores', 'bt.topo': 'Topo', 'bt.v3d': '3D', 'bt.relevo': 'Relevo',
+      'bt.dl': 'Baixar modelo', 'bt.gerando': 'gerando…',
+      'bt.snap': 'Salvar PNG', 'bt.save': 'Salvar .json', 'bt.load': 'Abrir .json',
+      'pr.incenso': 'incensário', 'pr.lotus': 'lótus', 'pr.talavera': 'talavera',
+      'pr.renda': 'renda', 'pr.sol': 'sol', 'pr.aleatorio': 'aleatório',
+
+      'op.contorno': 'Formato 3MF · colorido', 'op.obj': 'OBJ + MTL · colorido',
+      'q.teste': 'qualidade: teste', 'q.bom': 'qualidade: boa', 'q.alta': 'qualidade: alta',
+      'q.max': 'qualidade: máxima', 'q.fino': 'qualidade: filete fino',
+      'maq.rot': 'impressora: ', 'maq.title': 'perfil de impressora gravado no 3MF',
+
+      'ft.altura': 'altura', 'ft.malha': 'malha', 'ft.tri': ' tri (≈)',
+      'ft.peca': '1 peça', 'ft.pecas': ' peças soltas',
+      'ft.cor': ' cor', 'ft.cores': ' cores', 'ft.naoCabe': 'não cabe na mesa',
+      'ft.cabeAms': 'cabe num AMS de 4 filamentos',
+      'ft.areaDe': ' · {0}% da área',
+      'ft.mesaTitle': 'a peça tem {0} mm e a mesa desta impressora, {1} mm no menor lado',
+
+      'mot.folha': 'Folha', 'mot.gota': 'Gota', 'mot.arco': 'Arco', 'mot.ponto': 'Ponto',
+      'mot.cunha': 'Cunha', 'mot.losango': 'Losango', 'mot.anel': 'Anel',
+      'pre.nenhum': 'Liso', 'pre.contornos': 'Contornos', 'pre.nervuras': 'Nervuras',
+      'pre.gotaint': 'Gota interna', 'pre.pontoint': 'Ponto interno',
+
+      'cf.mult': 'Repetições', 'cf.r0': 'Raio interno', 'cf.r1': 'Raio externo',
+      'cf.larg': 'Largura', 'cf.base': 'Base', 'cf.ponta': 'Ponta',
+      'cf.fasePasso': 'Fase (passo)', 'cf.nivel': 'Nível', 'cf.preench': 'Interior',
+      'cf.passo': 'Passo', 'cf.linhas': 'Nervuras', 'cf.incl': 'Inclinação',
+      'cf.motivo': 'Motivo', 'cf.espinha': 'Espinha', 'cf.borda': 'Contorno', 'cf.cor': 'Cor', 'cf.cor2': 'Alterna',
+
+      'pal.agua': 'Água', 'pal.ar': 'Ar', 'pal.fogo': 'Fogo', 'pal.terra': 'Terra',
+      'pal.sol': 'Sol', 'pal.lua': 'Lua', 'pal.dark': 'Dark', 'pal.vitral': 'Vitral', 'pal.jade': 'Jade',
+      'pal.aplicar': 'aplicar a paleta ',
+
+      'hud.topo': 'vista de topo · arraste para deslocar, roda para o zoom',
+      'hud.relevo': 'mapa de altura — claro é alto · arraste para deslocar',
+      'hud.v3d': 'arraste para girar, shift para deslocar · ',
+      'hud.grade': ' · grade ',
+      'hud.zoom': ' · zoom ', 'hud.reenquadra': '× (2 cliques reenquadram)',
+
+      'av.desfeito': 'desfeito', 'av.fimHist': 'desfeito (fim do histórico)',
+      'av.refeito': 'refeito', 'av.nadaDesfazer': 'nada para desfazer',
+      'av.nadaRefazer': 'nada para refazer',
+      'av.ultimaCamada': 'a última camada não pode ser apagada',
+      'av.apagada': '{0} apagada · ⌘Z desfaz',
+      'av.carregada': 'configuração carregada · ⌘Z desfaz',
+      'av.nadaFundir': 'nada a fundir',
+      'av.fundida': '1 cor fundida', 'av.fundidas': '{0} cores fundidas',
+      'av.invalido': 'Arquivo inválido: ',
+      'av.semCamadas': 'sem camadas',
+      'av.erroArquivo': 'Não consegui gerar o arquivo: ',
+      'av.erroImagem': 'Não consegui gerar a imagem: ',
+
+      'ic.up': 'mover para cima na lista', 'ic.down': 'mover para baixo na lista',
+      'ic.dup': 'duplicar', 'ic.del': 'apagar',
+      'ic.upA': 'mover {0} para cima na lista', 'ic.downA': 'mover {0} para baixo na lista',
+      'ic.dupA': 'duplicar a camada {0}', 'ic.delA': 'apagar a camada {0}',
+      'ic.mostrar': 'mostrar a camada {0}',
+      'ic.abrir': 'abrir a camada {0}', 'ic.recolher': 'recolher a camada {0}',
+      'ic.hex': 'código da cor — pode digitar',
+      'ic.menos': 'um passo para trás', 'ic.mais': 'um passo para frente',
+      'ft.muitasCores': '{0} cores, logo {0} filamentos. Com menos slots o fatiador junta as mais parecidas sozinho: use o botão reduzir cores para escolher quais.',
+      'av.semAro': 'Sem aro, o furo cai em cima do desenho. Aumente o <b>Aro</b> ou desligue o furo.',
+      'av.paredeFina': 'Parede de {0} mm entre o furo e a borda do aro. Abaixo de 0,8 mm a peça rasga ao pendurar: afine o furo, alargue o aro ou mexa na posição.',
+      'g.sem': 'sem',
+
+      'pop.projeto': '<h3>Projeto</h3> <p>O nome batiza os arquivos que você baixa (.3mf, .obj, .png, .json) e vai no título da peça dentro do 3MF.</p>',
+      'pop.placa': '<h3>Placa</h3> <p>A base é a espessura da chapa, em milímetros. A escala começa em 0,4 mm, que são duas camadas de 0,2. Abaixo de 1 mm, um disco de 120 mm empena.</p> <p>Ligar <em>base sólida</em> faz a chapa inteira sair na cor da placa, com o desenho colorido só por cima. Isso corta a purga do AMS. Sem ela, cada poça é extrudada desde o plano da mesa e a cor atravessa a peça toda.</p>',
+      'pop.filete': '<h3>Filete</h3> <p>O filete é a linha que sobe e represa o esmalte. O degrau diz quanto cada nível de camada sobe em relação ao anterior.</p> <p>Com <em>mesma altura</em> ligada, todas as camadas ficam no mesmo patamar: um nível para as poças, um para o filete. Cone e aro mantêm altura própria. Desligue para escalonar camada a camada, pelo campo <em>Nível</em> de cada uma.</p> <p>A opção <em>suavizar</em> troca o degrau vertical da borda por uma rampa de uma célula, tirando o serrilhado da malha exportada. Desligue só para comparar.</p>',
+      'pop.furos': '<h3>Centro e furos</h3> <p>O furo do centro é cego, feito para vareta de incenso. Sempre sobra pelo menos 0,8 mm de fundo.</p> <p>O de pendurar é passante e fica dentro do aro. O ângulo 90° é o topo da peça; a posição diz onde ele cai na largura do aro, com 0,5 no meio.</p>',
+      'pop.corpo': '<h3>Corpo</h3> <p>No modo vazado o fundo da placa some e sobra só o desenho, que fica parecendo renda. O aro e os conectores é que seguram tudo junto.</p>',
+      'pop.camadas': '<h3>Camadas</h3> <p>A lista corre <em>de baixo para cima</em>: a primeira linha é a camada mais funda, e a última é a que fica por cima de todas.</p> <p>A ordem é de pintura, não de soma: quem está por cima cobre quem está embaixo. ▲ e ▼ movem a camada na lista.</p> <p>Cada linha traz o motivo e quantas repetições ele tem ao redor do círculo. Clique para abrir os controles.</p> <p>Errou? <em>⌘Z</em> (ou Ctrl+Z) desfaz, e ⇧⌘Z refaz. Vale para tudo: apagar camada, trocar paleta, reduzir cores.</p>',
+      'pop.cores': '<h3>Cores</h3> <p>As paletas trocam as cores e preservam o desenho: cores iguais continuam iguais, e a placa e o filete vão para o par escuro/claro da paleta.</p> <p>O botão <em>reduzir cores</em> funde os pares mais parecidos até sobrar a quantidade pedida. Quatro é o número de slots do AMS. A proximidade é medida em Lab, que é o que o olho enxerga, e em cada fusão vence a cor de maior área. O filete nunca é fundido, porque é ele que contorna cada poça.</p> <p>Duas ressalvas. A conta só enxerga cor visível, então uma camada coberta por outra não entra, e pode reaparecer se você reordenar a pilha depois. E a fusão não tem desfazer: salve o <code>.json</code> antes se quiser voltar.</p>',
+      'pop.export': '<h3>Exportação</h3> <p>As cores valem para o preview e para o arquivo: OBJ e 3MF as levam junto. Os dois saem da mesma geometria por contorno, com bordas lisas e um sólido fechado por cor.</p> <p>Para imprimir colorido, prefira <em>3MF · contorno</em>. Ele mapeia uma peça para cada extrusor, sem diálogo nenhum pelo caminho.</p> <p>O OBJ sai em dois arquivos (.obj e .mtl) que precisam ficar na mesma pasta. No Bambu ele abre o <em>Import Model</em>, que agrupa as cores pelo <em>Color Count</em>. Esse valor vem no que o “Auto” escolher, quase sempre 2: clique em 4 ou 8 e depois em Apply, senão as cores que aparecem são médias, não as suas.</p> <p>Para uma grade ainda mais fina, salve o <code>.json</code> e exporte pela linha de comando: <code>python3 exportar.py minha.json peca.3mf</code>. Detalhes no <code>MANDALA-CLOISONNE.md</code>.</p>',
+      'pop.fim': ''
+    },
+    en: {
+      'doc.titulo': 'Mandala Forge — cloisonné mandala generator',
+      'app.sub': 'raised wire + enamel pools · exports in colour',
+      'idioma.pt': 'Mudar a interface para português', 'idioma.en': 'Interface in English',
+
+      'fs.projeto': 'Project', 'fs.placa': 'Plate', 'fs.filete': 'Wire',
+      'fs.furos': 'Centre and holes', 'fs.corpo': 'Body', 'fs.camadas': 'Layers', 'fs.cores': 'Colours',
+      'aj.projeto': 'help about project', 'aj.placa': 'help about the plate',
+      'aj.filete': 'help about the wire', 'aj.furos': 'help about centre and holes',
+      'aj.corpo': 'help about the body', 'aj.camadas': 'help about layers',
+      'aj.cores': 'help about colours', 'aj.export': 'help about exporting',
+
+      'lb.nome': 'Name', 'lb.diam': 'Diameter', 'lb.base': 'Base', 'lb.baseSolida': 'Solid base',
+      'lb.sym': 'Symmetry', 'lb.rot': 'Rotation', 'lb.aro': 'Rim', 'lb.aroH': 'Rim height',
+      'lb.fio': 'Width', 'lb.fioH': 'Height', 'lb.degrau': 'Step',
+      'lb.nivelUnico': 'One level', 'lb.suave': 'Smooth edges',
+      'lb.cone': 'Cone', 'lb.coneH': 'Height', 'lb.coneC': 'Curvature',
+      'lb.furo': 'Hole', 'lb.furoP': 'Depth',
+      'lb.pend': 'Hanging hole', 'lb.pendA': 'Angle', 'lb.pendR': 'Position in rim',
+      'lb.conn': 'Connectors', 'lb.connW': 'Width',
+      'lb.corBase': 'Plate', 'lb.corFio': 'Wire', 'lb.reduzir': 'Reduce to',
+      'lb.luz': 'Light', 'lb.verniz': 'Gloss',
+      'ph.nome': 'mandala',
+
+      'bt.placa': 'Solid plate', 'bt.vazado': 'Openwork', 'bt.addcam': '+ add layer',
+      'bt.reduzir': 'reduce colours', 'bt.topo': 'Top', 'bt.v3d': '3D', 'bt.relevo': 'Relief',
+      'bt.dl': 'Download model', 'bt.gerando': 'building…',
+      'bt.snap': 'Save PNG', 'bt.save': 'Save .json', 'bt.load': 'Open .json',
+      'pr.incenso': 'censer', 'pr.lotus': 'lotus', 'pr.talavera': 'talavera',
+      'pr.renda': 'lace', 'pr.sol': 'sun', 'pr.aleatorio': 'random',
+
+      'op.contorno': '3MF format · colour', 'op.obj': 'OBJ + MTL · colour',
+      'q.teste': 'quality: draft', 'q.bom': 'quality: good', 'q.alta': 'quality: high',
+      'q.max': 'quality: maximum', 'q.fino': 'quality: fine wire',
+      'maq.rot': 'printer: ', 'maq.title': 'printer profile written into the 3MF',
+
+      'ft.altura': 'height', 'ft.malha': 'mesh', 'ft.tri': ' tris (≈)',
+      'ft.peca': '1 part', 'ft.pecas': ' loose parts',
+      'ft.cor': ' colour', 'ft.cores': ' colours', 'ft.naoCabe': "doesn't fit the bed",
+      'ft.cabeAms': 'fits a 4-filament AMS',
+      'ft.areaDe': ' · {0}% of the area',
+      'ft.mesaTitle': 'the piece is {0} mm and this printer’s bed is {1} mm on its shorter side',
+
+      'mot.folha': 'Leaf', 'mot.gota': 'Teardrop', 'mot.arco': 'Arc', 'mot.ponto': 'Dot',
+      'mot.cunha': 'Wedge', 'mot.losango': 'Diamond', 'mot.anel': 'Ring',
+      'pre.nenhum': 'Plain', 'pre.contornos': 'Outlines', 'pre.nervuras': 'Veins',
+      'pre.gotaint': 'Inner teardrop', 'pre.pontoint': 'Inner dot',
+
+      'cf.mult': 'Repeats', 'cf.r0': 'Inner radius', 'cf.r1': 'Outer radius',
+      'cf.larg': 'Width', 'cf.base': 'Base', 'cf.ponta': 'Tip',
+      'cf.fasePasso': 'Phase (step)', 'cf.nivel': 'Level', 'cf.preench': 'Inside',
+      'cf.passo': 'Spacing', 'cf.linhas': 'Veins', 'cf.incl': 'Slant',
+      'cf.motivo': 'Motif', 'cf.espinha': 'Midrib', 'cf.borda': 'Outline', 'cf.cor': 'Colour', 'cf.cor2': 'Alternate',
+
+      'pal.agua': 'Water', 'pal.ar': 'Air', 'pal.fogo': 'Fire', 'pal.terra': 'Earth',
+      'pal.sol': 'Sun', 'pal.lua': 'Moon', 'pal.dark': 'Dark', 'pal.vitral': 'Stained glass', 'pal.jade': 'Jade',
+      'pal.aplicar': 'apply the palette ',
+
+      'hud.topo': 'top view · drag to pan, wheel to zoom',
+      'hud.relevo': 'height map, lighter is higher · drag to pan',
+      'hud.v3d': 'drag to orbit, shift to pan · ',
+      'hud.grade': ' · grid ',
+      'hud.zoom': ' · zoom ', 'hud.reenquadra': '× (double-click resets)',
+
+      'av.desfeito': 'undone', 'av.fimHist': 'undone (end of history)',
+      'av.refeito': 'redone', 'av.nadaDesfazer': 'nothing to undo',
+      'av.nadaRefazer': 'nothing to redo',
+      'av.ultimaCamada': 'the last layer cannot be deleted',
+      'av.apagada': '{0} deleted · ⌘Z undoes it',
+      'av.carregada': 'settings loaded · ⌘Z undoes it',
+      'av.nadaFundir': 'nothing to merge',
+      'av.fundida': '1 colour merged', 'av.fundidas': '{0} colours merged',
+      'av.invalido': 'Invalid file: ',
+      'av.semCamadas': 'no layers',
+      'av.erroArquivo': "Couldn't build the file: ",
+      'av.erroImagem': "Couldn't build the image: ",
+
+      'ic.up': 'move up in the list', 'ic.down': 'move down in the list',
+      'ic.dup': 'duplicate', 'ic.del': 'delete',
+      'ic.upA': 'move {0} up in the list', 'ic.downA': 'move {0} down in the list',
+      'ic.dupA': 'duplicate the {0} layer', 'ic.delA': 'delete the {0} layer',
+      'ic.mostrar': 'show the {0} layer',
+      'ic.abrir': 'expand the {0} layer', 'ic.recolher': 'collapse the {0} layer',
+      'ic.hex': 'colour code — you can type it',
+      'ic.menos': 'one step back', 'ic.mais': 'one step forward',
+      'ft.muitasCores': '{0} colours, so {0} filaments. With fewer slots the slicer merges the closest ones on its own: use the reduce colours button to choose which.',
+      'av.semAro': 'With no rim the hole lands on the drawing itself. Widen the <b>Rim</b> or turn the hole off.',
+      'av.paredeFina': 'Only {0} mm of wall between the hole and the edge of the rim. Below 0.8 mm the piece tears when hung: thin the hole, widen the rim, or move its position.',
+      'g.sem': 'none',
+
+      'pop.projeto': '<h3>Project</h3> <p>The name goes on every file you download (.3mf, .obj, .png, .json) and into the part title inside the 3MF.</p>',
+      'pop.placa': '<h3>Plate</h3> <p>The base is the thickness of the plate, in millimetres. The scale starts at 0.4 mm, which is two 0.2 layers. Below 1 mm a 120 mm disc warps.</p> <p>Turning on <em>solid base</em> prints the whole base in the plate colour, with the drawing coloured only on top. That cuts AMS purge. Without it, every pool is extruded from the bed and its colour runs through the entire piece.</p>',
+      'pop.filete': '<h3>Wire</h3> <p>The wire is the raised line that dams the enamel. The step says how much each layer level rises above the one below it.</p> <p>With <em>one level</em> on, every layer sits at the same height: one level for the pools, one for the wire. Cone and rim keep their own heights. Turn it off to stagger layer by layer, through each layer\'s <em>Level</em> field.</p> <p>The <em>smooth edges</em> option trades the vertical step at the border for a one-cell ramp, taking the jaggies out of the exported mesh. Turn it off only to compare.</p>',
+      'pop.furos': '<h3>Centre and holes</h3> <p>The centre hole is blind, made for an incense stick. At least 0.8 mm of floor is always left.</p> <p>The hanging one goes all the way through and sits inside the rim. Angle 90° is the top of the piece; the position says where it falls across the width of the rim, with 0.5 in the middle.</p>',
+      'pop.corpo': '<h3>Body</h3> <p>In openwork mode the plate floor disappears and only the drawing is left, which ends up looking like lace. The rim and the connectors are what hold it all together.</p>',
+      'pop.camadas': '<h3>Layers</h3> <p>The list runs <em>bottom to top</em>: the first row is the deepest layer, and the last one sits above all the others.</p> <p>The order is painting, not addition: whatever is on top covers what is underneath. ▲ and ▼ move a layer within the list.</p> <p>Each row carries the motif and how many times it repeats around the circle. Click to open its controls.</p> <p>Made a mistake? <em>⌘Z</em> (or Ctrl+Z) undoes it, ⇧⌘Z redoes it. It works for everything: deleting a layer, changing palette, reducing colours.</p>',
+      'pop.cores': '<h3>Colours</h3> <p>Palettes swap the colours and preserve the drawing: colours that matched still match, and the plate and the wire go to the palette\'s dark/light pair.</p> <p>The <em>reduce colours</em> button merges the closest pairs until only the requested number is left. Four is the number of AMS slots. Closeness is measured in Lab, which is what the eye sees, and the larger area wins each merge. The wire is never merged, because it is what outlines every pool.</p> <p>Two caveats. The count only sees <em>visible</em> colour, so a layer covered by another one doesn\'t count, and it can come back if you reorder the stack later. And merging has no undo of its own: save the <code>.json</code> first if you want a way back.</p>',
+      'pop.export': '<h3>Exporting</h3> <p>Colours apply to the preview and to the file: OBJ and 3MF both carry them. Both come out of the same contour geometry, with smooth edges and one closed solid per colour.</p> <p>To print in colour, prefer <em>3MF · contour</em>. It maps one part to each extruder, with no dialog along the way.</p> <p>OBJ comes out as two files (.obj and .mtl) that have to sit in the same folder. In Bambu it opens <em>Import Model</em>, which groups the colours by <em>Color Count</em>. That value comes in at whatever “Auto” picks, almost always 2: click 4 or 8 and then Apply, otherwise the colours you see are averages, not yours.</p> <p>For an even finer grid, save the <code>.json</code> and export from the command line: <code>python3 exportar.py minha.json peca.3mf</code>. Details in <code>MANDALA-CLOISONNE.md</code>.</p>',
+      'pop.fim': ''
+    }
+  };
+
+  /* pt é o fallback: chave faltando no en aparece em português, não some */
+  var lang = (function () {
+    var u = new URLSearchParams(location.search).get('lang');
+    if (u && I18N[u]) return u;
+    return /^pt/i.test(navigator.language || '') ? 'pt' : 'en';
+  })();
+  function t(k, a, b) {
+    var d = I18N[lang] || I18N.pt;
+    var v = d[k] !== undefined ? d[k] : I18N.pt[k];
+    if (v === undefined) return k;
+    // global: uma frase pode repetir o mesmo marcador ("{0} cores, logo {0}
+    // filamentos"), e `replace` com string troca só a primeira ocorrência
+    if (a !== undefined) v = v.split('{0}').join(a);
+    if (b !== undefined) v = v.split('{1}').join(b);
+    return v;
+  }
+
+  /* Troca os textos no lugar. `data-i18n` no textContent, `-attr` nos atributos,
+     `-html` no innerHTML (os popovers têm <em> e <code> dentro). O HTML injetado
+     vem só do dicionário aqui de cima, nunca de entrada do usuário. */
+  function aplicaIdioma() {
+    document.documentElement.lang = lang === 'pt' ? 'pt-BR' : 'en';
+    document.title = t('doc.titulo');
+    document.querySelectorAll('[data-i18n]').forEach(function (el) {
+      el.textContent = t(el.dataset.i18n);
+    });
+    document.querySelectorAll('[data-i18n-html]').forEach(function (el) {
+      el.innerHTML = t(el.dataset.i18nHtml);
+    });
+    var attrs = { 'data-i18n-title': 'title', 'data-i18n-aria': 'aria-label', 'data-i18n-ph': 'placeholder' };
+    Object.keys(attrs).forEach(function (d) {
+      document.querySelectorAll('[' + d + ']').forEach(function (el) {
+        el.setAttribute(attrs[d], t(el.getAttribute(d)));
+      });
+    });
+    document.querySelectorAll('[data-lang]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
+    });
+    // o que é montado por JS precisa ser remontado
+    drawPaletas(); drawMaquinas(); drawPanel(); updateStats(); render(1);
+  }
+  function trocaIdioma(novo) {
+    if (!I18N[novo] || novo === lang) return;
+    lang = novo;
+    // a escolha vive na URL: sem localStorage, e o link já sai no idioma certo
+    try {
+      var u = new URL(location.href);
+      u.searchParams.set('lang', lang);
+      history.replaceState(null, '', u);
+    } catch (e) { /* file:// sem permissão de history: o idioma vale a sessão */ }
+    aplicaIdioma();
+  }
+
   /* ---------------- desfazer ------------------------------------------------
      `cfg` é serializável e pequeno (uns 4 kB), então o histórico é a coisa mais
      barata do app: 40 snapshots custam menos que um quadro do preview. Antes
@@ -2237,16 +2493,16 @@ var MC = (function () {
     open = {}; drawPanel(); schedule();
   }
   function desfaz() {
-    if (!hist.length) return aviso('nada para desfazer');
+    if (!hist.length) return aviso(t('av.nadaDesfazer'));
     futuro.push(JSON.stringify(cfg));
     restaura(hist.pop());
-    aviso('desfeito' + (hist.length ? '' : ' (fim do histórico)'));
+    aviso(t(hist.length ? 'av.desfeito' : 'av.fimHist'));
   }
   function refaz() {
-    if (!futuro.length) return aviso('nada para refazer');
+    if (!futuro.length) return aviso(t('av.nadaRefazer'));
     hist.push(JSON.stringify(cfg));
     restaura(futuro.pop());
-    aviso('refeito');
+    aviso(t('av.refeito'));
   }
   /* Um passo desfeito pode não mexer em nada visível (uma camada recolhida que
      volta, por exemplo), então o aviso é o que confirma que aconteceu. */
@@ -2339,9 +2595,9 @@ var MC = (function () {
     if (a === 'reduz') {
       var alvo = MC.clamp(parseInt(document.getElementById('alvocor').value, 10) || 4, 2, 8);
       var n = reduzCores(alvo);
-      el.textContent = n ? (n === 1 ? '1 cor fundida' : n + ' cores fundidas') : 'nada a fundir';
+      el.textContent = n ? t(n === 1 ? 'av.fundida' : 'av.fundidas', n) : t('av.nadaFundir');
       clearTimeout(el._t);
-      el._t = setTimeout(function () { el.textContent = 'reduzir cores'; }, 2200);
+      el._t = setTimeout(function () { el.textContent = t('bt.reduzir'); }, 2200);
       return;
     }
     if (a) {
@@ -2349,11 +2605,11 @@ var MC = (function () {
       // a última camada não sai: sem ela não há desenho. Antes isso era um `if`
       // silencioso, e o clique simplesmente não fazia nada.
       if (a === 'del' && cfg.camadas.length <= 1) {
-        aviso('a última camada não pode ser apagada'); return;
+        aviso(t('av.ultimaCamada')); return;
       }
       marca();
       var nome = nomeMotivo(cfg.camadas[i].motivo);
-      if (a === 'del') { cfg.camadas.splice(i, 1); aviso(nome + ' apagada · ⌘Z desfaz'); }
+      if (a === 'del') { cfg.camadas.splice(i, 1); aviso(t('av.apagada', nome)); }
       if (a === 'dup') cfg.camadas.splice(i + 1, 0, JSON.parse(JSON.stringify(cfg.camadas[i])));
       if (a === 'up' && i > 0) cfg.camadas.splice(i - 1, 0, cfg.camadas.splice(i, 1)[0]);
       if (a === 'down' && i < cfg.camadas.length - 1) cfg.camadas.splice(i + 1, 0, cfg.camadas.splice(i, 1)[0]);
@@ -2538,7 +2794,7 @@ var MC = (function () {
   function drawMaquinas() {
     var sel = document.getElementById('maq'), h = '';
     MC.MAQUINAS.forEach(function (m) {
-      h += '<option value="' + m[0] + '">impressora: ' + m[1] + '</option>';
+      h += '<option value="' + m[0] + '">' + t('maq.rot') + m[1] + '</option>';
     });
     sel.innerHTML = h;
     sel.value = cfg.maquina || 'h2c';
@@ -2562,8 +2818,8 @@ var MC = (function () {
       [P.base, P.fio].concat(P.cores.slice(0, 3)).forEach(function (c) {
         sw += '<i style="background:' + c + '"></i>';
       });
-      h += '<button type="button" class="pal" data-pal="' + n + '" title="aplicar a paleta ' + P.rot + '">' +
-           '<span class="pv">' + sw + '</span>' + P.rot + '</button>';
+      h += '<button type="button" class="pal" data-pal="' + n + '" title="' + t('pal.aplicar') + t(P.rot) + '">' +
+           '<span class="pv">' + sw + '</span>' + t(P.rot) + '</button>';
     });
     document.getElementById('paletas').innerHTML = h;
   }
@@ -2793,11 +3049,10 @@ var MC = (function () {
     ctx.clearRect(0, 0, cv.width, cv.height);
     if (tab === 'v3d') draw3D(scale >= 1);
     else drawTop(scale, tab === 'relevo');
-    var zt = view.z === 1 ? '' : ' · zoom ' + (view.z < 1 ? view.z.toFixed(2) : view.z.toFixed(1)) + '× (2 cliques reenquadram)';
+    var zt = view.z === 1 ? '' : t('hud.zoom') + (view.z < 1 ? view.z.toFixed(2) : view.z.toFixed(1)) + t('hud.reenquadra');
     hud.textContent = (tab === 'v3d'
-      ? 'arraste para girar, shift para deslocar · ' + Math.round(yaw * 180 / Math.PI) + '° / ' + Math.round(elev * 180 / Math.PI) + '° · grade ' + grade3D
-      : (tab === 'relevo' ? 'mapa de altura — claro é alto · arraste para deslocar'
-                          : 'vista de topo · arraste para deslocar, roda para o zoom')) + zt;
+      ? t('hud.v3d') + Math.round(yaw * 180 / Math.PI) + '° / ' + Math.round(elev * 180 / Math.PI) + '°' + t('hud.grade') + grade3D
+      : t(tab === 'relevo' ? 'hud.relevo' : 'hud.topo')) + zt;
   }
 
   /* ---------------- estatísticas ---------------- */
@@ -2818,18 +3073,18 @@ var MC = (function () {
     // 3MF por contorno vai pedir — acima dos slots do AMS o fatiador junta
     var vistas = varreCores(), ordem = coresPorArea(vistas), nCores = ordem.length;
     var bc = document.getElementById('s-cores');
-    bc.textContent = nCores + (nCores === 1 ? ' cor' : ' cores');
+    bc.textContent = nCores + t(nCores === 1 ? 'ft.cor' : 'ft.cores');
     bc.className = 'badge ' + (nCores <= 4 ? 'ok' : 'warn');
     bc.title = nCores <= 4
-      ? 'cabe num AMS de 4 filamentos'
-      : nCores + ' cores para ' + nCores + ' filamentos. Com menos slots, o fatiador junta as mais parecidas — junte você, editando as cores das camadas, para escolher quais.';
+      ? t('ft.cabeAms')
+      : t('ft.muitasCores', nCores);
     // quais são elas, da que ocupa mais área para a que ocupa menos
     var soma = 0;
     ordem.forEach(function (h) { soma += vistas[h]; });
     document.getElementById('s-swatches').innerHTML = ordem.map(function (h) {
       var pc = soma ? Math.round(vistas[h] / soma * 100) : 0;
       return '<span class="sw" style="background:' + h + '" title="' + h.toUpperCase() +
-             ' · ' + pc + '% da área"></span>';
+             t('ft.areaDe', pc) + '"></span>';
     }).join('');
     var frac = count / (NR * NT);
     // os dois formatos saem por contorno, que não usa a grade polar: estima
@@ -2843,17 +3098,16 @@ var MC = (function () {
     document.getElementById('s-tri').textContent = fmtN(estTri) + ' tri (≈)';
     document.getElementById('s-size').textContent = fmtB(estBytes);
     var badge = document.getElementById('s-parts');
-    badge.textContent = parts === 1 ? '1 peça' : parts + ' peças soltas';
+    badge.textContent = parts === 1 ? t('ft.peca') : parts + t('ft.pecas');
     badge.className = 'badge ' + (parts === 1 ? 'ok' : 'warn');
     // o slider de diâmetro vai a 300 mm e a A1 tem mesa de 256: sem aviso, o
     // usuário só descobre ao abrir o projeto e ver a peça fora da área
     var lado = ladoMesa(), bm = document.getElementById('s-mesa');
     var cabe = cfg.diam <= lado;
-    bm.textContent = cabe ? '' : 'não cabe na mesa';
+    bm.textContent = cabe ? '' : t('ft.naoCabe');
     bm.className = 'badge bad';
     bm.style.display = cabe ? 'none' : '';
-    bm.title = cabe ? '' : ('a peça tem ' + cfg.diam + ' mm e a mesa desta impressora, ' +
-      lado + ' mm no menor lado');
+    bm.title = cabe ? '' : t('ft.mesaTitle', cfg.diam, lado);
   }
   function componentes(pres, NR, NT) {
     var seen = new Uint8Array(NR * NT), st = [], c = 0, i, j;
@@ -2872,7 +3126,7 @@ var MC = (function () {
     }
     return c;
   }
-  function fmtN(n) { return n.toLocaleString('pt-BR'); }
+  function fmtN(n) { return n.toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US'); }
   function fmtB(b) { return b > 1e6 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' kB'; }
 
   /* ---------------- órbita 3D, zoom e panorâmica ----------------
@@ -2962,18 +3216,18 @@ var MC = (function () {
   }
   document.getElementById('dl').addEventListener('click', function () {
     var btn = this, fmt = document.getElementById('fmt').value;
-    btn.disabled = true; btn.textContent = 'gerando…';
+    btn.disabled = true; btn.textContent = t('bt.gerando');
     function pronto(bytes, parts, tris) {
       document.getElementById('s-tri').textContent = fmtN(tris) + ' tri';
       document.getElementById('s-size').textContent = fmtB(bytes);
       var badge = document.getElementById('s-parts');
-      badge.textContent = parts === 1 ? '1 peça' : parts + ' peças soltas';
+      badge.textContent = parts === 1 ? t('ft.peca') : parts + t('ft.pecas');
       badge.className = 'badge ' + (parts === 1 ? 'ok' : 'warn');
-      btn.disabled = false; btn.textContent = 'Baixar modelo';
+      btn.disabled = false; btn.textContent = t('bt.dl');
     }
     function falhou(err) {
-      alert('Não consegui gerar o arquivo: ' + err.message + '\nTente uma qualidade menor.');
-      btn.disabled = false; btn.textContent = 'Baixar modelo';
+      alert(t('av.erroArquivo') + err.message);
+      btn.disabled = false; btn.textContent = t('bt.dl');
     }
     setTimeout(function () {
       var nome = nomeArquivo();
@@ -3015,11 +3269,13 @@ var MC = (function () {
     var w = cv.width, h = cv.height;
     if (!w || !h) return;
     var mult = Math.max(1, Math.min(2, Math.sqrt(4e6 / (w * h))));
-    btn.disabled = true; btn.textContent = 'gerando…';
+    btn.disabled = true; btn.textContent = t('bt.gerando');
     setTimeout(function () {
-      function restaura() {
+      // `devolveCanvas` e não `restaura`: `restaura` é a do desfazer, e o
+      // local a sombreava dentro deste closure
+      function devolveCanvas() {
         capturando = 0; cv.width = w; cv.height = h; render(1);
-        btn.disabled = false; btn.textContent = 'Salvar PNG';
+        btn.disabled = false; btn.textContent = t('bt.snap');
       }
       try {
         capturando = mult;
@@ -3027,9 +3283,9 @@ var MC = (function () {
         render(1);
         cv.toBlob(function (b) {
           if (b) baixar(b, nomeArquivo() + (tipo === 'jpg' ? '.jpg' : '.png'));
-          restaura();
+          devolveCanvas();
         }, tipo === 'jpg' ? 'image/jpeg' : 'image/png', 0.92);
-      } catch (err) { restaura(); alert('Não consegui gerar a imagem: ' + err.message); }
+      } catch (err) { devolveCanvas(); alert(t('av.erroImagem') + err.message); }
     }, 30);
   });
 
@@ -3043,14 +3299,14 @@ var MC = (function () {
     rd.onload = function () {
       try {
         var o = JSON.parse(rd.result);
-        if (!o.camadas || !o.camadas.length) throw new Error('sem camadas');
+        if (!o.camadas || !o.camadas.length) throw new Error(t('av.semCamadas'));
         marca();
         cfg = Object.assign(MC.defaults(), o);
         cfg.camadas = o.camadas.map(function (x) { return C(x); });
         migraFase(cfg);
         open = {}; drawPanel(); schedule();
-        aviso('configuração carregada · ⌘Z desfaz');
-      } catch (err) { alert('Arquivo inválido: ' + err.message); }
+        aviso(t('av.carregada'));
+      } catch (err) { alert(t('av.invalido') + err.message); }
     };
     rd.readAsText(f); e.target.value = '';
   });
@@ -3089,7 +3345,10 @@ var MC = (function () {
   document.getElementById('maq').addEventListener('change', function () {
     cfg.maquina = this.value; updateStats();
   });
-  drawPanel();
+  document.querySelectorAll('[data-lang]').forEach(function (b) {
+    b.addEventListener('click', function () { trocaIdioma(b.dataset.lang); });
+  });
+  aplicaIdioma();
   schedule();
 })();
 </script>

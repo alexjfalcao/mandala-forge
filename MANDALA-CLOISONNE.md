@@ -927,6 +927,15 @@ print(m.is_watertight, m.is_winding_consistent, m.volume, m.euler_number)
   são conteúdo, não cromo, e não acompanham o acento.
   Superfícies do navegador saem da mesma paleta: `accent-color` no `html` (sem isso o checkbox
   sai azul de fábrica), `::selection`, `caret-color` e a barra de rolagem.
+- **Interface bilíngue** (pt-BR e inglês), por `var I18N` no bloco de UI: 173 chaves em cada
+  idioma, `t(chave, a, b)` interpolando `{0}`/`{1}`, e **pt como fallback**. O HTML estático é
+  marcado com `data-i18n` / `-html` / `-title` / `-aria` / `-ph`; `aplicaIdioma()` troca esses e
+  remonta tudo que é gerado por JS. A escolha vive na **URL** (`?lang=en`), já que o projeto não
+  usa `localStorage`, e sem parâmetro vale o `navigator.language`.
+  As duas bandeiras ao lado do título são **SVG desenhado**, não emoji: 🇧🇷 e 🇺🇸 não renderizam
+  no Windows, onde o Chrome cai para as letras "BR" e "US".
+  Os rótulos de `MOTIVOS`/`PREENCH` seguem em pt no núcleo, como dado; a UI traduz por slug.
+  ⚠️ `t` é a função de tradução: não use `t` como variável local no bloco de UI.
 - **Ajuda em popover, não em parágrafo fixo.** O painel carregava 17 `<p class="hint">` e 518
   palavras de explicação permanente, 36% da altura total (o fieldset *Cores* era 61% prosa).
   Hoje cada seção tem um `?` no `<legend>` que abre um `<div popover class="pop">`, e sobrou
