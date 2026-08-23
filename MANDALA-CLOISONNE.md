@@ -907,6 +907,14 @@ print(m.is_watertight, m.is_winding_consistent, m.volume, m.euler_number)
 - **Presets**: `incensário` (reprodução da foto de referência), `lótus`, `talavera`,
   `renda` (vazado), `sol`, `aleatório`. **O app abre no `aleatório`** — os fixos continuam a
   um clique na barra, e trocar de preset preserva `diam` e `nome`.
+- **Acento champanhe, crômática baixa de propósito.** `--acc:#d2c2a4`, `--acc2:#ada490`,
+  `--on-acc:#17140c`. O conteúdo da tela é uma mandala colorida, então o cromo recua para ela
+  ler. O ar caro vem da temperatura quente contra o quase-preto frio dos neutros: **não tinte
+  os neutros** para combinar, a tensão é o efeito. Latão puro foi descartado porque colidiria
+  com o âmbar do `--warn`, e a ação primária ficaria igual ao aviso. As `PALETAS` da mandala
+  são conteúdo, não cromo, e não acompanham o acento.
+  Superfícies do navegador saem da mesma paleta: `accent-color` no `html` (sem isso o checkbox
+  sai azul de fábrica), `::selection`, `caret-color` e a barra de rolagem.
 - **Ajuda em popover, não em parágrafo fixo.** O painel carregava 17 `<p class="hint">` e 518
   palavras de explicação permanente, 36% da altura total (o fieldset *Cores* era 61% prosa).
   Hoje cada seção tem um `?` no `<legend>` que abre um `<div popover class="pop">`, e sobrou

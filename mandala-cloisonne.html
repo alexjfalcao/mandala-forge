@@ -7,7 +7,14 @@
 <style>
   :root{
     --bg:#0f1116; --panel:#171a22; --panel2:#1e222c; --line:#2a2f3c;
-    --txt:#e6e9f0; --dim:#98a0b3; --acc:#c07ad8; --acc2:#7cc4d8;
+    --txt:#e6e9f0; --dim:#98a0b3;
+    /* Acento em champanhe, e não no violeta que vinha antes. Vem do assunto:
+       cloisonné é fio de metal represando esmalte, e o metal aqui é gilt
+       envelhecido. Crômática baixa de propósito, porque o CONTEÚDO desta tela é
+       a mandala colorida: o cromo precisa recuar para ela ler. O que faz parecer
+       caro é a temperatura quente contra o quase-preto frio dos neutros, que
+       ficam como estavam, não a saturação. */
+    --acc:#d2c2a4; --acc2:#ada490; --on-acc:#17140c;
     --ok:#6ec48b; --warn:#e0a458; --bad:#e06a5a;
     /* Três degraus, não cinco. O painel tinha 10/11/11.5/12/14px espremidos em
        4px de amplitude, o que é o mesmo que não ter hierarquia. Aqui: miúdo
@@ -15,6 +22,12 @@
     --fs-sm:11px; --fs:12.5px; --fs-lg:15.5px;
   }
   *{box-sizing:border-box}
+  /* As superfícies que o navegador desenha sozinho também são a interface. Sem
+     isto o checkbox sai azul de fábrica e a seleção de texto sai azul-sistema,
+     no meio de uma tela que não tem azul nenhum. */
+  html{accent-color:var(--acc)}
+  ::selection{background:var(--acc);color:var(--on-acc)}
+  input,textarea{caret-color:var(--acc)}
   html,body{height:100%;margin:0}
   body{
     background:var(--bg); color:var(--txt);
@@ -42,7 +55,8 @@
   .panel h1 small{display:block;text-transform:none;letter-spacing:0;color:var(--dim);font-weight:400;font-size:var(--fs-sm);margin-top:3px}
   .scroll{overflow-y:auto;flex:1;padding:10px 12px 40px}
   .scroll::-webkit-scrollbar{width:10px}
-  .scroll::-webkit-scrollbar-thumb{background:#2c3240;border-radius:6px}
+  .scroll::-webkit-scrollbar-thumb{background:#33394a;border-radius:6px}
+  .scroll::-webkit-scrollbar-thumb:hover{background:#414962}
 
   /* min-width:0 é obrigatório: o UA dá `min-inline-size:min-content` ao fieldset,
      e a largura intrínseca do input[type=range] o faria estourar o painel */
@@ -50,7 +64,7 @@
   legend{font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.06em;color:var(--dim);padding:0 5px}
   .row{display:flex;align-items:center;gap:6px;margin:6px 0}
   .row>label{flex:0 0 86px;color:var(--dim);font-size:var(--fs)}
-  .row input[type=range]{flex:1;min-width:0;accent-color:var(--acc);height:18px}
+  .row input[type=range]{flex:1;min-width:0;height:18px}
   .row .num{flex:0 0 54px;text-align:right;font-variant-numeric:tabular-nums;font-size:var(--fs)}
   .row select,.row input[type=number],.row input[type=text]:not(.hexin){
     flex:1;background:#12151c;color:var(--txt);border:1px solid var(--line);border-radius:5px;padding:4px 6px;font:inherit;font-size:var(--fs);
@@ -74,7 +88,7 @@
   .seg button{
     flex:1;background:#12151c;border:1px solid var(--line);color:var(--dim);border-radius:5px;padding:5px 4px;font:inherit;font-size:var(--fs);cursor:pointer;
   }
-  .seg button.on{background:var(--acc);border-color:var(--acc);color:#1b0f22;font-weight:600}
+  .seg button.on{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:600}
   /* Sobrou UM lugar para texto solto no painel: o aviso condicional, que é
      estado e não documentação. Toda explicação mora no `?` de cada seção. */
   .hint{color:var(--dim);font-size:var(--fs-sm);margin:6px 2px 0}
@@ -156,7 +170,7 @@
   .badge.ok{color:var(--ok);border-color:#2f4f3c;background:#152119}
   .badge.warn{color:var(--warn);border-color:#4f402a;background:#211b12}
   .badge.bad{color:var(--bad);border-color:#5a2f2a;background:#211413}
-  .btn{background:var(--acc);color:#1b0f22;border:none;border-radius:6px;padding:8px 16px;font:inherit;font-weight:600;cursor:pointer}
+  .btn{background:var(--acc);color:var(--on-acc);border:none;border-radius:6px;padding:8px 16px;font:inherit;font-weight:600;cursor:pointer}
   .btn:hover{filter:brightness(1.08)}
   .btn:disabled{opacity:.6;cursor:progress}
   .btn.ghost{background:#12151c;color:var(--dim);border:1px solid var(--line);font-weight:400}

@@ -250,6 +250,21 @@ qualquer coisa numa `.row`, lembre que `fieldset` só não estoura o painel por 
 `min-width:0` no CSS (o UA lhe dá `min-inline-size:min-content`, e o `input[type=range]` tem
 largura intrínseca de ~130 px).
 
+**O acento é champanhe (`--acc:#d2c2a4`), e a crômática baixa é de propósito.** O conteúdo
+desta tela é uma mandala colorida: cromo saturado brigaria com ela. O que dá o ar caro é a
+temperatura quente do acento contra o quase-preto frio dos neutros, que ficam como estão —
+não tinte os neutros para "combinar", é a tensão que faz o efeito. O acento veio do assunto
+(cloisonné é fio de metal represando esmalte), não de associação de categoria. Latão puro foi
+descartado por colidir com o âmbar do `--warn`: acento e aviso ficariam da mesma cor.
+`--on-acc` é o texto sobre o acento; `--acc2` é o mesmo tom mais fundo, para foco e hover.
+
+**As superfícies que o navegador desenha sozinho também são a interface.** `accent-color` no
+`html` (senão o checkbox sai azul de fábrica no meio de uma tela sem azul nenhum),
+`::selection`, `caret-color` e a barra de rolagem, todos tirados da paleta.
+
+**As paletas da mandala (`PALETAS`) são CONTEÚDO, não cromo.** Elas descrevem o que vai ser
+impresso. Mexer no acento do painel não as toca.
+
 **Ajuda vai em popover, não em `<p class="hint">`.** O painel tinha 17 hints e 518 palavras
 de explicação permanente, 36% da altura total; o fieldset *Cores* sozinho era 61% prosa. Hoje
 cada seção tem um `?` no `<legend>` abrindo um `<div popover class="pop">`, e sobrou **um**
