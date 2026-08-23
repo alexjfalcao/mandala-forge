@@ -65,6 +65,8 @@
   }
   .seg button.on{background:var(--acc);border-color:var(--acc);color:#1b0f22;font-weight:600}
   .hint{color:var(--dim);font-size:11px;margin:6px 2px 0}
+  .hint.warn{color:var(--warn)}
+  .hint.warn:empty{display:none}
   .swatches{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 2px}
   /* pílulas das paletas preformatadas */
   .pal{
@@ -169,13 +171,18 @@
       </fieldset>
 
       <fieldset>
-        <legend>Centro</legend>
+        <legend>Centro e furos</legend>
         <div class="row"><label>Cone</label><input type="range" data-g="cone" min="0" max="70" step="0.5"><span class="num" data-v="cone"></span></div>
         <div class="row" data-only="cone"><label>Altura</label><input type="range" data-g="coneH" min="0" max="20" step="0.2"><span class="num" data-v="coneH"></span></div>
         <div class="row" data-only="cone"><label>Curvatura</label><input type="range" data-g="coneC" min="0.3" max="3" step="0.05"><span class="num" data-v="coneC"></span></div>
         <div class="row"><label>Furo</label><input type="range" data-g="furo" min="0" max="30" step="0.5"><span class="num" data-v="furo"></span></div>
         <div class="row" data-only="furo"><label>Profundidade</label><input type="range" data-g="furoP" min="1" max="30" step="0.5"><span class="num" data-v="furoP"></span></div>
         <p class="hint" data-only="furo">Furo cego, para vareta de incenso. Sempre sobra pelo menos 0,8 mm de fundo.</p>
+        <div class="row"><label>Pendurar</label><input type="range" data-g="pend" min="0" max="12" step="0.5"><span class="num" data-v="pend"></span></div>
+        <div class="row" data-only="pend"><label>Ângulo</label><input type="range" data-g="pendA" min="0" max="360" step="5"><span class="num" data-v="pendA"></span></div>
+        <div class="row" data-only="pend"><label>Posição no aro</label><input type="range" data-g="pendR" min="0.1" max="3" step="0.05"><span class="num" data-v="pendR"></span></div>
+        <p class="hint" data-only="pend">Furo <b>passante</b>, dentro do aro. O ângulo 90° é o topo da peça; a posição diz onde ele cai na largura do aro (0,5 é o meio).</p>
+        <p class="hint warn" id="avisoPend" data-only="pend"></p>
       </fieldset>
 
       <fieldset>
@@ -323,6 +330,7 @@ var MC = (function () {
       aro: 4, aroH: 1.2,
       fio: 0.9, fioH: 1.0, degrau: 0.7,
       cone: 22, coneH: 6, coneC: 0.75, furo: 3, furoP: 9,
+      pend: 0, pendA: 90, pendR: 0.5,
       modo: 'placa', conn: 0, connW: 1.6, suave: true, nivelUnico: true, baseSolida: false,
       corBase: '#5b2a7a', corFio: '#f6f2e8', luz: 315, verniz: 0.45,
       camadas: [
@@ -558,6 +566,26 @@ var MC = (function () {
   function solid(cfg, P, rmm, th, out) {
     var R = cfg.diam / 2;
     if (rmm > R) return false;
+    /* Furo de pendurar: um cilindro passante, e o ÚNICO ponto onde ele existe.
+       Tem que vir antes do curto-circuito do modo placa, que devolve `true`
+       para tudo e engoliria o furo. Daqui, o resto vem de graça: `cobertura()`
+       já filtra por `solid`, então o marching squares fecha em volta dele com
+       borda lisa; a grade polar vira célula ausente com parede; os previews
+       seguem `solid` sozinhos. `altura()` não precisa saber de nada — lá dentro
+       ela nunca é amostrada. */
+    if (cfg.pend > 0) {
+      /* O ângulo é NEGADO de propósito: a vista de topo desenha com o y da
+         tela crescendo para baixo, então o ângulo do modelo aparece espelhado
+         na vertical. Como o usuário mira o furo olhando o preview, `pendA` é
+         medido na tela — 90° é o topo do que ele vê. Para a peça impressa isso
+         é indiferente: o desenho é n-fold e a posição do furo na mesa não muda
+         nada. */
+      var ap = -cfg.pendA * PI / 180;
+      var rp = R - cfg.aro * (cfg.pendR == null ? 0.5 : cfg.pendR);
+      var dx = rmm * Math.cos(th) - rp * Math.cos(ap);
+      var dy = rmm * Math.sin(th) - rp * Math.sin(ap);
+      if (dx * dx + dy * dy < cfg.pend * cfg.pend / 4) return false;
+    }
     if (cfg.modo === 'placa') return true;
     if (cfg.cone > 0 && rmm < cfg.cone / 2 + 0.6) return true;
     if (cfg.aro > 0 && rmm >= R - cfg.aro) return true;
@@ -1967,8 +1995,31 @@ var MC = (function () {
     degrau: function (v) { return v.toFixed(2) + ' mm'; },
     cone: function (v) { return v ? v.toFixed(1) + ' mm' : 'sem'; }, coneH: mm, coneC: num,
     furo: function (v) { return v ? v.toFixed(1) + ' mm' : 'sem'; }, furoP: mm,
+    pend: function (v) { return v ? v.toFixed(1) + ' mm' : 'sem'; }, pendA: deg,
+    pendR: function (v) { return Math.round(v * 100) + '%'; },
     conn: function (v) { return v ? v + '×' : 'sem'; }, connW: mm, luz: deg, verniz: pct
   };
+  /* O furo de pendurar só faz sentido dentro do aro, e com parede que aguente
+     o peso. Os dois casos ruins são silenciosos na tela — a peça continua
+     bonita no preview e rasga na hora de pendurar — então viram aviso. */
+  function avisaPendurar() {
+    var el = document.getElementById('avisoPend');
+    if (!el) return;
+    var m = '';
+    if (cfg.pend > 0) {
+      var R = cfg.diam / 2, rp = R - cfg.aro * cfg.pendR;
+      var paredeFora = R - (rp + cfg.pend / 2);            // até a borda da peça
+      var paredeDentro = (rp - cfg.pend / 2) - (R - cfg.aro);  // até o fim do aro
+      if (cfg.aro <= 0)
+        m = 'Sem aro, o furo cai em cima do desenho. Aumente o <b>Aro</b> ou desligue o furo.';
+      else if (paredeFora < 0.8 || paredeDentro < 0.8)
+        m = 'Parede de ' + Math.max(0, Math.min(paredeFora, paredeDentro)).toFixed(1) +
+            ' mm entre o furo e a borda do aro — abaixo de 0,8 mm a peça rasga ao pendurar. ' +
+            'Afine o furo, alargue o aro ou mexa na posição.';
+    }
+    el.innerHTML = m;
+  }
+
   function syncGlobals() {
     document.querySelectorAll('[data-g]').forEach(function (el) {
       var k = el.dataset.g;
@@ -1994,6 +2045,7 @@ var MC = (function () {
     document.querySelectorAll('[data-only]').forEach(function (el) {
       el.style.display = ligado(el.dataset.only) ? '' : 'none';
     });
+    avisaPendurar();
     document.querySelectorAll('[data-nao]').forEach(function (el) {
       el.style.display = ligado(el.dataset.nao) ? 'none' : '';
     });
@@ -2655,11 +2707,11 @@ var MC = (function () {
       var badge = document.getElementById('s-parts');
       badge.textContent = parts === 1 ? '1 peça' : parts + ' peças soltas';
       badge.className = 'badge ' + (parts === 1 ? 'ok' : 'warn');
-      btn.disabled = false; btn.textContent = 'Baixar';
+      btn.disabled = false; btn.textContent = 'Baixar modelo';
     }
     function falhou(err) {
       alert('Não consegui gerar o arquivo: ' + err.message + '\nTente uma qualidade menor.');
-      btn.disabled = false; btn.textContent = 'Baixar';
+      btn.disabled = false; btn.textContent = 'Baixar modelo';
     }
     setTimeout(function () {
       var nome = nomeArquivo();

@@ -137,6 +137,13 @@ Consequências práticas ao mexer:
 - O `.bin` da via por contorno é **`MCR3`**: 12 bytes por região (`float32 z`, `uint8 r,g,b`,
   `uint8 pad`, `float32 z0`), não mais 8. `amostrar.js` e `exportar.py` conhecem o formato à
   mão; mexer num sem o outro dá "arquivo de grade inválido ou de versão antiga".
+- **Furo de pendurar** (`pend`/`pendA`/`pendR`): cilindro passante, e `solid()` é o único
+  lugar onde ele existe — **antes** do `modo === 'placa' → true`, que o engoliria. Cobertura,
+  grade polar e previews já filtram por `solid`, então o resto vem de graça. `pendA` é
+  **negado** no cálculo porque a vista de topo desenha com o y da tela para baixo: o ângulo é
+  medido na tela, 90° é o topo do que o usuário vê. Isso expôs que o topo é espelhado em
+  relação ao modelo exportado — nunca incomodou porque todo desenho é n-fold, mas um
+  preenchimento quiral (`nervuras` com `incl ≠ 0`) imprime com a inclinação espelhada.
 - `cfg.nivelUnico` (padrão ligado) faz `prepare` ignorar o `nivel` das camadas e usar 1 em
   todas — mandala plana, só cone e aro com altura própria. `alturaMax` também respeita.
 - `filete()` devolve **fração 0..1** com borda macia dimensionada pela célula da grade, não

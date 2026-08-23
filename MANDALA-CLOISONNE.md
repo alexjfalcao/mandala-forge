@@ -223,6 +223,7 @@ regra "sempre pelo menos 0,8 mm de fundo".
 
 ```
 r > R                    → não
+dentro do furo de pendurar → NÃO      ← antes do curto-circuito da placa
 modo === 'placa'         → sim
 dentro do cone (+0,6 mm) → sim
 r ≥ R − aro              → sim
@@ -231,6 +232,28 @@ alguma camada reivindica → sim
 ```
 
 No vazado o fundo da placa some e sobra só o desenho: vira renda/suncatcher.
+
+### O furo de pendurar
+
+`pend` (Ø em mm, 0 = sem), `pendA` (ângulo) e `pendR` (posição na largura do aro, 0..1) são
+um cilindro **passante**, e `solid` é o **único** lugar onde ele existe. Precisa vir antes do
+`modo === 'placa' → sim`, que devolveria material e engoliria o furo.
+
+Todo o resto vem de graça, e é por isso que este é o lugar certo: `cobertura()` já filtra por
+`solid`, então o marching squares fecha em volta dele com borda lisa; a grade polar vira
+célula ausente com parede pelo caminho que já existe; os previews seguem `solid` sozinhos; e
+`altura()` não precisa saber de nada, porque lá dentro ela nunca é amostrada.
+
+⚠️ **`pendA` é negado no cálculo, de propósito.** A vista de topo desenha com o y da tela
+crescendo para baixo, então o ângulo do modelo aparece **espelhado na vertical**. Como o
+usuário mira o furo olhando o preview, `pendA` é medido na tela: 90° é o topo do que ele vê.
+Isso expôs uma coisa antiga — a vista de topo é espelhada em relação ao modelo exportado.
+Nunca incomodou porque todo desenho é n-fold em torno da origem, e o furo é a primeira
+feature com posição angular absoluta. Consequência a lembrar: um preenchimento **quiral**
+(`nervuras` com `incl ≠ 0`) sai impresso com a inclinação espelhada em relação ao preview.
+
+⚠️ Um cone muito grande pode **comer o furo**: `coneMalha` é um sólido de revolução próprio e
+não passa por `solid`. Só acontece se o cone alcançar o aro, o que o preview mostra na hora.
 
 ---
 

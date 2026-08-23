@@ -107,6 +107,17 @@ cases.push(['padrão', MC.defaults()]);
   c.camadas = [C({ motivo: 'anel', mult: 1, r0: 0, r1: 1, nivel: 2, preench: 'contornos', passo: 1.2 })];
   cases.push(['anel único / sym 36', c]); }
 
+// 9-11) furo de pendurar. Na qualidade `teste`, que é a MAIS grosseira: é onde
+// um furo pequeno tem menos células e mais chance de abrir a malha. Com aro
+// largo (parede folgada), com aro apertado (o furo quase toca as duas bordas)
+// e sem aro nenhum (cai em cima do desenho, e ainda assim tem que fechar).
+{ const c = MC.defaults(); c.aro = 10; c.pend = 4; c.pendA = 90; c.pendR = 0.5;
+  cases.push(['pendurar / aro largo', c]); }
+{ const c = MC.defaults(); c.aro = 3; c.pend = 2.5; c.pendA = 215; c.pendR = 0.5;
+  cases.push(['pendurar / aro apertado', c]); }
+{ const c = MC.defaults(); c.aro = 0; c.pend = 6; c.pendA = 0; c.pendR = 0.5;
+  cases.push(['pendurar / sem aro', c]); }
+
 let fail = 0;
 for (const [name, cfg] of cases) {
   const res = MC.resolution(cfg, 'teste');
@@ -533,6 +544,9 @@ async function checaContorno(solida) {
     c.furo = Math.random() < 0.5 ? rnd(0, Math.max(1, c.cone)) : 0;
     c.furoP = rnd(1, 30);
     c.modo = Math.random() < 0.3 ? 'vazado' : 'placa';
+    // furo de pendurar: às vezes maior que o aro de propósito
+    c.pend = Math.random() < 0.5 ? rnd(0, 10) : 0;
+    c.pendA = rnd(0, 360); c.pendR = rnd(0.1, 0.9);
     c.conn = (Math.random() * 20) | 0; c.connW = rnd(0.6, 5);
     const n = 1 + ((Math.random() * 6) | 0);
     c.camadas = [];
