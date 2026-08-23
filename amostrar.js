@@ -174,7 +174,7 @@ function main() {
     // devolve o que o Python precisa para montar o cone — assim a config é
     // resolvida num lugar só, seja ela um .json ou um preset do HTML
     cfg: {
-      diam: cfg.diam, base: cfg.base, corBase: cfg.corBase,
+      diam: cfg.diam, base: cfg.base, corBase: cfg.corBase, maquina: cfg.maquina,
       cone: cfg.cone, coneH: cfg.coneH, coneC: cfg.coneC,
       furo: cfg.furo, furoP: cfg.furoP
     },

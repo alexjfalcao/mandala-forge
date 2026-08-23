@@ -498,6 +498,44 @@ Sem `--load-filaments` o despejo sai **sem** 21 chaves de filamento (`filament_s
 `filament_retraction_length`, …) e o Bambu rejeita o projeto — silenciosamente, sem exportar
 nada e com `return_code: 0` no `result.json`.
 
+### As outras impressoras: `PERFIS_MAQUINA`
+
+`PERFIL_BAMBU` é o molde do **H2C**. As demais entram como **delta** sobre ele em
+`var PERFIS_MAQUINA = { "h2c": {}, "a1": {…}, "p1s": {…}, "x1c": {…} }`, e `perfilDe(maq)`
+devolve uma cópia do molde com a delta aplicada. `MAQUINAS` é a lista `[slug, rótulo]` que a
+UI usa no `<select>`.
+
+Delta em vez de dump inteiro por dois motivos: são ~200 chaves em vez de 578, e — o que
+importa — **A1, P1S e X1C são mono-extrusor**. As chaves "por extrusor" e "por variante" do
+H2C mudam de comprimento numa máquina de um bico; trocar a chave inteira resolve isso sem
+lógica nenhuma. Como `projetoBambu` já lê `bicos = nozzle_diameter.length`, a matriz de purga
+cai sozinha de `2N²` para `N²`, e `flush_multiplier` de duas entradas para uma.
+
+⚠️ **Os ~68 kB de gcode são a maior parte do peso e não dá para omitir.** Quem abre o projeto
+fatia com o gcode que está nele; mandar a partida do H2C para uma A1 é pedir cabeçada no
+leito. O HTML foi de 197 kB para 289 kB por causa disso — é o preço de o arquivo ser
+autocontido.
+
+Os moldes saem da mesma receita acima, uma vez por máquina. Os nomes **não** seguem um
+padrão: o X1C é `Bambu Lab X1 Carbon 0.4 nozzle`, e o P1S não tem processo próprio — usa
+`0.20mm Standard @BBL X1C`, que é o único que lista `Bambu Lab P1S 0.4 nozzle` em
+`compatible_printers`. Passar `@BBL P1P` falha com *"process not compatible with printer"*.
+
+`centroMesa(perfil)`, `caixaComum(perfil)`, `torrePurga(diam, perfil)`,
+`projetoBambu(pal, diam, maq)` e `to3MF(g, nome, maq)` recebem a máquina; todos caem em
+`h2c` quando o argumento falta, para não quebrar `amostrar.js` nem configs antigas. Máquina
+desconhecida também cai no H2C em vez de estourar — a suíte testa isso.
+
+| | mesa | altura | bicos | matriz de purga (N=6) |
+|---|---|---|---|---|
+| H2C | 330 × 320 | 325 | 2 | 72 |
+| A1 | 256 × 256 | 256 | 1 | 36 |
+| P1S | 256 × 256 | 250 | 1 | 36 |
+| X1 Carbon | 256 × 256 | 250 | 1 | 36 |
+
+O slider de diâmetro vai a 300 mm e a A1 tem 256: o rodapé mostra **não cabe na mesa** quando
+`cfg.diam` passa do menor lado da máquina escolhida.
+
 ### Replicar o molde por cor: `projetoBambu`
 
 Aqui mora a armadilha que **não** aparece na leitura do arquivo, só no fatiamento. O molde

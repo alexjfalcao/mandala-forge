@@ -199,21 +199,28 @@ RELS = (
 )
 
 
-def perfil_bambu(cores, diam=0.0):
+def perfil_bambu(cores, diam=0.0, maquina="h2c"):
     """project_settings.config do Bambu com um filamento por cor.
 
-    O molde (`var PERFIL_BAMBU`) e a lista de chaves replicáveis
-    (`var PERFIL_REPETE`) moram no HTML, para os dois exportadores dizerem a
-    mesma coisa. O molde descreve UM filamento com V variantes de extrusor;
-    aqui se repete o bloco por cor e se acertam as tabelas que dependem de N.
+    O molde (`var PERFIL_BAMBU`), as deltas por impressora (`var
+    PERFIS_MAQUINA`) e a lista de chaves replicáveis (`var PERFIL_REPETE`)
+    moram no HTML, para os dois exportadores dizerem a mesma coisa. O molde
+    descreve UM filamento com V variantes de extrusor; aqui se repete o bloco
+    por cor e se acertam as tabelas que dependem de N e do número de bicos.
     Ver a explicação em `projetoBambu`, no bloco `mandala-core` do HTML."""
     html = open(os.path.join(AQUI, "mandala-cloisonne.html"), encoding="utf8").read()
     m = re.search(r"var PERFIL_BAMBU = (\{.*?\});\n", html, re.S)
     rep = re.search(r"var PERFIL_REPETE = (\[.*?\]);\n", html, re.S)
+    maq = re.search(r"var PERFIS_MAQUINA = (\{.*?\n  \});\n", html, re.S)
     v = re.search(r"var BBS_VERSAO = '([^']+)';", html)
-    if not m or not rep or not v:
-        raise SystemExit("PERFIL_BAMBU/PERFIL_REPETE/BBS_VERSAO não encontrados no HTML")
+    if not m or not rep or not maq or not v:
+        raise SystemExit("PERFIL_BAMBU/PERFIS_MAQUINA/PERFIL_REPETE/BBS_VERSAO não encontrados no HTML")
     cfg = json.loads(m.group(1))
+    # a delta da máquina escolhida por cima do molde H2C
+    perfis = json.loads(maq.group(1))
+    if maquina not in perfis:
+        raise SystemExit("impressora desconhecida: %s (use %s)" % (maquina, ", ".join(perfis)))
+    cfg.update(perfis[maquina])
     n = len(cores)
     nv = len(cfg.get("filament_extruder_variant") or ["x"])
 
@@ -307,14 +314,14 @@ def torre_purga(cfg, diam):
     return x, y
 
 
-def escrever_3mf(pecas, caminho, nome="mandala", diam=0.0):
+def escrever_3mf(pecas, caminho, nome="mandala", diam=0.0, maquina="h2c"):
     """pecas: lista de (cor_hex, trimesh). Cada uma vira um <object> e um
     extrusor. São dois arquivos de config, e os dois são necessários:
     model_settings.config manda a peça i para o extrusor i+1, e
     project_settings.config diz que o filamento i+1 tem a cor da peça i. Sem o
     segundo, a peça vai para o extrusor certo mas com a cor que o usuário tiver
     naquele slot."""
-    versao, projeto, (mesa_x, mesa_y) = perfil_bambu([c for c, _ in pecas], diam)
+    versao, projeto, (mesa_x, mesa_y) = perfil_bambu([c for c, _ in pecas], diam, maquina)
     partes = ['<?xml version="1.0" encoding="UTF-8"?>\n'
               '<model unit="millimeter" xml:lang="en-US" '
               'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n'
@@ -376,6 +383,8 @@ def main():
     ap.add_argument("saida", help="arquivo .3mf de saída")
     ap.add_argument("--grade", type=int, default=2400, help="lado da grade de amostragem (padrão 2400)")
     ap.add_argument("--sub", type=int, default=3, help="sub-amostras por eixo (padrão 3)")
+    ap.add_argument("--impressora", default=None,
+                    help="perfil gravado no 3MF: h2c, a1, p1s ou x1c (padrão: o da config)")
     ap.add_argument("--tolerancia", type=float, default=0.015,
                     help="simplificação do contorno em mm (padrão 0,015)")
     ap.add_argument("--area-minima", type=float, default=0.05,
@@ -422,7 +431,8 @@ def main():
         junta = trimesh.util.concatenate(malhas)
         pecas.append((cor, junta))
 
-    escrever_3mf(pecas, args.saida, diam=float(cfg.get("diam", 0) or 0))
+    escrever_3mf(pecas, args.saida, diam=float(cfg.get("diam", 0) or 0),
+                 maquina=args.impressora or cfg.get("maquina") or "h2c")
     tam = os.path.getsize(args.saida)
     print("\n%s — %d peças (uma por extrusor), %d triângulos, %.1f MB"
           % (args.saida, len(pecas), total_tri, tam / 1048576))

@@ -207,7 +207,7 @@ function checaIndexada() {
    par model_settings.config (peça i → extrusor i+1) + project_settings.config
    (filamento i+1 → cor da peça i), sem nenhuma tolerância de cor.
    ------------------------------------------------------------------------- */
-function confere3MF(buf, g) {
+function confere3MF(buf, g, maq) {
   const erros = [];
   let z;
   try { z = lerZip(buf); } catch (e) { return ['zip inválido: ' + e.message]; }
@@ -272,6 +272,19 @@ function confere3MF(buf, g) {
     if (n.length !== 12) erros.push('transform do <item> não tem 12 números');
     else if (Math.abs(n[9] - cx) > 0.01 || Math.abs(n[10] - cy) > 0.01)
       erros.push('peça posta em ' + n[9] + ',' + n[10] + ' e não no centro da mesa (' + cx + ',' + cy + ')');
+  }
+
+  // 4c. o perfil gravado é o da impressora pedida. Sem isso o 3MF saía sempre
+  //     como H2C, e numa A1 o usuário abriria o projeto com a mesa e o gcode da
+  //     máquina errada — o arquivo abre, e o que sai da impressora é lixo.
+  if (maq) {
+    const esperadoPerfil = MC.perfilDe(maq);
+    for (const k of ['printer_model', 'printable_area', 'printable_height', 'nozzle_diameter',
+                     'machine_start_gcode']) {
+      const a = JSON.stringify(projeto[k]), b = JSON.stringify(esperadoPerfil[k]);
+      if (a !== b) erros.push(k + ' não é o de ' + maq + ' (' +
+        String(a).slice(0, 40) + ' ≠ ' + String(b).slice(0, 40) + ')');
+    }
   }
 
   // 5. o projeto declara um filamento por cor, na MESMA ordem — comparação
@@ -396,10 +409,10 @@ async function checaContorno(solida) {
 
     // 3MF: pacote válido e, principalmente, a associação cor → peça → filamento
     // escrita de forma explícita (nada de basematerials nem de cor aproximada)
-    const buf = await MC.to3MF(g, name);
+    const buf = await MC.to3MF(g, name, 'h2c');
     const b = new Uint8Array(buf);
     const zipOk = b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
-    const falhas3mf = confere3MF(buf, g);
+    const falhas3mf = confere3MF(buf, g, 'h2c');
     if (!zipOk || falhas3mf.length) { ok = false; for (const f of falhas3mf) console.log('    ✗ ' + f); }
 
     // OBJ + MTL da MESMA geometria: toda face tem que levar usemtl (o Bambu
@@ -436,6 +449,33 @@ async function checaContorno(solida) {
       ' obj=' + (obj.obj.length / 1048576).toFixed(2) + 'MB' +
       ' ' + matsUsados.size + 'mat');
   }
+  return ruins;
+}
+
+// Uma impressora por perfil: o 3MF sai com a mesa, a altura, o número de bicos
+// e o gcode da máquina escolhida, e a peça vai para o centro DAQUELA mesa. As
+// tabelas dimensionadas por bico (a matriz de purga é `bicos × N²`) caem de 2N²
+// para N² numa máquina de um bico, e o check 6 já lê `nozzle_diameter` do
+// próprio arquivo — então isso é testado de graça aqui.
+async function checaMaquinas() {
+  console.log('\nperfil por impressora:');
+  let ruins = 0;
+  const [nome, cfg] = cases[0];
+  const g = MC.buildContorno(clone(cfg), 160, 3);
+  for (const [maq, rot] of MC.MAQUINAS) {
+    const buf = await MC.to3MF(g, nome + '-' + maq, maq);
+    const falhas = confere3MF(buf, g, maq);
+    const p = MC.perfilDe(maq), c = MC.centroMesa(p);
+    if (falhas.length) { ruins++; for (const f of falhas) console.log('    ✗ ' + f); }
+    console.log('  ' + (falhas.length ? 'FALHA ' : 'ok  ') + rot.padEnd(10) +
+      ' mesa=' + (p.printable_area || []).join(' ').padEnd(30) +
+      ' bicos=' + (p.nozzle_diameter || []).length +
+      ' centro=' + c[0] + ',' + c[1] +
+      ' 3mf=' + (buf.byteLength / 1048576).toFixed(2) + 'MB');
+  }
+  // uma máquina inventada tem que cair no H2C, não explodir
+  const buf = await MC.to3MF(g, 'x', 'impressora-que-nao-existe');
+  if (confere3MF(buf, g, 'h2c').length) { ruins++; console.log('    ✗ máquina desconhecida não caiu no h2c'); }
   return ruins;
 }
 
@@ -613,6 +653,7 @@ async function checaContorno(solida) {
   fail += checaIndexada();
   fail += await checaContorno(false);
   fail += await checaContorno(true);
+  fail += await checaMaquinas();
   console.log(fail === 0 ? '\nTODOS OS TESTES PASSARAM' : '\n' + fail + ' CASO(S) COM FALHA');
   process.exit(fail ? 1 : 0);
 })();

@@ -46,6 +46,7 @@ python3 teste-contorno.py     # suíte da via por contorno     (5 presets, ~12 s
 open mandala-cloisonne.html   # abrir o app no navegador (é só o arquivo, não há servidor)
 
 python3 exportar.py preset:incenso saida.3mf   # exportação por contorno, bordas lisas
+python3 exportar.py minha.json peca.3mf --impressora a1   # h2c (padrão), a1, p1s ou x1c
 ```
 
 As duas suítes saem com código 1 se algum caso falhar. Não há test runner: em
@@ -192,6 +193,14 @@ Consequências práticas ao mexer:
 - **A matriz de purga escapa do `--slice`.** Com o tamanho errado o CLI fatia e devolve
   `return_code: 0`; só a interface recusa, com "Flush volumes matrix do not match to the
   correct size!". Conferir o tamanho `bicos × N²` na suíte é o único guarda-corpo.
+- **Quatro impressoras, por delta.** `PERFIL_BAMBU` é o molde do H2C; `PERFIS_MAQUINA` traz
+  A1, P1S e X1C como as ~200 chaves que diferem, e `perfilDe(maq)` monta o perfil completo.
+  Delta porque as três são **mono-extrusor**: as chaves "por extrusor" e "por variante" mudam
+  de comprimento, e trocar a chave inteira resolve sem lógica. Como `projetoBambu` lê
+  `bicos = nozzle_diameter.length`, a matriz de purga cai de `2N²` para `N²` sozinha.
+  Os ~68 kB de gcode não dá para omitir — quem abre o projeto fatia com o gcode que está
+  nele. Ao regerar: o X1C se chama `Bambu Lab X1 Carbon 0.4 nozzle`, e o P1S usa o processo
+  `0.20mm Standard @BBL X1C` (o `@BBL P1P` dá "process not compatible with printer").
 - **A torre de purga tem que caber na caixa comum aos extrusores.** Num H2C o extrusor 1 vai
   de x=0 a 325 e o 2 de x=25 a 330; o `wipe_tower_x` 15 que vem no molde é inalcançável pelo
   segundo. `torrePurga(diam)` põe a torre atrás da peça e grampeia na interseção.
