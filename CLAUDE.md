@@ -162,12 +162,16 @@ Consequências práticas ao mexer:
   o CLI, o resto cai no padrão do Slic3r. Foi assim que o molde da primeira versão saiu com
   `printable_height: "100"` e uma variante de bico só — o Bambu abria e não fatiava.
 - **Replicar por cor não é repetir array de tamanho 1.** `filament_self_index` numera as
-  variantes por filamento (`1×V, 2×V, …`), `flush_volumes_matrix` é quadrada de lado
-  `max(N,2)` (lado 1 derruba o fatiador com SIGSEGV), `inherits_group` e
+  variantes por filamento (`1×V, 2×V, …`), `flush_volumes_matrix` tem **`bicos × N²`**
+  entradas (um bloco N×N por bico, não N×N — medido em 13 projetos escritos pelo Bambu),
+  `flush_volumes_vector` tem `2N`, `flush_multiplier`/`_fast` uma por bico, `inherits_group` e
   `different_settings_to_system` têm N+2 entradas, e `extruder_nozzle_stats` uma por
   extrusor. Nada disso dá erro de leitura: o arquivo abre e falha só no fatiamento
-  ("No valid nozzle found", "Flush volumes matrix do not match", e na interface
-  "Wipe tower generation failed, possibly due to empty first layer").
+  ("No valid nozzle found", e na interface "Wipe tower generation failed, possibly due to
+  empty first layer").
+- **A matriz de purga escapa do `--slice`.** Com o tamanho errado o CLI fatia e devolve
+  `return_code: 0`; só a interface recusa, com "Flush volumes matrix do not match to the
+  correct size!". Conferir o tamanho `bicos × N²` na suíte é o único guarda-corpo.
 - **A torre de purga tem que caber na caixa comum aos extrusores.** Num H2C o extrusor 1 vai
   de x=0 a 325 e o 2 de x=25 a 330; o `wipe_tower_x` 15 que vem no molde é inalcançável pelo
   segundo. `torrePurga(diam)` põe a torre atrás da peça e grampeia na interseção.

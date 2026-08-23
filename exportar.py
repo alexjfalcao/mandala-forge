@@ -221,11 +221,14 @@ def perfil_bambu(cores, diam=0.0):
     # de qual filamento é cada entrada de variante: sem isso o fatiador acha
     # que os filamentos 2..N não têm variante nenhuma e recusa o projeto
     cfg["filament_self_index"] = [str(i + 1) for i in range(n) for _ in range(nv)]
-    # a matriz de purga precisa ser quadrada e de lado >= n; com lado 1 (uma cor
-    # só) o fatiador quebra com SIGSEGV, daí o piso em 2
-    lado = max(n, 2)
-    cfg["flush_volumes_matrix"] = ["0" if i == j else "280" for i in range(lado) for j in range(lado)]
-    cfg["flush_volumes_vector"] = ["140"] * (2 * lado)
+    # a matriz de purga é um bloco n×n POR BICO (bicos*n*n no total); outro
+    # tamanho dá "Flush volumes matrix do not match to the correct size!"
+    bicos = len(cfg.get("nozzle_diameter") or ["0.4"]) or 1
+    cfg["flush_volumes_matrix"] = ["0" if i == j else "280"
+                                   for _ in range(bicos) for i in range(n) for j in range(n)]
+    cfg["flush_volumes_vector"] = ["140"] * (2 * n)
+    cfg["flush_multiplier"] = ["1"] * bicos
+    cfg["flush_multiplier_fast"] = ["1.2"] * bicos
     tipos = cfg.get("nozzle_volume_type") or []
     slots = cfg.get("extruder_max_nozzle_count") or []
     if tipos:

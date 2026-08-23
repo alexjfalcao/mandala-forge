@@ -1032,8 +1032,9 @@ var MC = (function () {
          V entradas com "1", V com "2", ... Deixá-lo todo "1" faz o fatiador
          achar que os filamentos 2..N não têm variante nenhuma e abortar com
          "could not found extruder_type ... / No valid nozzle found";
-       - `flush_volumes_matrix` é N×N e `flush_volumes_vector` 2N. Sair com o
-         4×4 do molde é o que quebrava a torre de purga;
+       - `flush_volumes_matrix` é um bloco N×N POR BICO (bicos*N*N no total) e
+         `flush_volumes_vector` é 2N. Sair com o 4×4 do molde dá
+         "Flush volumes matrix do not match to the correct size!";
        - `extruder_nozzle_stats` ("<tipo>#<slots>" por extrusor) vem da
          máquina; sem ele o agrupador de filamentos não acha bico válido;
        - `inherits_group`/`different_settings_to_system` têm N+2 entradas
@@ -1060,15 +1061,24 @@ var MC = (function () {
     for (i = 0; i < N; i++) for (j = 0; j < V; j++) a.push(String(i + 1));
     cfg.filament_self_index = a;
 
-    // a matriz de purga precisa ser quadrada e de lado >= N. Com lado 1 (uma
-    // cor só) o fatiador quebra com SIGSEGV, daí o piso em 2.
-    var M = Math.max(N, 2);
+    /* A matriz de purga é UM bloco N×N POR BICO, empilhados: o comprimento é
+       bicos*N*N, não N*N. Sair com outro tamanho é o
+       "Flush volumes matrix do not match to the correct size!" — e o molde vem
+       com o 4×4 padrão do Slic3r, que só por acaso batia com quatro cores numa
+       máquina de um bico. O vetor é 2*N (volume de carga/descarga por cor) e
+       flush_multiplier/_fast têm uma entrada por bico. */
+    var B = (cfg.nozzle_diameter || ['0.4']).length || 1;
     a = [];
-    for (i = 0; i < M; i++) for (j = 0; j < M; j++) a.push(i === j ? '0' : '280');
+    for (k = 0; k < B; k++)
+      for (i = 0; i < N; i++) for (j = 0; j < N; j++) a.push(i === j ? '0' : '280');
     cfg.flush_volumes_matrix = a;
     a = [];
-    for (i = 0; i < 2 * M; i++) a.push('140');
+    for (i = 0; i < 2 * N; i++) a.push('140');
     cfg.flush_volumes_vector = a;
+    a = []; for (i = 0; i < B; i++) a.push('1');
+    cfg.flush_multiplier = a;
+    a = []; for (i = 0; i < B; i++) a.push('1.2');
+    cfg.flush_multiplier_fast = a;
 
     var tipos = cfg.nozzle_volume_type || [], slots = cfg.extruder_max_nozzle_count || [];
     a = [];

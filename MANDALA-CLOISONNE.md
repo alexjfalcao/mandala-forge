@@ -460,8 +460,9 @@ array de tamanho 1:
 |---|---|---|
 | chaves de `PERFIL_REPETE` | bloco do molde repetido N vezes | a regra antiga (`k.startsWith('filament') && len === 1`) deixava de fora `nozzle_temperature`, `cool_plate_temp`, `pressure_advance`, … e não sabia repetir bloco de V entradas |
 | `filament_self_index` | `1×V, 2×V, … N×V` | ficava `1,1,1,…`: o fatiador conclui que os filamentos 2..N não têm variante nenhuma |
-| `flush_volumes_matrix` | quadrada de lado `max(N,2)` | saía o 4×4 do molde, de qualquer N |
-| `flush_volumes_vector` | `2 × lado` | idem |
+| `flush_volumes_matrix` | um bloco N×N **por bico**: `bicos × N × N` | saía o 4×4 do molde, de qualquer N |
+| `flush_volumes_vector` | `2 × N` | idem |
+| `flush_multiplier`, `flush_multiplier_fast` | uma entrada por bico | vinha 1 do molde |
 | `extruder_nozzle_stats` | `"<tipo>#<slots>"` por extrusor | vinha `[]` do CLI (é estado de máquina) |
 | `inherits_group`, `different_settings_to_system` | N+2 (processo + N filamentos + máquina) | ficavam com 3 |
 | `wipe_tower_x/y` | dentro da caixa comum aos extrusores | 15/220 do molde, e x=15 é inalcançável pelo extrusor 2 |
@@ -487,8 +488,14 @@ E, na interface, o mesmo perfil torto sai como
 projeto, ajeita o que consegue e chega na torre de purga sem volume de purga válido. Não é a
 peça flutuando — toda peça é extrudada de `z=0` e o `--info` confirma `min_z = 0.000000`.
 
-⚠️ Uma matriz de purga **1×1** (mandala de uma cor só) derruba o fatiador com SIGSEGV. Daí o
-piso em 2 no lado da matriz.
+⚠️ **A matriz de purga é `bicos × N²`, não `N²`.** O tamanho foi levantado em 13 projetos
+escritos pelo próprio Bambu, e não tem exceção: P1S N=5 (1 bico) → 25; H2C N=5 (2 bicos) → 50;
+H2C N=1 → 2; H2D N=2 → 8; A1 N=2 → 4; mini N=3 → 9; N=6 (1 bico) → 36. São `bicos` blocos N×N
+consecutivos, cada um com diagonal zero. **`--slice` não pega esse erro** — o CLI fatia um
+projeto com a matriz torta e devolve `return_code: 0`; quem recusa é a interface, com
+"Flush volumes matrix do not match to the correct size!" (em pt-BR, "Os volumes de descarga
+não correspondem como tamanho correto!"). Foi por esse buraco que a matriz fixa de 16 entradas
+ficou meses no gerador: batia por acaso com quatro cores e quebrava em cinco ou seis.
 
 ### A torre de purga
 
@@ -726,10 +733,12 @@ e confere, para cada caso:
 6. `filament_colour[i]` **exatamente igual** (comparação de hex, sem tolerância) à cor da
    peça i, e `filament_type`/`filament_settings_id`/`filament_ids` com uma entrada por cor;
 7. as tabelas dimensionadas por N — `filament_self_index` numerado `1×V, 2×V, …`,
-   `flush_volumes_matrix` quadrada de lado `max(N,2)`, `inherits_group` e
+   `flush_volumes_matrix` com `bicos × N²`, `flush_volumes_vector` com `2N`,
+   `flush_multiplier`/`_fast` com uma entrada por bico, `inherits_group` e
    `different_settings_to_system` com N+2, `extruder_nozzle_stats` com uma entrada por
    extrusor. Errar qualquer uma delas **não** dá erro de leitura: o arquivo abre e falha só
-   no fatiamento (ver seção 7);
+   no fatiamento — e a matriz de purga falha só na **interface**, não no `--slice`
+   (ver seção 7);
 8. a torre de purga dentro da caixa que **todos** os extrusores alcançam.
 
 No OBJ: `usemtl` em toda face, um material por peça, todo índice no intervalo e todo material

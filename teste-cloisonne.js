@@ -293,9 +293,13 @@ function confere3MF(buf, g) {
         break;
       }
   }
-  const M = Math.max(N, 2);      // lado 1 faz o fatiador quebrar com SIGSEGV
-  if ((projeto.flush_volumes_matrix || []).length !== M * M)
-    erros.push('flush_volumes_matrix tem ' + (projeto.flush_volumes_matrix || []).length + ', esperado ' + (M * M));
+  // um bloco N×N por bico, empilhados — medido em projetos escritos pelo Bambu
+  const B = (projeto.nozzle_diameter || ['0.4']).length || 1;
+  const tab = { flush_volumes_matrix: B * N * N, flush_volumes_vector: 2 * N,
+                flush_multiplier: B, flush_multiplier_fast: B };
+  for (const k in tab)
+    if ((projeto[k] || []).length !== tab[k])
+      erros.push(k + ' tem ' + (projeto[k] || []).length + ', esperado ' + tab[k]);
   for (const k of ['inherits_group', 'different_settings_to_system'])
     if ((projeto[k] || []).length !== N + 2)
       erros.push(k + ' tem ' + (projeto[k] || []).length + ', esperado ' + (N + 2));
