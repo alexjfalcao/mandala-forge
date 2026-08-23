@@ -6,20 +6,15 @@ Textos de interface, comentários e documentação deste projeto são em **pt-BR
 
 ## Projeto
 
-Dois geradores de mandala para impressão 3D. Cada um é um HTML de página única,
-autocontido, **zero dependências, sem build, sem CDN, sem `localStorage`** — e cada um tem
-sua suíte e seu documento de referência:
+Um gerador de mandala para impressão 3D: um HTML de página única, autocontido,
+**zero dependências, sem build, sem CDN, sem `localStorage`**, com sua suíte e seu
+documento de referência:
 
 | App | O que faz | Doc | Teste |
 |---|---|---|---|
-| `mandala-stl.html` | relevo por **campo escalar suave** em anéis concêntricos; modos relevo e vazado | `MANDALA-STL.md` | `teste.js` |
-| `mandala-cloisonne.html` | **cloisonné**: filete em alto-relevo represando poças rebaixadas de esmalte, motivos por distância assinada | `MANDALA-CLOISONNE.md` | `teste-cloisonne.js` |
+| `mandala-cloisonne.html` | **cloisonné**: filete em alto-relevo represando poças rebaixadas de esmalte, motivos por distância assinada. Chama-se **"Mandala Forge"** na interface — o arquivo não muda de nome | `MANDALA-CLOISONNE.md` | `teste-cloisonne.js` |
 
-São irmãos independentes: compartilham a arquitetura (mesma separação em blocos, mesmo
-mesher polar, mesmas invariantes de estanqueidade) mas **nenhum código**. Uma correção de
-geometria num deles não se propaga sozinha para o outro — avalie se cabe nos dois.
-
-### A via por contorno (só do cloisonné)
+### A via por contorno
 
 `amostrar.js` + `exportar.py` + `teste-contorno.py` são uma **segunda via de exportação**
 para o cloisonné, e a única parte do projeto com dependências (numpy, shapely, contourpy,
@@ -40,22 +35,22 @@ no PATH: ele procura em `~/.nvm/versions/node/*/bin/node` e aceita a variável `
 `exemplo_mandala.jpg` é a foto de referência que originou o gerador cloisonné (o preset
 `incensário` é a tentativa de reproduzi-la).
 
-**Leia o `.md` do app antes de mexer na geometria dele** — as fórmulas de cada motivo, o
-modelo de dados e as armadilhas estão lá, não no código.
+**Leia o `MANDALA-CLOISONNE.md` antes de mexer na geometria** — as fórmulas de cada motivo,
+o modelo de dados e as armadilhas estão lá, não no código.
 
 ## Comandos
 
 ```bash
-node teste.js                 # suíte do gerador de relevo   (8 casos + qualidade máxima)
 node teste-cloisonne.js       # suíte do cloisonné           (8 casos + fuzz 40× + exportação)
 python3 teste-contorno.py     # suíte da via por contorno     (5 presets, ~12 s)
-open mandala-stl.html         # abrir um app no navegador (é só o arquivo, não há servidor)
+open mandala-cloisonne.html   # abrir o app no navegador (é só o arquivo, não há servidor)
 
 python3 exportar.py preset:incenso saida.3mf   # exportação por contorno, bordas lisas
 ```
 
-Ambas as suítes saem com código 1 se algum caso falhar. Não há test runner: cada caso é
-uma entrada no array `cases`. Para rodar só um, comente os demais `cases.push(...)`.
+As duas suítes saem com código 1 se algum caso falhar. Não há test runner: em
+`teste-cloisonne.js` cada caso é uma entrada no array `cases`. Para rodar só um, comente os
+demais `cases.push(...)`.
 
 O `package.json` local existe só para marcar `"type": "commonjs"` — sem ele o Node herda o
 `"type": "module"` de um `package.json` que está na home do usuário e `require` para de
@@ -71,72 +66,27 @@ Validação externa opcional:
 - **cor no 3MF** — `pip install lib3mf`. O `trimesh` **não serve**: o leitor de 3MF dele
   ignora materiais e devolve tudo cinza, o que dá falso negativo;
 - **validação de ponta a ponta** — o Bambu Studio tem CLI em
-  `/Applications/3D Software/BambuStudio.app/Contents/MacOS/BambuStudio`. Reexportar o
-  arquivo (`--export-3mf`, com caminhos absolutos) e ler o `model_settings.config` da volta
-  mostra o que o fatiador entendeu. Receita completa na seção 6 do `MANDALA-CLOISONNE.md`.
+  `/Applications/3D Software/BambuStudio.app/Contents/MacOS/BambuStudio`. **Fatiar**
+  (`--slice 0 --outputdir <abs>`) é o único teste que pega perfil torto: espere
+  `return_code: 0` no `result.json`. Reexportar (`--export-3mf`, com caminhos absolutos) e
+  ler o `model_settings.config` da volta mostra o que o fatiador entendeu da geometria.
+  Receita completa nas seções 7 e 9 do `MANDALA-CLOISONNE.md`.
 
 ## Arquitetura
 
-### O que os dois têm em comum
+### Blocos do arquivo
 
-Três blocos por arquivo, e **essa separação é contratual** nos dois: as suítes extraem o
-núcleo por regex (`/<script id="mandala-core">([\s\S]*?)<\/script>/`) e o rodam em `vm`.
-Logo, nos dois apps: **não renomeie o `id` do bloco**, não use `document`/`window` dentro do
-núcleo, e mantenha o objeto exportado (`MD` / `MC`) como `var` no topo do bloco — o harness
-faz `this.MD = MD`.
-
-O mesher polar é o mesmo nos dois, com as mesmas invariantes (ver adiante). O que muda é
-como a altura de cada ponto é calculada.
-
-### `mandala-stl.html` — relevo por campo
-
-O arquivo tem três blocos:
-
-| Bloco | Linhas | Papel |
-|---|---|---|
-| `<style>` | 7–110 | tema escuro, layout flex |
-| `<body>` | 112–192 | painel de controles + canvas + rodapé |
-| `<script id="mandala-core">` | 194–561 | matemática, malha, STL — **sem nenhum DOM** |
-| `<script id="mandala-ui">` | 563–1106 | presets, painel, preview 2D/3D, download |
-
-`teste.js` extrai o núcleo por regex (`/<script id="mandala-core">([\s\S]*?)<\/script>/`) e o
-roda em `vm`. Consequências: **não renomeie o `id` do bloco**, não use `document`/`window`
-dentro do núcleo, e mantenha `MD` como `var` no topo do bloco (o harness faz `this.MD = MD`).
-
-#### Pipeline
-
-```
-cfg → prepare()  → anéis ativos com faixa radial lo/hi pré-calculada
-    → shape()    → máscara 0..1 de UM anel (valor com sinal s + perfil de altura)
-    → field()    → campo combinado 0..1 (positivos por max, negativos subtraídos)
-    → solid()    → há material aqui? (raio em MILÍMETROS, não normalizado)
-    → buildMesh()→ grade polar NR×NT; alturas nos nós, presença no centro da célula
-    → toSTL()    → ArrayBuffer binário
-    → audit()    → { openEdges, degenerate, nonFinite, tris }
-```
-
-`field`/`shape` recebem `r` **normalizado 0..1**; `solid` recebe `rmm` **em milímetros**.
-Confundir os dois é o erro mais fácil de cometer aqui.
-
-### Invariantes que valem para os dois geradores
-
-1. **`MD.audit(mesh).openEdges === 0` em qualquer configuração.** É o critério de aceitação de
-   toda mudança em geometria. Rode `node teste.js` depois de mexer em `shape`, `field`, `solid`,
-   `buildMesh` ou `resolution`.
-2. **Centro colapsado** (`hole === 0`): as alturas de `i=0` são mediadas entre si e cada célula
-   dessa linha emite **um** triângulo, não dois; não há parede interna ali.
-3. **Paredes usam as alturas dos nós compartilhados** — é o que faz cada aresta aparecer duas
-   vezes com orientações opostas.
-4. **Otimização do fundo em leque** só vale quando *todas* as células estão presentes. Aplicá-la
-   por coluna criaria T-junctions e furaria a malha.
-5. **`nt` sempre múltiplo da simetria** (`resolution`), teto 2160. Resolução angular baixa
-   fragmenta padrões finos — foi por isso que `teste` subiu de 240 para 480.
-6. O corte por `lo`/`hi` em `shape` é o que mantém o preview fluido; ao adicionar um tipo de
-   anel novo, calcule a faixa radial afetada em `prepare` com folga suficiente.
+O HTML tem quatro blocos, e **essa separação é contratual**: `teste-cloisonne.js` e
+`amostrar.js` extraem o núcleo por regex
+(`/<script id="mandala-core">([\s\S]*?)<\/script>/`) e o rodam em `vm`. Logo: **não renomeie
+o `id` do bloco**, não use `document`/`window` dentro do núcleo, e mantenha `MC` como `var`
+no topo do bloco — o harness faz `this.MC = MC`. `<style>` e `<body>` (painel de controles,
+canvas, rodapé) vêm antes; `<script id="mandala-ui">` traz presets, painel, preview 2D/3D e
+download, e é de lá que `exportar.py` recorta o literal `var PRESETS`.
 
 ### `mandala-cloisonne.html` — relevo por região
 
-Aqui a altura não vem de um campo somado, e sim de **regiões com distância assinada**:
+A altura não vem de um campo somado, e sim de **regiões com distância assinada**:
 
 ```
 cfg → prepare()  → camadas ativas
@@ -186,8 +136,8 @@ Consequências práticas ao mexer:
   `to3MF` é **assíncrono** (comprime com `CompressionStream`); `toOBJ` emite os vértices de
   cada peça em sequência e soma o deslocamento nas faces, com um `usemtl` por peça.
 - A grade polar (`emitir`/`buildIndexed`/`buildMesh`) **não exporta mais nada** — sobrou
-  como malha auditada pela suíte e como espelho do gerador irmão. `emitir()` continua sendo
-  a única implementação da emissão de triângulos.
+  como malha auditada pela suíte, que é onde as invariantes de estanqueidade são checadas.
+  `emitir()` continua sendo a única implementação da emissão de triângulos.
 - **Fatiadores ignoram `basematerials`.** Cor no Bambu/Prusa só chega como *peça* (um objeto
   com vários `<component>` e o extrusor de cada um em `Metadata/model_settings.config`) ou
   via OBJ colorido — mas aí o Bambu abre o diálogo *Import Model* e agrupa as cores no
@@ -203,10 +153,26 @@ Consequências práticas ao mexer:
   ser `BambuStudio-<versão numérica>`, senão o fatiador lê e descarta o project_settings;
   (2) esse project_settings tem que ser **completo** — uma config só com `filament_colour` é
   aceita pelo parser e ignorada ao montar os presets (testado no app: os slots não mudaram).
-  Daí `var PERFIL_BAMBU` no núcleo: ~21 kB de despejo do Bambu para H2C bico 0.4, com todo
-  array por filamento em UMA entrada, replicada por cor em `projetoBambu()`. `exportar.py`
-  puxa o mesmo molde do HTML por regex. Detalhes e a receita de regerar o molde estão na
-  seção 7 do `MANDALA-CLOISONNE.md`.
+  Daí `var PERFIL_BAMBU` no núcleo: ~53 kB de despejo do Bambu para H2C bico 0.4 descrevendo
+  UM filamento, replicado por cor em `projetoBambu(pal, diam)` segundo `var PERFIL_REPETE`.
+  `exportar.py` puxa os dois do HTML por regex. Detalhes e a receita de regerar o molde
+  estão na seção 7 do `MANDALA-CLOISONNE.md`.
+- **O molde tem que sair de presets RESOLVIDOS.** Os `.json` do sistema só trazem o que
+  sobrescreve o pai (`inherits`) e os gcodes vêm por `include`; passando o arquivo cru para
+  o CLI, o resto cai no padrão do Slic3r. Foi assim que o molde da primeira versão saiu com
+  `printable_height: "100"` e uma variante de bico só — o Bambu abria e não fatiava.
+- **Replicar por cor não é repetir array de tamanho 1.** `filament_self_index` numera as
+  variantes por filamento (`1×V, 2×V, …`), `flush_volumes_matrix` é quadrada de lado
+  `max(N,2)` (lado 1 derruba o fatiador com SIGSEGV), `inherits_group` e
+  `different_settings_to_system` têm N+2 entradas, e `extruder_nozzle_stats` uma por
+  extrusor. Nada disso dá erro de leitura: o arquivo abre e falha só no fatiamento
+  ("No valid nozzle found", "Flush volumes matrix do not match", e na interface
+  "Wipe tower generation failed, possibly due to empty first layer").
+- **A torre de purga tem que caber na caixa comum aos extrusores.** Num H2C o extrusor 1 vai
+  de x=0 a 325 e o 2 de x=25 a 330; o `wipe_tower_x` 15 que vem no molde é inalcançável pelo
+  segundo. `torrePurga(diam)` põe a torre atrás da peça e grampeia na interseção.
+- **Só `--slice` valida perfil.** `--info` e `--export-3mf` passam com um project_settings
+  que o fatiador não consegue usar — foi por esse buraco que o bug da torre entrou.
 - **Projeto não é auto-arranjado**: o `<build><item>` precisa levar
   `transform="1 0 0 0 1 0 0 0 1 <cx> <cy> 0"` com o centro de `printable_area`
   (`centroMesa()`, 165/160 no H2C), senão a peça — modelada em torno de (0,0) — abre no
@@ -216,22 +182,42 @@ Consequências práticas ao mexer:
 - No XML do 3MF, a cor de cada peça vem do `pindex` do `<object>` (índice **0-based** na
   paleta). Errar isso não gera erro de leitura — só faz as cores saírem trocadas.
 
-### Adicionar um tipo de anel (`mandala-stl.html`)
+### Invariantes de estanqueidade
 
-Toca em quatro pontos: `MD.TYPES`, o `switch` de `shape` (devolver `s` com sinal, positivo
-dentro da forma), a faixa `lo`/`hi` em `prepare`, e — se usar campos novos — `RING_FIELDS` na
-UI, que declara por tipo quais controles aparecem (`for: [...]`, `onlyOutline: true`).
+Valem para o mesher polar (`grade`/`emitir`) e para a via por contorno:
 
-### Adicionar um motivo (`mandala-cloisonne.html`)
+1. **`MC.audit(mesh).openEdges === 0` em qualquer configuração.** É o critério de aceitação de
+   toda mudança em geometria. Rode `node teste-cloisonne.js` depois de mexer em `dist`,
+   `amostra`, `altura`, `solid`, `grade`, `emitir`, `buildContorno` ou `resolution`.
+2. **Centro colapsado**: o nó `i = 0` é um vértice único, com a altura mediada entre todos os
+   `j`; cada célula dessa linha emite **um** triângulo de topo, não dois, e não há parede
+   interna ali.
+3. **Paredes usam as alturas dos nós compartilhados** — é o que faz cada aresta aparecer duas
+   vezes com orientações opostas.
+4. **Otimização do fundo em leque** só vale quando *todas* as células estão presentes. Aplicá-la
+   por coluna criaria T-junctions e furaria a malha.
+5. **`nt` sempre múltiplo de `4 × sym`** (`resolution`), com mínimo de 3 células por passo e
+   teto 3600. Resolução angular baixa fragmenta padrões finos e serrilha o filete.
+6. O corte por `lo`/`hi` (pré-calculado em `prepare`, testado em `amostra`) é o que mantém o
+   preview fluido; ao adicionar um motivo novo, calcule a faixa radial afetada com folga
+   suficiente.
+
+### Adicionar um motivo
 
 Toca em: `MC.MOTIVOS`, o `switch` de `dist` (devolver distância assinada, positiva dentro),
 `perfil` se a forma tiver eixo, qualquer pré-cálculo em `prepare`, e `CAM_FIELDS` na UI, que
 declara por motivo quais controles aparecem (`para`, `nao`, `se`).
 
-### UI (`mandala-stl.html`)
+### UI
 
-Painel gerado por dados a partir de `RING_FIELDS`/`ringHTML()`; eventos por delegação em
-`#scroll` lendo `data-g` (global), `data-r` + `data-i` (anel). Vista de topo sombreada por pixel
-em `ImageData`; vista 3D em painter's algorithm sobre grade 200×200. `schedule()` renderiza a
-42% durante o arraste e a 100% após 180 ms de ociosidade. Presets: `roseta`, `sol`, `vitral`,
-`flor`, `labirinto`, `random`. Config inteira salva/abre como `.json`.
+Os botões `−`/`+` de cada slider e o campo hex de cada seletor de cor **não estão no HTML**:
+`decoraControles()` os injeta e é rechamada no fim de todo `drawPanel()`, porque `#cams` é
+reconstruído por `innerHTML`. O `data-deco` evita duplicar nas linhas estáticas. Ao acrescentar
+qualquer coisa numa `.row`, lembre que `fieldset` só não estoura o painel por causa do
+`min-width:0` no CSS (o UA lhe dá `min-inline-size:min-content`, e o `input[type=range]` tem
+largura intrínseca de ~130 px).
+
+`varreCores()` é a fonte única das cores em uso — badge, quadradinhos do rodapé e remapeamento
+de paleta. Pesa cada amostra pelo raio e só enxerga cor **visível**. `cfg.nome` vira nome de
+arquivo por `nomeArquivo()`. O app abre no preset `aleatorio`. Detalhes na seção 10 do
+`MANDALA-CLOISONNE.md`.

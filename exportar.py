@@ -194,23 +194,48 @@ RELS = (
 )
 
 
-def perfil_bambu(cores):
+def perfil_bambu(cores, diam=0.0):
     """project_settings.config do Bambu com um filamento por cor.
 
-    O molde mora no HTML (`var PERFIL_BAMBU`), para os dois exportadores
-    dizerem a mesma coisa. Ele é o despejo do próprio Bambu Studio; aqui só se
-    replica cada array "por filamento" e se escreve filament_colour na ordem
-    das peças. Ver a explicação no bloco `mandala-core` do HTML."""
+    O molde (`var PERFIL_BAMBU`) e a lista de chaves replicáveis
+    (`var PERFIL_REPETE`) moram no HTML, para os dois exportadores dizerem a
+    mesma coisa. O molde descreve UM filamento com V variantes de extrusor;
+    aqui se repete o bloco por cor e se acertam as tabelas que dependem de N.
+    Ver a explicação em `projetoBambu`, no bloco `mandala-core` do HTML."""
     html = open(os.path.join(AQUI, "mandala-cloisonne.html"), encoding="utf8").read()
     m = re.search(r"var PERFIL_BAMBU = (\{.*?\});\n", html, re.S)
+    rep = re.search(r"var PERFIL_REPETE = (\[.*?\]);\n", html, re.S)
     v = re.search(r"var BBS_VERSAO = '([^']+)';", html)
-    if not m or not v:
-        raise SystemExit("PERFIL_BAMBU/BBS_VERSAO não encontrados no HTML")
+    if not m or not rep or not v:
+        raise SystemExit("PERFIL_BAMBU/PERFIL_REPETE/BBS_VERSAO não encontrados no HTML")
     cfg = json.loads(m.group(1))
-    for k, val in list(cfg.items()):
-        if k.startswith("filament") and isinstance(val, list) and len(val) == 1:
-            cfg[k] = val * len(cores)
+    n = len(cores)
+    nv = len(cfg.get("filament_extruder_variant") or ["x"])
+
+    for k in json.loads(rep.group(1)):
+        val = cfg.get(k)
+        if isinstance(val, list) and val:
+            cfg[k] = val * n
+
     cfg["filament_colour"] = ["#" + c.replace("#", "").upper()[:6] for c in cores]
+    # de qual filamento é cada entrada de variante: sem isso o fatiador acha
+    # que os filamentos 2..N não têm variante nenhuma e recusa o projeto
+    cfg["filament_self_index"] = [str(i + 1) for i in range(n) for _ in range(nv)]
+    # a matriz de purga precisa ser quadrada e de lado >= n; com lado 1 (uma cor
+    # só) o fatiador quebra com SIGSEGV, daí o piso em 2
+    lado = max(n, 2)
+    cfg["flush_volumes_matrix"] = ["0" if i == j else "280" for i in range(lado) for j in range(lado)]
+    cfg["flush_volumes_vector"] = ["140"] * (2 * lado)
+    tipos = cfg.get("nozzle_volume_type") or []
+    slots = cfg.get("extruder_max_nozzle_count") or []
+    if tipos:
+        cfg["extruder_nozzle_stats"] = [
+            "%s#%s" % (t, slots[i] if i < len(slots) else "1") for i, t in enumerate(tipos)]
+    cfg["inherits_group"] = [""] * (n + 2)
+    cfg["different_settings_to_system"] = [""] * (n + 2)
+    tx, ty = torre_purga(cfg, diam)
+    cfg["wipe_tower_x"] = [str(tx)]
+    cfg["wipe_tower_y"] = [str(ty)]
     return v.group(1), json.dumps(cfg, indent=4), centro_mesa(cfg)
 
 
@@ -229,14 +254,59 @@ def centro_mesa(cfg):
     return (min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0
 
 
-def escrever_3mf(pecas, caminho, nome="mandala"):
+def caixa_comum(cfg):
+    """Retângulo que TODOS os extrusores alcançam (no H2C o 1 vai de x=0 a 325 e
+    o 2 de x=25 a 330). Fora dele o fatiador aborta com "Found G-code in
+    unprintable area of multi-extruder printers"."""
+    lo = [-1e9, -1e9]
+    hi = [1e9, 1e9]
+    achou = False
+    for area in cfg.get("extruder_printable_area", []):
+        xs, ys = [], []
+        for canto in str(area).split(","):
+            q = canto.split("x")
+            if len(q) == 2:
+                xs.append(float(q[0]))
+                ys.append(float(q[1]))
+        if not xs:
+            continue
+        achou = True
+        lo = [max(lo[0], min(xs)), max(lo[1], min(ys))]
+        hi = [min(hi[0], max(xs)), min(hi[1], max(ys))]
+    if achou:
+        return lo, hi
+    xs, ys = [], []
+    for p in cfg.get("printable_area", []):
+        q = str(p).split("x")
+        if len(q) == 2:
+            xs.append(float(q[0]))
+            ys.append(float(q[1]))
+    if not xs:
+        return [0.0, 0.0], [0.0, 0.0]
+    return [min(xs), min(ys)], [max(xs), max(ys)]
+
+
+def torre_purga(cfg, diam):
+    """Canto da torre de purga: atrás da peça, centrada em x, dentro da caixa
+    comum. O 15/220 que vem no molde cai fora do alcance do segundo extrusor."""
+    lo, hi = caixa_comum(cfg)
+    cx, cy = centro_mesa(cfg)
+    w = float(cfg.get("prime_tower_width") or 60)
+    x = cx - w / 2.0
+    y = cy + (diam or 0.0) / 2.0 + 12.0
+    x = min(max(x, lo[0] + 2), max(lo[0] + 2, hi[0] - w - 2))
+    y = min(max(y, lo[1] + 2), max(lo[1] + 2, hi[1] - w - 2))
+    return x, y
+
+
+def escrever_3mf(pecas, caminho, nome="mandala", diam=0.0):
     """pecas: lista de (cor_hex, trimesh). Cada uma vira um <object> e um
     extrusor. São dois arquivos de config, e os dois são necessários:
     model_settings.config manda a peça i para o extrusor i+1, e
     project_settings.config diz que o filamento i+1 tem a cor da peça i. Sem o
     segundo, a peça vai para o extrusor certo mas com a cor que o usuário tiver
     naquele slot."""
-    versao, projeto, (mesa_x, mesa_y) = perfil_bambu([c for c, _ in pecas])
+    versao, projeto, (mesa_x, mesa_y) = perfil_bambu([c for c, _ in pecas], diam)
     partes = ['<?xml version="1.0" encoding="UTF-8"?>\n'
               '<model unit="millimeter" xml:lang="en-US" '
               'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n'
@@ -344,7 +414,7 @@ def main():
         junta = trimesh.util.concatenate(malhas)
         pecas.append((cor, junta))
 
-    escrever_3mf(pecas, args.saida)
+    escrever_3mf(pecas, args.saida, diam=float(cfg.get("diam", 0) or 0))
     tam = os.path.getsize(args.saida)
     print("\n%s — %d peças (uma por extrusor), %d triângulos, %.1f MB"
           % (args.saida, len(pecas), total_tri, tam / 1048576))

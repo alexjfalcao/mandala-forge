@@ -1,17 +1,22 @@
 # Mandala Cloisonné — gerador de mandala em filete e esmalte
 
 Arquivo do app: **`mandala-cloisonne.html`** (autocontido, zero dependências).
-Suíte: **`teste-cloisonne.js`**. Irmão de `mandala-stl.html`, que **não** foi alterado.
+Suíte: **`teste-cloisonne.js`**. É o único gerador do repositório.
+
+⚠️ O app **se chama "Mandala Forge"** na interface (`<title>` e `<h1>`) desde agosto/2026. O
+arquivo, a suíte e este documento continuam com `cloisonne` no nome — renomeá-los quebraria
+`teste-cloisonne.js`, `amostrar.js` e `exportar.py`, que apontam para o caminho. "Cloisonné"
+segue sendo o nome da **técnica**, e é assim que este documento o usa.
 
 ---
 
-## 1. O que é e por que existe separado
+## 1. O que é e por que a geometria é assim
 
-`mandala-stl.html` gera relevo a partir de um **campo escalar suave** — bom para
-medalhões e vazados, ruim para o desenho de cerâmica pintada, onde o que define a peça
-é o **filete**: uma linha estreita em alto-relevo que cerca cada forma e represa a tinta.
-O miolo fica rebaixado; a tinta se acumula ali. É a técnica *cloisonné* (champlevé), a
-mesma do incensário de referência (`exemplo_mandala.jpg`).
+Gerar relevo a partir de um **campo escalar suave** (a abordagem anterior deste projeto,
+hoje removida) serve para medalhões e vazados, mas não para o desenho de cerâmica pintada,
+onde o que define a peça é o **filete**: uma linha estreita em alto-relevo que cerca cada
+forma e represa a tinta. O miolo fica rebaixado; a tinta se acumula ali. É a técnica
+*cloisonné* (champlevé), a mesma do incensário de referência (`exemplo_mandala.jpg`).
 
 A diferença estrutural: aqui a geometria é **por região com distância assinada**, não por
 campo somado. Cada motivo sabe onde está sua borda, e é isso que permite ter contorno
@@ -21,7 +26,7 @@ elevado, contornos aninhados e nervuras internas.
 
 ## 2. Estrutura do arquivo
 
-Mesma separação em três blocos do gerador irmão — **os testes dependem dela**.
+Separação em blocos — **os testes dependem dela**.
 
 ```
 mandala-cloisonne.html
@@ -407,24 +412,95 @@ numérica (`BambuStudio-Mandala Cloisonne` faz o Bambu abortar a leitura).
 
 ### O molde `PERFIL_BAMBU`
 
-Por isso o núcleo carrega `var PERFIL_BAMBU` (~21 kB): o despejo do próprio Bambu Studio
-02.08.02.61 para **Bambu Lab H2C bico 0.4 + 0.20mm Standard + Bambu PLA Basic**. Todo array
-"por filamento" tem **uma** entrada; `projetoBambu(pal)` replica cada uma por cor e escreve
+Por isso o núcleo carrega `var PERFIL_BAMBU` (~53 kB): o despejo do próprio Bambu Studio
+02.08.02.61 para **Bambu Lab H2C bico 0.4 + 0.20mm Standard + Bambu PLA Basic**. Ele
+descreve **um** filamento — `projetoBambu(pal, diam)` o replica por cor e escreve
 `filament_colour` na ordem das peças. Abrindo em outra impressora o Bambu substitui os
 presets e mantém as cores.
 
-⚠️ Regerar o molde: rode o CLI com máquina **e** processo **e** filamento carregados —
+⚠️ **Resolva o `inherits` antes de gerar o molde.** Os `.json` do sistema só trazem as
+chaves que sobrescrevem o pai, e os gcodes entram por `include`; passando o arquivo cru para
+o CLI, tudo o que não estiver nele cai no **padrão do Slic3r**. Foi assim que o molde da
+primeira versão saiu com `printable_height: "100"` (o H2C tem 325),
+`extruder_printable_height: ["0"]`, `machine_start_gcode` genérico, `extruder_type` com uma
+entrada só para dois extrusores e **uma** variante de bico em vez de três — um perfil que o
+Bambu lê sem reclamar e depois não consegue fatiar.
+
+A receita completa:
 
 ```bash
+D="$HOME/Library/Application Support/BambuStudio/system/BBL"
+# 1) achatar inherits + include (recursivo) de máquina, processo e filamento
+python3 resolve.py "Bambu Lab H2C 0.4 nozzle"  maq.json
+python3 resolve.py "0.20mm Standard @BBL H2C"  proc.json
+python3 resolve.py "Bambu PLA Basic @BBL H2C"  fil.json
+# 2) pedir ao próprio Bambu que monte o projeto a partir deles
 BambuStudio --datadir "$HOME/Library/Application Support/BambuStudio" \
-  --load-settings ".../machine/Bambu Lab H2C 0.4 nozzle.json;.../process/0.20mm Standard @BBL H2C.json" \
-  --load-filaments ".../filament/Bambu PLA Basic @BBL H2C.json" \
-  --export-3mf volta.3mf entrada.3mf
+  --load-settings "maq.json;proc.json" --load-filaments "fil.json" \
+  --export-3mf molde.3mf --outputdir saida cubo.stl
+# 3) Metadata/project_settings.config de molde.3mf é o novo PERFIL_BAMBU
 ```
+
+(`resolve.py` é trivial: carrega o json, resolve `inherits` recursivamente, aplica cada
+`include` e por fim as chaves do próprio arquivo. Não fica no repositório — é ferramenta de
+manutenção, roda uma vez por versão do Bambu.)
 
 Sem `--load-filaments` o despejo sai **sem** 21 chaves de filamento (`filament_settings_id`,
 `filament_retraction_length`, …) e o Bambu rejeita o projeto — silenciosamente, sem exportar
 nada e com `return_code: 0` no `result.json`.
+
+### Replicar o molde por cor: `projetoBambu`
+
+Aqui mora a armadilha que **não** aparece na leitura do arquivo, só no fatiamento. O molde
+tem 1 filamento e `V` variantes de extrusor (`filament_extruder_variant`; V = 3 no H2C:
+*Direct Drive Standard / High Flow / E3D High Flow*). Replicar por cor é mais que repetir
+array de tamanho 1:
+
+| tabela | forma certa para N cores | o que dava errado |
+|---|---|---|
+| chaves de `PERFIL_REPETE` | bloco do molde repetido N vezes | a regra antiga (`k.startsWith('filament') && len === 1`) deixava de fora `nozzle_temperature`, `cool_plate_temp`, `pressure_advance`, … e não sabia repetir bloco de V entradas |
+| `filament_self_index` | `1×V, 2×V, … N×V` | ficava `1,1,1,…`: o fatiador conclui que os filamentos 2..N não têm variante nenhuma |
+| `flush_volumes_matrix` | quadrada de lado `max(N,2)` | saía o 4×4 do molde, de qualquer N |
+| `flush_volumes_vector` | `2 × lado` | idem |
+| `extruder_nozzle_stats` | `"<tipo>#<slots>"` por extrusor | vinha `[]` do CLI (é estado de máquina) |
+| `inherits_group`, `different_settings_to_system` | N+2 (processo + N filamentos + máquina) | ficavam com 3 |
+| `wipe_tower_x/y` | dentro da caixa comum aos extrusores | 15/220 do molde, e x=15 é inalcançável pelo extrusor 2 |
+
+`PERFIL_REPETE` (145 chaves) foi levantado **empiricamente**: comparando o molde de 1
+filamento com um projeto real de 8 filamentos, é replicável toda chave cujo array cresce
+exatamente `×8`. Não dá para adivinhar pelo prefixo — `nozzle_temperature` é por filamento e
+`wipe_tower_x` não é, e nenhuma das duas começa com `filament`.
+
+Os sintomas de cada erro, medidos no CLI, na ordem em que aparecem conforme se conserta:
+
+```
+filament_self_index errado  → "could not found extruder_type Direct Drive, nozzle_volume_type
+                               Standard, filament_index 2..N, extruder index 1"
+                            → "No valid nozzle found. Please check nozzle count."
+extruder_nozzle_stats vazio → "No valid nozzle found. Please check nozzle count."
+matriz de purga torta       → "Flush volumes matrix do not match to the correct size!"
+torre fora da caixa comum   → "Found G-code in unprintable area of multi-extruder printers"
+```
+
+E, na interface, o mesmo perfil torto sai como
+**"Wipe tower generation failed, possibly due to empty first layer"**: o Bambu aceita o
+projeto, ajeita o que consegue e chega na torre de purga sem volume de purga válido. Não é a
+peça flutuando — toda peça é extrudada de `z=0` e o `--info` confirma `min_z = 0.000000`.
+
+⚠️ Uma matriz de purga **1×1** (mandala de uma cor só) derruba o fatiador com SIGSEGV. Daí o
+piso em 2 no lado da matriz.
+
+### A torre de purga
+
+Numa máquina de dois bicos cada extrusor alcança um retângulo diferente — no H2C o 1 vai de
+`x=0` a 325 e o 2 de `x=25` a 330 (`extruder_printable_area`). O que vale para a torre é a
+**interseção**: `caixaComum()`. O molde vem com o 15/220 padrão do fatiador, e `x=15` está
+fora do alcance do segundo extrusor.
+
+`torrePurga(diam)` põe o canto da torre **atrás** da peça (`cy + diam/2 + 12`), centrado em
+x, e grampeia tudo dentro da caixa comum com folga de 2 mm. Com a mesa do H2C e Ø 120 dá
+135/232. Para um disco tão grande que não sobre lugar, o grampo aproxima o máximo possível e
+o fatiador é quem avisa.
 
 ### Posição na mesa
 
@@ -532,13 +608,26 @@ Espera-se **nenhum triângulo com `ResourceID == 0`** e a contagem distribuída 
 
 ```bash
 B="/Applications/3D Software/BambuStudio.app/Contents/MacOS/BambuStudio"
-"$B" mandala.3mf --info                                   # geometria
-"$B" /caminho/abs/mandala.3mf --export-3mf volta.3mf --outputdir /caminho/abs/saida
+D="$HOME/Library/Application Support/BambuStudio"
+"$B" --datadir "$D" --info /caminho/abs/mandala.3mf                      # geometria
+"$B" --datadir "$D" --slice 0 --outputdir /caminho/abs/saida  /caminho/abs/mandala.3mf
+"$B" --datadir "$D" --export-3mf volta.3mf --outputdir /caminho/abs/saida /caminho/abs/mandala.3mf
 ```
 
-Reexportar é o teste definitivo: o `Metadata/model_settings.config` do arquivo de volta
-mostra o que o Bambu **entendeu**. Esperado — uma `<part>` por cor, `extruder` de 1 a N, e
+⚠️ **`--slice` é o único teste que pega perfil torto.** `--info` e `--export-3mf` passam com
+um `project_settings.config` que o fatiador não consegue usar: foi exatamente esse o buraco
+por onde entrou o bug da torre de purga. Espere `"error_string": "Success."` e
+`"return_code": 0` no `saida/result.json`, com um `sliced_plates[0].filaments` por cor e
+tempo em `feature_type_times["Prime tower"]`. O `--outputdir` tem que existir, e o nome do
+`--export-3mf` é **relativo** a ele (com caminho absoluto o Bambu concatena os dois e falha).
+
+Reexportar mostra o que o Bambu **entendeu** da geometria: no
+`Metadata/model_settings.config` de volta, uma `<part>` por cor, `extruder` de 1 a N, e
 `mesh_stat` com `edges_fixed="0" degenerate_facets="0" facets_reversed="0"` em todas.
+
+Obs.: o log solta `Invalid T command (T1001/T65535/T65279)` mesmo num fatiamento que dá
+certo — é ruído do verificador de gcode, não erro nosso. E o processo aborta de vez em
+quando (SIGABRT) ao escrever um gcode de dezenas de MB; repetir resolve.
 
 Obs.: `--info` reporta `manifold = no` e centenas de `number_of_parts`. Isso
 é esperado e não é defeito: ele funde tudo antes de medir, então vê as faces coincidentes
@@ -556,7 +645,7 @@ regra; topo e paredes herdam essa cor e o **fundo sai todo em `corBase`**.
 
 ---
 
-## 8. Malha — as invariantes são as mesmas do gerador irmão
+## 8. Malha — as invariantes de estanqueidade
 
 Grade polar `NR × NT`; alturas nos **nós**, presença no **centro da célula**.
 
@@ -635,7 +724,13 @@ e confere, para cada caso:
    mexer na geometria;
 5. uma `<part>` por peça, com `extruder` explícito e na ordem da paleta;
 6. `filament_colour[i]` **exatamente igual** (comparação de hex, sem tolerância) à cor da
-   peça i, e `filament_type`/`filament_settings_id`/`filament_ids` com uma entrada por cor.
+   peça i, e `filament_type`/`filament_settings_id`/`filament_ids` com uma entrada por cor;
+7. as tabelas dimensionadas por N — `filament_self_index` numerado `1×V, 2×V, …`,
+   `flush_volumes_matrix` quadrada de lado `max(N,2)`, `inherits_group` e
+   `different_settings_to_system` com N+2, `extruder_nozzle_stats` com uma entrada por
+   extrusor. Errar qualquer uma delas **não** dá erro de leitura: o arquivo abre e falha só
+   no fatiamento (ver seção 7);
+8. a torre de purga dentro da caixa que **todos** os extrusores alcançam.
 
 No OBJ: `usemtl` em toda face, um material por peça, todo índice no intervalo e todo material
 usado declarado no `.mtl`.
@@ -645,19 +740,24 @@ arredondar não pode fundir dois vértices distintos.
 
 Estado atual: **8/8 + 40/40 fuzz + 8/8 na grade indexada + 8/8 no contorno (3MF e OBJ)**.
 
-De ponta a ponta, o teste que fecha a conta é a reexportação pelo CLI do Bambu:
+De ponta a ponta, o teste que fecha a conta é **fatiar** pelo CLI do Bambu — reexportar não
+basta, um perfil que o fatiador não consegue usar passa pelo `--export-3mf` sem reclamar:
 
 ```bash
-python3 exportar.py preset:incenso saida.3mf     # ou baixe pelo app
-BambuStudio --datadir "$HOME/Library/Application Support/BambuStudio" \
-            --export-3mf volta.3mf saida.3mf
+D="$HOME/Library/Application Support/BambuStudio"
+python3 exportar.py preset:incenso /abs/saida.3mf     # ou baixe pelo app
+mkdir -p /abs/out
+BambuStudio --datadir "$D" --slice 0      --outputdir /abs/out /abs/saida.3mf
+BambuStudio --datadir "$D" --export-3mf volta.3mf --outputdir /abs/out /abs/saida.3mf
 ```
 
+No `out/result.json`: `"return_code": 0`, `"error_string": "Success."`, um item em
+`sliced_plates[0].filaments` por cor e tempo em `feature_type_times["Prime tower"]`.
 No `volta.3mf`: `filament_colour` = a paleta na ordem das peças, uma `<part>` por cor com
 `extruder` de 1 a N, `face_count` igual ao nosso por peça e `edges_fixed="0"
 degenerate_facets="0"`.
 
-Validação externa, igual à do irmão:
+Validação externa:
 
 ```python
 import trimesh
@@ -682,7 +782,38 @@ print(m.is_watertight, m.is_winding_consistent, m.volume, m.euler_number)
   de 0,8 mm não cabe numa célula de 0,5 mm. Vale lembrar disso antes de "simplificar" de
   volta.
 - **Presets**: `incensário` (reprodução da foto de referência), `lótus`, `talavera`,
-  `renda` (vazado), `sol`, `aleatório`.
+  `renda` (vazado), `sol`, `aleatório`. **O app abre no `aleatório`** — os fixos continuam a
+  um clique na barra, e trocar de preset preserva `diam` e `nome`.
+- **Decoração dos controles** (`decoraControles`): os botões `−`/`+` de cada slider e o campo
+  hex de cada seletor de cor **não estão no HTML**. São injetados depois que o painel existe e
+  reinjetados a cada `drawPanel()`, porque `#cams` é reconstruído por `innerHTML`; o
+  `data-deco` evita duplicar nas linhas estáticas, que sobrevivem. Os `−`/`+` acham o slider
+  da linha (`.row` tem um só) e disparam um `input` nele — todo o resto do fluxo é o de
+  sempre. O campo hex só repassa o valor quando casa `/^#[0-9a-f]{6}$/`; meio-digitado, espera.
+  `espelhaHex()` roda no fim de `syncGlobals()` e não atropela o campo que está em foco.
+  ⚠️ `fieldset` precisa de `min-width:0` no CSS: o UA lhe dá `min-inline-size:min-content` e a
+  largura intrínseca do `input[type=range]` estoura o painel assim que se acrescenta qualquer
+  coisa na linha.
+- **Nome do projeto** (`cfg.nome`): batiza `.3mf`/`.obj`/`.png`/`.json` via `nomeArquivo()`,
+  que sanitiza com o mesmo padrão do `toOBJ` e cai em `mandala_<sym>x_<diam>mm` quando vazio.
+  Também é o `<metadata name="Title">` do 3MF.
+- **Cores em uso**: `varreCores()` amostra a grade polar (120 × ~720) e devolve `{hex: área}`,
+  **pesando cada amostra pelo raio** — sem isso o centro pesaria o mesmo que o aro. É a fonte
+  única do badge `#s-cores`, dos quadradinhos ao lado dele e do remapeamento de paleta. Só
+  enxerga cor **visível**: uma camada coberta por outra não conta, que é exatamente o conjunto
+  que decide quantos filamentos o 3MF vai pedir.
+- **Paletas preformatadas** (`PALETAS`, 9: as sete elementais — água, ar, fogo, terra, sol,
+  lua, dark — mais `vitral` e `jade`, que eram as do sorteio antigo). Cada uma é uma **escada
+  de cinco tons**, do mais escuro ao mais claro, sempre repartida igual: tom 1 = placa, tom 2 =
+  anel de fundo do aleatório, tom 5 = filete, tons 2..5 = poças. São cinco tons para seis
+  papéis, então o tom 5 aparece duas vezes — repetir na poça mais clara é o que menos estraga o
+  desenho. Aplicar remapeia **por cor distinta**, não por camada: duas camadas que eram da
+  mesma cor continuam iguais. `corBase`→`base`, `corFio`→`fio`, o resto cicla em `cores`. O
+  mesmo mapa alimenta o sorteio do `aleatório`, de onde `dark` fica de fora (monocromática é
+  uma escolha, não um acidente).
+- **Snapshot** (`#snap`): amplia o canvas, `render(1)`, `toBlob` em PNG ou JPG q=0.92 e repõe o
+  tamanho. `fit()` respeita a flag `capturando`, senão ela repõe o tamanho do CSS no primeiro
+  render. Teto de 4 megapixels — a vista de topo é rasterizada pixel a pixel em JS.
 - Persistência em `.json`. Textos em pt-BR, sem CDN, sem build, sem `localStorage`.
 
 ---

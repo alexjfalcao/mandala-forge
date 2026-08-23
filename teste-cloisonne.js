@@ -275,6 +275,53 @@ function confere3MF(buf, g) {
   for (const k of ['filament_type', 'filament_settings_id', 'filament_ids'])
     if (!Array.isArray(projeto[k]) || projeto[k].length !== esperado.length)
       erros.push(k + ' não tem uma entrada por cor');
+
+  // 6. as tabelas que dependem de N. Errá-las não dá erro de leitura: o Bambu
+  //    aceita o projeto e falha no fatiamento ("could not found extruder_type",
+  //    "No valid nozzle found", "Flush volumes matrix do not match to the
+  //    correct size", "Wipe tower generation failed").
+  const N = esperado.length;
+  const V = (projeto.filament_extruder_variant || []).length / N;
+  if (!Number.isInteger(V) || V < 1)
+    erros.push('filament_extruder_variant não é múltiplo de ' + N);
+  else {
+    const si = projeto.filament_self_index || [];
+    if (si.length !== N * V) erros.push('filament_self_index tem ' + si.length + ', esperado ' + (N * V));
+    else for (let i = 0; i < si.length; i++)
+      if (si[i] !== String(Math.floor(i / V) + 1)) {
+        erros.push('filament_self_index[' + i + '] é ' + si[i] + ', deveria ser ' + (Math.floor(i / V) + 1));
+        break;
+      }
+  }
+  const M = Math.max(N, 2);      // lado 1 faz o fatiador quebrar com SIGSEGV
+  if ((projeto.flush_volumes_matrix || []).length !== M * M)
+    erros.push('flush_volumes_matrix tem ' + (projeto.flush_volumes_matrix || []).length + ', esperado ' + (M * M));
+  for (const k of ['inherits_group', 'different_settings_to_system'])
+    if ((projeto[k] || []).length !== N + 2)
+      erros.push(k + ' tem ' + (projeto[k] || []).length + ', esperado ' + (N + 2));
+  if ((projeto.extruder_nozzle_stats || []).length !== (projeto.nozzle_volume_type || []).length)
+    erros.push('extruder_nozzle_stats não tem uma entrada por extrusor');
+
+  // 7. a torre de purga dentro da área que TODOS os extrusores alcançam —
+  //    fora dela o fatiador aborta com "G-code in unprintable area"
+  {
+    const areas = projeto.extruder_printable_area || [];
+    let lo = [-1e9, -1e9], hi = [1e9, 1e9];
+    for (const a of areas) {
+      const px = [], py = [];
+      for (const canto of String(a).split(',')) {
+        const q = canto.split('x');
+        if (q.length === 2) { px.push(parseFloat(q[0])); py.push(parseFloat(q[1])); }
+      }
+      if (!px.length) continue;
+      lo = [Math.max(lo[0], Math.min(...px)), Math.max(lo[1], Math.min(...py))];
+      hi = [Math.min(hi[0], Math.max(...px)), Math.min(hi[1], Math.max(...py))];
+    }
+    const w = parseFloat(projeto.prime_tower_width) || 60;
+    const tx = parseFloat((projeto.wipe_tower_x || [])[0]), ty = parseFloat((projeto.wipe_tower_y || [])[0]);
+    if (areas.length && (!(tx >= lo[0] && tx + w <= hi[0]) || !(ty >= lo[1] && ty + w <= hi[1])))
+      erros.push('torre de purga em ' + tx + ',' + ty + ' cai fora da área comum aos extrusores');
+  }
   return erros;
 }
 
