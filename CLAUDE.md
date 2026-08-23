@@ -234,6 +234,12 @@ qualquer coisa numa `.row`, lembre que `fieldset` só não estoura o painel por 
 `min-width:0` no CSS (o UA lhe dá `min-inline-size:min-content`, e o `input[type=range]` tem
 largura intrínseca de ~130 px).
 
+O enquadramento das três vistas mora em `view = {z, x, y}`. O `x`/`y` é **fração do menor
+lado do canvas**, não pixel — é o que faz o snapshot (que redimensiona o canvas antes de
+renderizar) sair com o mesmo enquadramento da tela. A roda dá zoom no cursor via
+`zoomPara()`, que recalcula a âncora no `z` novo porque o centro de projeção da 3D depende
+da escala. Arrastar desloca em topo/relevo e gira na 3D (shift ou botão do meio desloca).
+
 `varreCores()` é a fonte única das cores em uso — badge, quadradinhos do rodapé e remapeamento
 de paleta. Pesa cada amostra pelo raio e só enxerga cor **visível**. `cfg.nome` vira nome de
 arquivo por `nomeArquivo()`. O app abre no preset `aleatorio`. Detalhes na seção 10 do

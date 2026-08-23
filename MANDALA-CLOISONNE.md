@@ -816,6 +816,19 @@ print(m.is_watertight, m.is_winding_consistent, m.volume, m.euler_number)
   A primeira versão usava grade cartesiana com painter's algorithm e embolava — um filete
   de 0,8 mm não cabe numa célula de 0,5 mm. Vale lembrar disso antes de "simplificar" de
   volta.
+- **Enquadramento** (`view = {z, x, y}`): zoom e panorâmica valem para as três vistas.
+  `z` é o fator (0,4× a 12×); `x`/`y` são o deslocamento do centro em **fração do menor lado
+  do canvas**, não em pixels — é isso que faz o snapshot, que redimensiona o canvas antes de
+  renderizar, sair com o mesmo enquadramento da tela, e o mesmo vale ao redimensionar a
+  janela. Roda do mouse dá zoom **no cursor**: `zoomPara()` recalcula `x`/`y` para o ponto
+  sob o ponteiro ficar parado — sem essa correção o desenho foge do cursor e o zoom fica
+  inútil em detalhe. A âncora é recalculada no `z` novo porque na 3D o centro de projeção
+  depende da escala (o `Rm·sc·0,10` que baixa a peça). Arrastar desloca em topo e relevo, e
+  **gira** na 3D, onde a panorâmica sai com shift ou botão do meio. Duplo clique reenquadra.
+  O `wheel` é registrado com `{passive:false}` e chama `preventDefault()`, senão a página
+  rola junto.
+  Topo e relevo são raster por pixel, então ampliar **recalcula** em vez de esticar: em 3×
+  o desenho continua nítido. A 3D amplia a grade rasterizada, que segue o teto de células.
 - **Presets**: `incensário` (reprodução da foto de referência), `lótus`, `talavera`,
   `renda` (vazado), `sol`, `aleatório`. **O app abre no `aleatório`** — os fixos continuam a
   um clique na barra, e trocar de preset preserva `diam` e `nome`.

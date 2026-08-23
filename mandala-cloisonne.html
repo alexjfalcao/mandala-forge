@@ -1624,6 +1624,12 @@ var MC = (function () {
   var cfg = MC.defaults();
   var tab = 'topo';
   var yaw = -0.6, elev = 0.95;
+  /* Enquadramento das três vistas. `z` é o fator de zoom; `x`/`y` são o
+     deslocamento do centro em FRAÇÃO do menor lado do canvas, não em pixels —
+     assim o snapshot, que redimensiona o canvas antes de renderizar, mantém o
+     mesmo enquadramento, e um redimensionamento da janela também. */
+  var view = { z: 1, x: 0, y: 0 };
+  var ZMIN = 0.4, ZMAX = 12;
   var open = {};
   var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
   var hud = document.getElementById('hud');
@@ -2182,7 +2188,8 @@ var MC = (function () {
     var W = Math.max(64, (cv.width * scale) | 0), H = Math.max(64, (cv.height * scale) | 0);
     var P = MC.prepare(cfg), Rm = cfg.diam / 2, zmax = MC.alturaMax(cfg);
     var img = ctx.createImageData(W, H), d = img.data;
-    var cx = W / 2, cy = H / 2, px = (Rm * 2.14) / Math.min(W, H);
+    var m = Math.min(W, H), px = (Rm * 2.14) / (m * view.z);
+    var cx = W / 2 + view.x * m, cy = H / 2 + view.y * m;
     var zb = new Float32Array(W * H), mb = new Uint8Array(W * H), cb = new Array(W * H);
     var x, y, k, o = {};
     for (y = 0; y < H; y++) {
@@ -2294,7 +2301,8 @@ var MC = (function () {
     for (i = 0; i < d.length; i += 4) { d[i] = 13; d[i + 1] = 15; d[i + 2] = 20; d[i + 3] = 255; }
 
     var cyw = Math.cos(yaw), syw = Math.sin(yaw), se = Math.sin(elev), ce = Math.cos(elev);
-    var sc = Math.min(W, H) * 0.44 / Rm, ox = W / 2, oy = H / 2 + Rm * sc * 0.10;
+    var m3 = Math.min(W, H), sc = m3 * 0.44 / Rm * view.z;
+    var ox = W / 2 + view.x * m3, oy = H / 2 + Rm * sc * 0.10 + view.y * m3;
     function px(x, y, zz) { return ox + (x * cyw - y * syw) * sc; }
     function py(x, y, zz) { return oy + ((x * syw + y * cyw) * se - zz * ce) * sc; }
     function pz(x, y, zz) { return (x * syw + y * cyw) * ce + zz * se; }
@@ -2391,9 +2399,11 @@ var MC = (function () {
     ctx.clearRect(0, 0, cv.width, cv.height);
     if (tab === 'v3d') draw3D(scale >= 1);
     else drawTop(scale, tab === 'relevo');
-    hud.textContent = tab === 'v3d'
-      ? 'arraste para girar · ' + Math.round(yaw * 180 / Math.PI) + '° / ' + Math.round(elev * 180 / Math.PI) + '° · grade ' + grade3D
-      : (tab === 'relevo' ? 'mapa de altura — claro é alto' : 'vista de topo · as cores são só para planejar a pintura');
+    var zt = view.z === 1 ? '' : ' · zoom ' + (view.z < 1 ? view.z.toFixed(2) : view.z.toFixed(1)) + '× (2 cliques reenquadram)';
+    hud.textContent = (tab === 'v3d'
+      ? 'arraste para girar, shift para deslocar · ' + Math.round(yaw * 180 / Math.PI) + '° / ' + Math.round(elev * 180 / Math.PI) + '° · grade ' + grade3D
+      : (tab === 'relevo' ? 'mapa de altura — claro é alto · arraste para deslocar'
+                          : 'vista de topo · arraste para deslocar, roda para o zoom')) + zt;
   }
 
   /* ---------------- estatísticas ---------------- */
@@ -2462,22 +2472,78 @@ var MC = (function () {
   function fmtN(n) { return n.toLocaleString('pt-BR'); }
   function fmtB(b) { return b > 1e6 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' kB'; }
 
-  /* ---------------- órbita 3D ---------------- */
+  /* ---------------- órbita 3D, zoom e panorâmica ----------------
+     O canvas é de pixels de dispositivo e os eventos vêm em CSS pixels: `dpr()`
+     é a razão entre os dois, e todo cálculo daqui é feito em pixel de
+     dispositivo, que é a unidade em que as vistas desenham. */
+  function dpr() { return cv.width / Math.max(1, cv.clientWidth); }
+  function pontoCanvas(e) {
+    var r = cv.getBoundingClientRect(), k = dpr();
+    return [(e.clientX - r.left) * k, (e.clientY - r.top) * k];
+  }
+  /* Centro de projeção de cada vista, em pixel de dispositivo, SEM a
+     panorâmica. Na 3D ele depende do zoom (o `Rm*sc*0.10` que baixa a peça
+     acompanha a escala), e é por isso que a âncora é recalculada no z novo. */
+  function ancora(z) {
+    var W = cv.width, H = cv.height, m = Math.min(W, H);
+    if (tab !== 'v3d') return [W / 2, H / 2];
+    var Rm = cfg.diam / 2, sc = m * 0.44 / Rm * z;
+    return [W / 2, H / 2 + Rm * sc * 0.10];
+  }
+  /* Zoom mantendo parado o ponto (sx, sy) sob o cursor. Sem esta correção o
+     desenho foge do cursor e o zoom fica inutilizável em detalhe. */
+  function zoomPara(nz, sx, sy) {
+    nz = MC.clamp(nz, ZMIN, ZMAX);
+    var z = view.z;
+    if (nz === z) return false;
+    var m = Math.min(cv.width, cv.height);
+    var a0 = ancora(z), a1 = ancora(nz);
+    view.x = (sx - a1[0] - (sx - a0[0] - view.x * m) * nz / z) / m;
+    view.y = (sy - a1[1] - (sy - a0[1] - view.y * m) * nz / z) / m;
+    view.z = nz;
+    return true;
+  }
+  function resetView() { view.z = 1; view.x = 0; view.y = 0; }
+
+  var rodaTimer = null;
+  cv.addEventListener('wheel', function (e) {
+    e.preventDefault();                                  // senão a página rola junto
+    var p = pontoCanvas(e);
+    // deltaMode 1 = linhas, 2 = páginas: normaliza para um passo por "clique"
+    var passo = e.deltaMode === 0 ? e.deltaY / 100 : e.deltaY * (e.deltaMode === 1 ? 0.4 : 1);
+    if (!zoomPara(view.z * Math.pow(0.88, passo), p[0], p[1])) return;
+    render(0.5);
+    clearTimeout(rodaTimer);
+    rodaTimer = setTimeout(function () { render(1); }, 160);
+  }, { passive: false });
+
   var drag = null;
   cv.addEventListener('pointerdown', function (e) {
-    if (tab !== 'v3d') return;
-    drag = { x: e.clientX, y: e.clientY, yaw: yaw, el: elev };
+    // topo e relevo são planos: arrastar é panorâmica. Na 3D o arraste gira, e
+    // a panorâmica sai com shift ou com o botão do meio.
+    var pan = tab !== 'v3d' || e.shiftKey || e.button === 1;
+    drag = { x: e.clientX, y: e.clientY, yaw: yaw, el: elev, vx: view.x, vy: view.y, pan: pan };
     cv.setPointerCapture(e.pointerId); cv.classList.add('drag');
   });
   cv.addEventListener('pointermove', function (e) {
     if (!drag) return;
-    yaw = drag.yaw + (e.clientX - drag.x) * 0.008;
-    elev = MC.clamp(drag.el + (e.clientY - drag.y) * 0.006, 0.18, 1.53);
+    if (drag.pan) {
+      var m = Math.min(cv.width, cv.height), k = dpr();
+      view.x = drag.vx + (e.clientX - drag.x) * k / m;
+      view.y = drag.vy + (e.clientY - drag.y) * k / m;
+    } else {
+      yaw = drag.yaw + (e.clientX - drag.x) * 0.008;
+      elev = MC.clamp(drag.el + (e.clientY - drag.y) * 0.006, 0.18, 1.53);
+    }
     render(0.5);
   });
   cv.addEventListener('pointerup', function () {
     if (!drag) return;
     drag = null; cv.classList.remove('drag'); render(1);
+  });
+  cv.addEventListener('dblclick', function (e) {
+    e.preventDefault();
+    resetView(); render(1);
   });
 
   /* ---------------- exportação ---------------- */
