@@ -829,6 +829,20 @@ print(m.is_watertight, m.is_winding_consistent, m.volume, m.euler_number)
   rola junto.
   Topo e relevo são raster por pixel, então ampliar **recalcula** em vez de esticar: em 3×
   o desenho continua nítido. A 3D amplia a grade rasterizada, que segue o teto de células.
+- **Reduzir cores** (`reduzCores(alvo)`): funde os pares mais próximos até sobrar `alvo`
+  cores. A distância é medida em **Lab** (`labDe` faz sRGB → linear → XYZ D65 → Lab; `dE` é
+  CIE76), não em RGB — em RGB dois azuis distantes podem ser indistinguíveis a olho e dois
+  verdes vizinhos, não. Em cada fusão **vence a cor de maior área**, e a perdedora é
+  substituída por `trocaCor()` em `corBase`, `corFio` e no `cor`/`cor2` de cada camada. O
+  `corFio` é tirado do conjunto — o filete é a linha estrutural do cloisonné, não é fundido
+  nem recebe fusão — mas **conta no alvo**, porque é um filamento como qualquer outro e o
+  número que o usuário pede é o de slots do AMS.
+  ⚠️ Só enxerga cor **visível**: uma camada inteiramente coberta por outra não entra na conta
+  e sobrevive intocada, podendo reaparecer se a pilha for reordenada. E não há desfazer —
+  o hint manda salvar o `.json` antes.
+  A suíte guarda a invariante que dá sentido ao botão: as cores que `varreCores()` conta são
+  **exatamente** a paleta que `buildContorno` emite. Se a varredura perdesse uma cor, pedir 4
+  daria 5 filamentos no 3MF.
 - **Presets**: `incensário` (reprodução da foto de referência), `lótus`, `talavera`,
   `renda` (vazado), `sol`, `aleatório`. **O app abre no `aleatório`** — os fixos continuam a
   um clique na barra, e trocar de preset preserva `diam` e `nome`.

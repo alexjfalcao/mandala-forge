@@ -240,6 +240,12 @@ renderizar) sair com o mesmo enquadramento da tela. A roda dá zoom no cursor vi
 `zoomPara()`, que recalcula a âncora no `z` novo porque o centro de projeção da 3D depende
 da escala. Arrastar desloca em topo/relevo e gira na 3D (shift ou botão do meio desloca).
 
+`reduzCores(alvo)` funde os pares mais próximos em **Lab** (nunca em RGB) até sobrar `alvo`
+cores, vencendo sempre a de maior área. `corFio` não é fundido — é o contorno de toda poça —
+mas **conta no alvo**, que é o número de slots do AMS. A suíte confere que as cores que
+`varreCores()` conta são exatamente a paleta de `buildContorno`: sem isso, pedir 4 poderia
+render 5 filamentos no 3MF.
+
 `varreCores()` é a fonte única das cores em uso — badge, quadradinhos do rodapé e remapeamento
 de paleta. Pesa cada amostra pelo raio e só enxerga cor **visível**. `cfg.nome` vira nome de
 arquivo por `nomeArquivo()`. O app abre no preset `aleatorio`. Detalhes na seção 10 do

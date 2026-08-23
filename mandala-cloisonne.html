@@ -87,6 +87,14 @@
   .cbody{display:none;padding:4px 9px 9px;border-top:1px solid var(--line)}
   .cam.open .cbody{display:block}
   .icon{background:none;border:none;color:var(--dim);cursor:pointer;font-size:12px;padding:0 2px;line-height:1}
+  /* linha "reduzir para N [botão]": o número fica estreito para sobrar largura
+     ao botão, que é quem carrega o texto de retorno ("3 cores fundidas") */
+  .row input.alvo{flex:0 0 52px;text-align:right}
+  .row .act{
+    flex:1;min-width:0;background:#12151c;color:var(--txt);border:1px solid var(--line);
+    border-radius:5px;padding:4px 6px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap
+  }
+  .row .act:hover{border-color:var(--acc);color:#fff}
   .icon:hover{color:var(--txt)}
   .addcam{width:100%;background:#12151c;border:1px dashed var(--line);color:var(--dim);border-radius:8px;padding:8px;cursor:pointer;font:inherit}
   .addcam:hover{color:var(--txt);border-color:var(--acc)}
@@ -193,6 +201,9 @@
         <p class="hint">As paletas trocam as cores mantendo o desenho: cores iguais continuam iguais, e a placa e o filete vão para o par escuro/claro da paleta.</p>
         <div class="row"><label>Placa</label><input type="color" data-g="corBase"></div>
         <div class="row"><label>Filete</label><input type="color" data-g="corFio"></div>
+        <div class="row"><label>Reduzir para</label><input type="number" class="alvo" id="alvocor" min="2" max="8" step="1" value="4"><button type="button" class="act" data-act="reduz">reduzir cores</button></div>
+        <p class="hint"><b>Reduzir cores</b> funde os pares mais parecidos até sobrar a quantidade pedida — 4 é o número de slots do AMS. A proximidade é medida em <b>Lab</b>, que é o que o olho vê, e em cada fusão vence a cor de <b>maior área</b>. O <b>filete</b> nunca é fundido: é ele que contorna cada poça.</p>
+        <p class="hint">Duas ressalvas: a conta só enxerga cor <b>visível</b>, então uma camada inteiramente coberta por outra não entra — e pode reaparecer se você reordenar a pilha depois. E a fusão <b>não tem desfazer</b>: salve o <code>.json</code> antes se quiser voltar.</p>
         <div class="row"><label>Luz</label><input type="range" data-g="luz" min="0" max="360" step="1"><span class="num" data-v="luz"></span></div>
         <div class="row"><label>Brilho</label><input type="range" data-g="verniz" min="0" max="1" step="0.02"><span class="num" data-v="verniz"></span></div>
         <p class="hint">As cores valem para o preview <b>e para a exportação</b>: OBJ e 3MF as levam junto.</p>
@@ -2054,6 +2065,14 @@ var MC = (function () {
     var pil = el.closest ? el.closest('[data-pal]') : null;
     if (pil) { aplicaPaleta(pil.dataset.pal); return; }
     if (el.dataset.modo) { cfg.modo = el.dataset.modo; syncGlobals(); schedule(); return; }
+    if (a === 'reduz') {
+      var alvo = MC.clamp(parseInt(document.getElementById('alvocor').value, 10) || 4, 2, 8);
+      var n = reduzCores(alvo);
+      el.textContent = n ? (n === 1 ? '1 cor fundida' : n + ' cores fundidas') : 'nada a fundir';
+      clearTimeout(el._t);
+      el._t = setTimeout(function () { el.textContent = 'reduzir cores'; }, 2200);
+      return;
+    }
     if (a) {
       e.stopPropagation();
       if (a === 'del' && cfg.camadas.length > 1) cfg.camadas.splice(i, 1);
@@ -2161,6 +2180,76 @@ var MC = (function () {
     });
     drawPanel(); schedule();
   }
+  /* ---- reduzir a quantidade de cores -------------------------------------
+     O desenho fecha com seis ou sete cores e o AMS tem quatro slots. Em vez de
+     o usuário caçar quais são quase iguais, funde-se o par mais próximo até
+     chegar no alvo.
+
+     A distância é medida em **Lab**, não em RGB: em RGB dois azuis distantes
+     podem ser indistinguíveis a olho e dois verdes vizinhos, não. CIE76 (a
+     euclidiana em Lab) basta — a pergunta aqui é qual par é o mais parecido,
+     não quanto exatamente eles diferem. */
+  function labDe(h) {
+    var c = hex(h), i, v = [0, 0, 0];
+    for (i = 0; i < 3; i++) {
+      var u = c[i] / 255;
+      v[i] = u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4);
+    }
+    // sRGB linear → XYZ (D65), normalizado pelo branco de referência
+    var X = (0.4124 * v[0] + 0.3576 * v[1] + 0.1805 * v[2]) / 0.95047;
+    var Y = (0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]);
+    var Z = (0.0193 * v[0] + 0.1192 * v[1] + 0.9505 * v[2]) / 1.08883;
+    function f(t) { return t > 0.008856 ? Math.pow(t, 1 / 3) : t * 7.787 + 16 / 116; }
+    var fx = f(X), fy = f(Y), fz = f(Z);
+    return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+  }
+  function dE(a, b) {
+    var d0 = a[0] - b[0], d1 = a[1] - b[1], d2 = a[2] - b[2];
+    return Math.sqrt(d0 * d0 + d1 * d1 + d2 * d2);
+  }
+
+  function reduzCores(alvo) {
+    var vistas = varreCores();
+    var fio = (cfg.corFio || '').toLowerCase();
+    // o filete é a linha estrutural do cloisonné: não é fundido nem recebe
+    // fusão, senão o desenho perde o contorno que define cada poça
+    var cores = coresPorArea(vistas).filter(function (h) { return h !== fio; });
+    // ...mas ele CONTA no alvo: é um filamento como qualquer outro, e o número
+    // que o usuário pede é o de slots do AMS, o mesmo que o badge mostra
+    var resto = alvo - (vistas[fio] ? 1 : 0);
+    if (cores.length <= resto) return 0;
+
+    var lab = {}, i, j;
+    cores.forEach(function (h) { lab[h] = labDe(h); });
+    var fusoes = 0;
+    while (cores.length > resto) {
+      var mi = 0, mj = 1, md = Infinity;
+      for (i = 0; i < cores.length; i++)
+        for (j = i + 1; j < cores.length; j++) {
+          var d = dE(lab[cores[i]], lab[cores[j]]);
+          if (d < md) { md = d; mi = i; mj = j; }
+        }
+      // vence a de MAIOR área: fundir para a cor dominante mexe menos na peça
+      var a = cores[mi], b = cores[mj];
+      if (vistas[b] > vistas[a]) { var t = a; a = b; b = t; }
+      trocaCor(b, a);
+      vistas[a] += vistas[b];
+      cores.splice(cores.indexOf(b), 1);
+      fusoes++;
+    }
+    drawPanel(); schedule();
+    return fusoes;
+  }
+  /* substitui uma cor por outra em todo lugar onde cor mora na config */
+  function trocaCor(de, para) {
+    if ((cfg.corBase || '').toLowerCase() === de) cfg.corBase = para;
+    if ((cfg.corFio || '').toLowerCase() === de) cfg.corFio = para;
+    cfg.camadas.forEach(function (c) {
+      if ((c.cor || '').toLowerCase() === de) c.cor = para;
+      if ((c.cor2 || '').toLowerCase() === de) c.cor2 = para;
+    });
+  }
+
   function drawPaletas() {
     var h = '';
     PAL_NOMES.forEach(function (n) {

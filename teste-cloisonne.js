@@ -428,6 +428,48 @@ async function checaContorno(solida) {
   return ruins;
 }
 
+// A contagem de cores do rodapé tem que bater com a paleta que a exportação
+// emite. É o que dá sentido ao botão "reduzir para N": o usuário pede 4, o
+// badge mostra 4, e o 3MF sai com 4 peças e 4 filamentos. Se a varredura do
+// rodapé (grade polar 120 × ~720) perdesse uma cor que o contorno encontra, ele
+// pediria um filamento a mais do que o AMS tem slot.
+{
+  let ruins = 0;
+  console.log('\ncores visíveis × paleta exportada:');
+  const varreCores = (cfg) => {
+    const P = MC.prepare(cfg), Rm = cfg.diam / 2;
+    const m = 4 * Math.max(1, Math.round(cfg.sym));
+    const NR = 120, NT = Math.max(m, Math.round(720 / m) * m);
+    const v = {}, o = {};
+    for (let i = 0; i < NR; i++) {
+      const rr = Rm * (i + 0.5) / NR;
+      for (let j = 0; j < NT; j++) {
+        const tt = Math.PI * 2 * (j + 0.5) / NT;
+        if (!MC.solid(cfg, P, rr, tt, o)) continue;
+        MC.altura(cfg, P, rr, tt, o);
+        const c = o.id < 0 ? cfg.corBase
+                : (o.fio >= 0.5 ? cfg.corFio
+                : ((o.banda % 2 === 1 && o.cor2) ? o.cor2 : o.cor));
+        v[c.toLowerCase()] = 1;
+      }
+    }
+    return Object.keys(v).sort();
+  };
+  for (const [name, cfg] of cases) {
+    const badge = varreCores(clone(cfg));
+    const exp = MC.buildContorno(clone(cfg), 240, 3).paleta.map(c => c.toLowerCase()).sort();
+    const soExp = exp.filter(c => badge.indexOf(c) < 0);
+    const soBadge = badge.filter(c => exp.indexOf(c) < 0);
+    const ok = !soExp.length && !soBadge.length;
+    if (!ok) ruins++;
+    console.log('  ' + (ok ? 'ok  ' : 'FALHA ') + name.padEnd(24) +
+      ' rodapé=' + badge.length + ' exportação=' + exp.length +
+      (soExp.length ? '  só na exportação: ' + soExp.join(',') : '') +
+      (soBadge.length ? '  só no rodapé: ' + soBadge.join(',') : ''));
+  }
+  fail += ruins;
+}
+
 // fase em PASSOS da simetria: meio passo tem que continuar meio passo quando a
 // simetria muda. É o que faz trocar 10 por 12 não desalinhar as camadas entre si.
 {
