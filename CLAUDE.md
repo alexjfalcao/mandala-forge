@@ -289,8 +289,30 @@ descartado por colidir com o âmbar do `--warn`: acento e aviso ficariam da mesm
 **As paletas da mandala (`PALETAS`) são CONTEÚDO, não cromo.** Elas descrevem o que vai ser
 impresso. Mexer no acento do painel não as toca.
 
+**O fieldset `Apoie o projeto` é o último do painel e o único sem `?`.** Os popovers `aj-*`
+explicam o que um controle faz, e ali não há controle — a seção *é* o conteúdo. Pelo mesmo
+motivo ela é a única com prosa fixa depois da varredura dos 17 `hint`: não é documentação de
+campo. Classe própria (`.apoio p`), nunca `.hint`, para a diferença ficar legível no CSS.
+
+Ela traz os **primeiros links externos do app** (Buy Me a Coffee, GitHub Sponsors, MakerWorld,
+Cults3D e o site do autor) — o arquivo não tinha nenhum, e continua autocontido: `<a href>` só
+é seguido por clique, nada é carregado da rede. Os `href` ficam como markup estático e só o
+texto ao redor é `data-i18n`, para a URL não existir em duas cópias, uma por idioma.
+
+**Champanhe preenchido é a ação ÚNICA da tela** — o botão que exporta. Os links de apoio usam
+o acento só como contorno e hover (`.apoio nav a.doar`), e MakerWorld/Cults3D ficam um degrau
+abaixo, em `--line` e `--dim`. Um segundo botão cheio não cria ênfase: cria empate, e quem
+perde é a exportação.
+
+**A landing tem a mesma chamada, no rodapé** (`index.html`, terceira `.linha` do
+`footer.rodape`, sem fio próprio — ela e a `.autor` leem como um bloco só, depois do fio que
+separa as duas do que a página é): a frase e as duas pílulas
+de doação, com o mesmo desenho de ícone. MakerWorld e Cults3D **não** se repetem ali — já
+estão logo acima, em `.refs`. Duas chaves novas, `rod.apoio` e `rod.doar`, no I18N da
+landing, que é um dicionário próprio e menor, sem relação com o do app.
+
 **A interface é bilíngue; o código não.** `var I18N = { pt: {...}, en: {...} }` no bloco de UI,
-com 173 chaves em cada, e `t(chave, a, b)` interpolando `{0}`/`{1}` (por `split`/`join`, porque
+com 179 chaves em cada, e `t(chave, a, b)` interpolando `{0}`/`{1}` (por `split`/`join`, porque
 uma frase pode repetir o mesmo marcador). O **pt é o fallback**: chave que falte no `en` sai em
 português em vez de sumir.
 

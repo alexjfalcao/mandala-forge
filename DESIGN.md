@@ -205,6 +205,11 @@ ação, seleção ou estado, ele é neutro. A cor da tela é a peça do usuário
 **A Regra da Temperatura.** O acento é quente, os neutros são frios, e **nenhum dos dois se
 move em direção ao outro**. Não tinte os neutros para o matiz do acento; a tensão é o efeito.
 
+**A Regra da Ação Única.** Champanhe *preenchido* é a ação principal da tela — o botão que
+exporta, e mais nada. Toda outra chamada, o pedido de apoio incluído, usa o acento só como
+**contorno e hover**. Um segundo botão cheio não cria ênfase: cria empate, e quem perde é a
+ação que a tela existe para oferecer.
+
 **A Regra do Âmbar Reservado.** `signal-warn` é âmbar e o acento é champanhe. Nunca escolha um
 acento amarelo-alaranjado: ação primária e aviso ficariam da mesma cor. Foi por isso que latão
 puro foi descartado.
@@ -359,6 +364,21 @@ a 1 e ganha borda champanhe, mais `aria-pressed`.
 **A Regra da Bandeira Desenhada.** Nunca emoji de bandeira. 🇧🇷 e 🇺🇸 não renderizam no Windows,
 onde o Chrome cai para as letras "BR" e "US".
 
+### Apoio
+Último fieldset do painel e o único sem `?`: não há controle a explicar, a seção **é** o
+conteúdo. Duas pílulas de doação com contorno champanhe e ícone SVG de 12px em `currentColor`;
+abaixo, um degrau mais baixo — borda de fio de cabelo, texto `dim` — para os links de modelo,
+que não pedem dinheiro. Fecha com o crédito do autor, separado por fio.
+
+**A Exceção à Prosa no Painel.** As duas frases desta seção são prosa fixa, o que o painel
+proíbe em geral. Passam porque não são documentação de campo: não há campo. Classe própria
+(`.apoio p`), nunca `.hint`, para que a diferença fique legível no CSS.
+
+Na landing a mesma chamada vira a terceira linha do rodapé, com as duas pílulas alinhadas à
+direita como as `.refs` acima e o mesmo par de ícones. É a única exceção ao parágrafo "crédito
+e referências são navegação, não ação": apoio é chamada, e por isso ganha o contorno champanhe
+que o resto do rodapé não tem.
+
 ## Do's and Don'ts
 
 ### Do:
@@ -378,7 +398,7 @@ onde o Chrome cai para as letras "BR" e "US".
 - **Don't** tintar os neutros na direção do acento. A tensão quente/frio é o efeito.
 - **Don't** escolher acento amarelo-alaranjado: colidiria com o âmbar do `signal-warn`.
 - **Don't** pôr prosa explicativa fixa no painel. Se depende do valor de um campo, é inline; se
-  explica o que o campo faz, vai para o `?`.
+  explica o que o campo faz, vai para o `?`. A única seção isenta é *Apoio*, que não tem campo.
 - **Don't** usar `outline: none` sem pôr um anel de foco no lugar.
 - **Don't** acrescentar webfont, CDN ou qualquer dependência externa. O projeto é
   zero dependências, e isso vale para a landing também.

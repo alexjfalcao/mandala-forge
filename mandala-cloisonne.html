@@ -110,6 +110,32 @@
   .hint.warn{color:var(--warn)}
   .hint.warn:empty{display:none}
 
+  /* ---------- apoio ----------
+     A única seção do painel sem `?`: os popovers `aj-*` explicam o que um
+     controle faz, e aqui não há controle — a seção É o conteúdo. Daí também o
+     texto solto, que por isso não fere a regra do `.hint` acima; classe própria
+     para deixar a diferença explícita.
+     O acento entra só como CONTORNO. Champanhe preenchido é a ação principal
+     desta tela (o botão Baixar); um segundo botão cheio criaria duas ações
+     primárias e roubaria destaque justamente da exportação, que é para o que o
+     app existe. */
+  .apoio p{color:var(--dim);font-size:var(--fs-sm);margin:2px 2px 7px}
+  .apoio nav{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+  .apoio nav a{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:5px 9px;border:1px solid var(--line);border-radius:99px;
+    color:var(--dim);text-decoration:none;font-size:var(--fs-sm);
+    transition:color .15s cubic-bezier(.16,1,.3,1),border-color .15s;
+  }
+  .apoio nav a svg{width:12px;height:12px;flex:0 0 auto}
+  .apoio nav a:hover{color:var(--txt);border-color:var(--acc2)}
+  .apoio nav a.doar{color:var(--txt);border-color:var(--acc)}
+  .apoio nav a.doar:hover{background:var(--panel)}
+  .apoio .feito{margin:0;padding-top:9px;border-top:1px solid var(--line)}
+  .apoio .feito a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--acc2)}
+  .apoio .feito a:hover{color:var(--txt)}
+  @media (prefers-reduced-motion:reduce){ .apoio nav a{transition:none} }
+
   /* ---------- ajuda em popover ----------
      Popover NATIVO, não `position:absolute`: o painel é `overflow-y:auto` e
      recortaria qualquer coisa posicionada dentro dele. De quebra, o nativo já
@@ -310,6 +336,26 @@
         <div class="row"><label data-i18n="lb.reduzir">Reduzir para</label><input type="number" class="alvo" id="alvocor" min="2" max="8" step="1" value="4"><button type="button" class="act" data-act="reduz" data-i18n="bt.reduzir"></button></div>
         <div class="row"><label data-i18n="lb.luz">Luz</label><input type="range" data-g="luz" min="0" max="360" step="1"><span class="num" data-v="luz"></span></div>
         <div class="row"><label data-i18n="lb.verniz">Brilho</label><input type="range" data-g="verniz" min="0" max="1" step="0.02"><span class="num" data-v="verniz"></span></div>
+      </fieldset>
+
+      <!-- Os PRIMEIROS links externos do app: até aqui o arquivo não tinha
+           nenhum, e continua sem carregar nada da rede — `<a href>` só é
+           seguido por clique. Única seção sem `?`: não há controle a explicar. -->
+      <fieldset class="apoio">
+        <legend><span data-i18n="fs.apoio">Apoie o projeto</span></legend>
+        <p data-i18n="apo.intro"></p>
+        <nav data-i18n-aria="apo.aria">
+          <a class="doar" href="https://buymeacoffee.com/alexjfalcao" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M3 5.8h6.6v3.9a3.3 3.3 0 0 1-6.6 0z"/><path d="M9.6 6.9h1.2a1.8 1.8 0 0 1 0 3.6H9.6"/><path d="M5.2 4V2.1M7.5 4V2.1"/></svg>Buy Me a Coffee</a>
+          <a class="doar" href="https://github.com/sponsors/alexjfalcao" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 13.9C7.7 13.9 1.9 10.3 1.9 6.2A3.2 3.2 0 0 1 8 4.6a3.2 3.2 0 0 1 6.1 1.6c0 4.1-5.8 7.7-6.1 7.7z"/></svg>GitHub Sponsors</a>
+        </nav>
+        <p data-i18n="apo.alt"></p>
+        <nav data-i18n-aria="apo.aria2">
+          <a href="https://makerworld.com/pt/@alexjfalcao" target="_blank" rel="noopener noreferrer">MakerWorld</a>
+          <a href="https://cults3d.com/pt/usuarios/alexjfalcao" target="_blank" rel="noopener noreferrer">Cults3D</a>
+        </nav>
+        <p class="feito"><span data-i18n="apo.feito">Feito por</span> <a href="https://www.alexfalcao.pro.br" target="_blank" rel="noopener noreferrer">Alex Falcão</a></p>
       </fieldset>
     </div>
   </aside>
@@ -2220,6 +2266,7 @@ var MC = (function () {
 
       'fs.projeto': 'Projeto', 'fs.placa': 'Placa', 'fs.filete': 'Filete',
       'fs.furos': 'Centro e furos', 'fs.corpo': 'Corpo', 'fs.camadas': 'Camadas', 'fs.cores': 'Cores',
+      'fs.apoio': 'Apoie o projeto',
       'aj.projeto': 'ajuda sobre projeto', 'aj.placa': 'ajuda sobre placa',
       'aj.filete': 'ajuda sobre filete', 'aj.furos': 'ajuda sobre centro e furos',
       'aj.corpo': 'ajuda sobre corpo', 'aj.camadas': 'ajuda sobre camadas',
@@ -2303,6 +2350,12 @@ var MC = (function () {
       'av.paredeFina': 'Parede de {0} mm entre o furo e a borda do aro. Abaixo de 0,8 mm a peça rasga ao pendurar: afine o furo, alargue o aro ou mexa na posição.',
       'g.sem': 'sem',
 
+      'apo.intro': 'Grátis, sem anúncio e sem rastreamento. Se ele te poupou trabalho:',
+      'apo.aria': 'formas de apoiar o projeto',
+      'apo.alt': 'Ou, sem gastar nada — baixe e curta meus modelos:',
+      'apo.aria2': 'meus modelos para imprimir',
+      'apo.feito': 'Feito por',
+
       'pop.projeto': '<h3>Projeto</h3> <p>O nome batiza os arquivos que você baixa (.3mf, .obj, .png, .json) e vai no título da peça dentro do 3MF.</p>',
       'pop.placa': '<h3>Placa</h3> <p>A base é a espessura da chapa, em milímetros. A escala começa em 0,4 mm, que são duas camadas de 0,2. Abaixo de 1 mm, um disco de 120 mm empena.</p> <p>Ligar <em>base sólida</em> faz a chapa inteira sair na cor da placa, com o desenho colorido só por cima. Isso corta a purga do AMS. Sem ela, cada poça é extrudada desde o plano da mesa e a cor atravessa a peça toda.</p>',
       'pop.filete': '<h3>Filete</h3> <p>O filete é a linha que sobe e represa o esmalte. O degrau diz quanto cada nível de camada sobe em relação ao anterior.</p> <p>Com <em>mesma altura</em> ligada, todas as camadas ficam no mesmo patamar: um nível para as poças, um para o filete. Cone e aro mantêm altura própria. Desligue para escalonar camada a camada, pelo campo <em>Nível</em> de cada uma.</p> <p>A opção <em>suavizar</em> troca o degrau vertical da borda por uma rampa de uma célula, tirando o serrilhado da malha exportada. Desligue só para comparar.</p>',
@@ -2320,6 +2373,7 @@ var MC = (function () {
 
       'fs.projeto': 'Project', 'fs.placa': 'Plate', 'fs.filete': 'Wire',
       'fs.furos': 'Centre and holes', 'fs.corpo': 'Body', 'fs.camadas': 'Layers', 'fs.cores': 'Colours',
+      'fs.apoio': 'Support the project',
       'aj.projeto': 'help about project', 'aj.placa': 'help about the plate',
       'aj.filete': 'help about the wire', 'aj.furos': 'help about centre and holes',
       'aj.corpo': 'help about the body', 'aj.camadas': 'help about layers',
@@ -2402,6 +2456,12 @@ var MC = (function () {
       'av.semAro': 'With no rim the hole lands on the drawing itself. Widen the <b>Rim</b> or turn the hole off.',
       'av.paredeFina': 'Only {0} mm of wall between the hole and the edge of the rim. Below 0.8 mm the piece tears when hung: thin the hole, widen the rim, or move its position.',
       'g.sem': 'none',
+
+      'apo.intro': 'Free, no ads, no tracking. If it saved you some work:',
+      'apo.aria': 'ways to support the project',
+      'apo.alt': 'Or, for free — download and like my models:',
+      'apo.aria2': 'my models to print',
+      'apo.feito': 'Built by',
 
       'pop.projeto': '<h3>Project</h3> <p>The name goes on every file you download (.3mf, .obj, .png, .json) and into the part title inside the 3MF.</p>',
       'pop.placa': '<h3>Plate</h3> <p>The base is the thickness of the plate, in millimetres. The scale starts at 0.4 mm, which is two 0.2 layers. Below 1 mm a 120 mm disc warps.</p> <p>Turning on <em>solid base</em> prints the whole base in the plate colour, with the drawing coloured only on top. That cuts AMS purge. Without it, every pool is extruded from the bed and its colour runs through the entire piece.</p>',
