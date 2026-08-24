@@ -38,6 +38,21 @@ no PATH: ele procura em `~/.nvm/versions/node/*/bin/node` e aceita a variável `
 `exemplo_mandala.jpg` é a foto de referência que originou o gerador cloisonné (o preset
 `incensário` é a tentativa de reproduzi-la).
 
+### Publicar
+
+O que está no ar em `alexfalcao.pro.br/mandala/` é uma **cópia** de três itens deste repo —
+`index.html`, `mandala-cloisonne.html` e `img/` — dentro do repo do site pessoal, que é um
+GitHub Pages com deploy a partir do `main` dele. **Este repo é a fonte da verdade**: editar a
+cópia no lugar faz a próxima publicação reverter a edição em silêncio.
+
+Isso já aconteceu duas vezes (o cartão Open Graph e o rodapé sem "zero dependências" nasceram
+no repo do site e foram retroportados à mão; convergiu porque alguém lembrou). Daí o
+`publicar.sh`: `--verificar` responde se o publicado está em dia sem escrever nada, e sem
+argumento ele copia — recusando se houver alteração não commitada aqui, para o commit do site
+não apontar para um estado que não existe no histórico.
+
+⚠️ Este repo **não tem remote**. Ele existe num disco só.
+
 **Leia o `MANDALA-CLOISONNE.md` antes de mexer na geometria** — as fórmulas de cada motivo,
 o modelo de dados e as armadilhas estão lá, não no código.
 
@@ -47,6 +62,9 @@ o modelo de dados e as armadilhas estão lá, não no código.
 node teste-cloisonne.js       # suíte do cloisonné           (8 casos + fuzz 40× + exportação)
 python3 teste-contorno.py     # suíte da via por contorno     (5 presets, ~12 s)
 open mandala-cloisonne.html   # abrir o app no navegador (é só o arquivo, não há servidor)
+
+./publicar.sh --verificar     # o que está no ar confere com este repo?
+./publicar.sh                 # copiar daqui para alexfalcao.pro.br/mandala/
 
 python3 exportar.py preset:incenso saida.3mf   # exportação por contorno, bordas lisas
 python3 exportar.py minha.json peca.3mf --impressora a1   # h2c (padrão), a1, p1s ou x1c
