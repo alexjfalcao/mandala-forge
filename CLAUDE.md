@@ -38,27 +38,6 @@ no PATH: ele procura em `~/.nvm/versions/node/*/bin/node` e aceita a variável `
 `exemplo_mandala.jpg` é a foto de referência que originou o gerador cloisonné (o preset
 `incensário` é a tentativa de reproduzi-la).
 
-### Publicar
-
-O que está no ar em `alexfalcao.pro.br/mandala/` é uma **cópia** de três itens deste repo —
-`index.html`, `mandala-cloisonne.html` e `img/` — dentro do repo do site pessoal, que é um
-GitHub Pages com deploy a partir do `main` dele. **Este repo é a fonte da verdade**: editar a
-cópia no lugar faz a próxima publicação reverter a edição em silêncio.
-
-Isso já aconteceu duas vezes (o cartão Open Graph e o rodapé sem "zero dependências" nasceram
-no repo do site e foram retroportados à mão; convergiu porque alguém lembrou).
-
-**Quem publica é o `publicar.sh`, e ele mora no repo do site**, não aqui — o destino é de lá,
-e é lá que o caminho da máquina do autor está em casa. Rodado de dentro de
-`alexfalcao.pro.br`, ele puxa daqui: `--verificar` responde se a cópia está em dia sem
-escrever nada, e sem argumento ele copia — recusando se houver alteração não commitada
-**neste** repo, para o commit do site não apontar para um estado que não existe em nenhum
-histórico. A origem é `$MANDALA`, com padrão para `~/Documents/Projetos/Mandala`.
-
-O `LICENSE` viaja junto, como `LICENSE.txt`: a AGPL manda entregar uma cópia da licença
-com o programa, e o programa é servido dali. Vira `.txt` porque sem extensão o GitHub Pages
-serve como `octet-stream` e o navegador baixa em vez de mostrar.
-
 ### Licença
 
 **AGPL-3.0.** A escolha veio de o app ser UM arquivo: copiar e hospedar em outro domínio é
@@ -72,8 +51,8 @@ canônico na `gnu.org`, e **não** para o repo: assim funciona servido, funciona
 depende de o repo estar público.
 
 ⚠️ Não há build nem minificação: **o HTML servido já é a fonte correspondente completa**, o
-que é o que satisfaz a seção 13 da AGPL. O link `Source:` do cabeçalho é cortesia — mas
-aponta para um repo hoje privado, e precisa passar a resolver quando o app for republicado.
+que é o que satisfaz a seção 13 da AGPL. O link `Source:` do cabeçalho é cortesia, e aponta
+para este repo — enquanto ele for privado, o link não resolve para ninguém.
 
 **Leia o `MANDALA-CLOISONNE.md` antes de mexer na geometria** — as fórmulas de cada motivo,
 o modelo de dados e as armadilhas estão lá, não no código.

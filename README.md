@@ -100,9 +100,6 @@ in every configuration.
 | `exportar.py` · `amostrar.js` | Command-line export path |
 | `teste-cloisonne.js` · `teste-contorno.py` | The two suites |
 
-Publishing to the live site is done from the site's own repository, which keeps a script
-that pulls these files in — this repo is the source, never the destination.
-
 Read `MANDALA-CLOISONNE.md` before touching the geometry — the formulas and the traps live
 there, not in the code.
 
