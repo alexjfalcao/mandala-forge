@@ -1797,6 +1797,14 @@ var MC = (function () {
   /* =======================================================================
      Peça inteira por contorno: uma malha fechada por cor.
      ======================================================================= */
+  /* O mesmo hex em caixas diferentes é a MESMA cor, e emitir uma peça para cada
+     pede dois filamentos do AMS para pintar igual — era o "reduzi para 4 e abriu
+     com 5". Entrava por `reduzCores`, que reescreve em minúsculo só as camadas
+     que fundiu e deixa as intocadas na caixa original das PALETAS. A defesa fica
+     aqui, no único lugar que decide quantas peças o arquivo pede, e vale para
+     qualquer cfg — inclusive `.json` de fora. */
+  function corChave(c) { return String(c == null ? '' : c).toLowerCase(); }
+
   function buildContorno(cfg, N, SUB) {
     N = N || 700;
     // SUB ímpar de propósito: com SUB par a cobertura pode dar exatamente 0,5,
@@ -1809,13 +1817,15 @@ var MC = (function () {
       var reg = C.regs[i];
       var m = malhaRegiao(C.cov[i], C.N, C.quadro, C.passo, reg.z, reg.z0 || 0);
       if (!m.tris) continue;
-      if (!porCor[reg.cor]) { porCor[reg.cor] = []; ordem.push(reg.cor); }
-      porCor[reg.cor].push(m);
+      var k = corChave(reg.cor);
+      if (!porCor[k]) { porCor[k] = []; ordem.push(k); }
+      porCor[k].push(m);
     }
     var cone = coneMalha(cfg);
     if (cone && cone.tris) {
-      if (!porCor[cfg.corBase]) { porCor[cfg.corBase] = []; ordem.push(cfg.corBase); }
-      porCor[cfg.corBase].push(cone);
+      var kb = corChave(cfg.corBase);
+      if (!porCor[kb]) { porCor[kb] = []; ordem.push(kb); }
+      porCor[kb].push(cone);
     }
     var pecas = [], maxZ = 0;
     for (i = 0; i < ordem.length; i++) {
@@ -1894,13 +1904,13 @@ var MC = (function () {
      cinco tons para seis papéis, e repetir na poça mais clara é o que menos
      estraga o desenho. */
   var PALETAS = {
-    agua:   { rot: 'pal.agua',   base: '#0B3954', fundo: '#087E8B', fio: '#D6F0EF', cores: ['#087E8B', '#3CAEA3', '#7BC8C4', '#D6F0EF'] },
-    ar:     { rot: 'pal.ar',     base: '#536878', fundo: '#7899A8', fio: '#F3F7F8', cores: ['#7899A8', '#A9C5D1', '#D3E3E8', '#F3F7F8'] },
-    fogo:   { rot: 'pal.fogo',   base: '#5C0A0A', fundo: '#A91B0D', fio: '#FFD166', cores: ['#A91B0D', '#E04424', '#F28C28', '#FFD166'] },
-    terra:  { rot: 'pal.terra',  base: '#49301F', fundo: '#704214', fio: '#D8C3A5', cores: ['#704214', '#9A6845', '#C49463', '#D8C3A5'] },
-    sol:    { rot: 'pal.sol',    base: '#7A4E00', fundo: '#B77900', fio: '#FFE8A3', cores: ['#B77900', '#D9A514', '#F2C94C', '#FFE8A3'] },
-    lua:    { rot: 'pal.lua',    base: '#171B3A', fundo: '#292F5B', fio: '#D9D8E8', cores: ['#292F5B', '#514F82', '#8584A6', '#D9D8E8'] },
-    dark:   { rot: 'pal.dark',   base: '#0B0D10', fundo: '#1B1F24', fio: '#A7ADB4', cores: ['#1B1F24', '#343A40', '#5C636A', '#A7ADB4'] },
+    agua:   { rot: 'pal.agua',   base: '#0b3954', fundo: '#087e8b', fio: '#d6f0ef', cores: ['#087e8b', '#3caea3', '#7bc8c4', '#d6f0ef'] },
+    ar:     { rot: 'pal.ar',     base: '#536878', fundo: '#7899a8', fio: '#f3f7f8', cores: ['#7899a8', '#a9c5d1', '#d3e3e8', '#f3f7f8'] },
+    fogo:   { rot: 'pal.fogo',   base: '#5c0a0a', fundo: '#a91b0d', fio: '#ffd166', cores: ['#a91b0d', '#e04424', '#f28c28', '#ffd166'] },
+    terra:  { rot: 'pal.terra',  base: '#49301f', fundo: '#704214', fio: '#d8c3a5', cores: ['#704214', '#9a6845', '#c49463', '#d8c3a5'] },
+    sol:    { rot: 'pal.sol',    base: '#7a4e00', fundo: '#b77900', fio: '#ffe8a3', cores: ['#b77900', '#d9a514', '#f2c94c', '#ffe8a3'] },
+    lua:    { rot: 'pal.lua',    base: '#171b3a', fundo: '#292f5b', fio: '#d9d8e8', cores: ['#292f5b', '#514f82', '#8584a6', '#d9d8e8'] },
+    dark:   { rot: 'pal.dark',   base: '#0b0d10', fundo: '#1b1f24', fio: '#a7adb4', cores: ['#1b1f24', '#343a40', '#5c636a', '#a7adb4'] },
     vitral: { rot: 'pal.vitral', base: '#5b2a7a', fundo: '#2c1233', fio: '#f6f2e8', cores: ['#ee8a2b', '#f2d02c', '#b06fd0', '#e8536f'] },
     jade:   { rot: 'pal.jade',   base: '#1d3b2a', fundo: '#0d2118', fio: '#f2efe4', cores: ['#d9a441', '#7fbf6a', '#e0705a', '#bfd8a0'] }
   };
@@ -2856,6 +2866,17 @@ var MC = (function () {
     drawPanel(); schedule();
     return fusoes;
   }
+  /* Caixa das cores, normalizada em todo lugar onde cor mora na config. As
+     PALETAS e os presets já nascem em minúsculo e o `input[type=color]` devolve
+     minúsculo, mas um `.json` de fora pode trazer qualquer coisa — e hex igual
+     em caixas diferentes vira filamento a mais no AMS. */
+  function normCores(c) {
+    if (!c) return c;
+    var bx = function (h) { return typeof h === 'string' ? h.toLowerCase() : h; };
+    c.corBase = bx(c.corBase); c.corFio = bx(c.corFio);
+    (c.camadas || []).forEach(function (k) { k.cor = bx(k.cor); k.cor2 = bx(k.cor2); });
+    return c;
+  }
   /* substitui uma cor por outra em todo lugar onde cor mora na config */
   function trocaCor(de, para) {
     if ((cfg.corBase || '').toLowerCase() === de) cfg.corBase = para;
@@ -3382,7 +3403,7 @@ var MC = (function () {
         marca();
         cfg = Object.assign(MC.defaults(), o);
         cfg.camadas = o.camadas.map(function (x) { return C(x); });
-        migraFase(cfg);
+        migraFase(cfg); normCores(cfg);
         open = {}; drawPanel(); schedule();
         aviso(t('av.carregada'));
       } catch (err) { alert(t('av.invalido') + err.message); }

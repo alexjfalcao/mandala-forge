@@ -511,12 +511,51 @@ async function checaMaquinas() {
     const exp = MC.buildContorno(clone(cfg), 240, 3).paleta.map(c => c.toLowerCase()).sort();
     const soExp = exp.filter(c => badge.indexOf(c) < 0);
     const soBadge = badge.filter(c => exp.indexOf(c) < 0);
-    const ok = !soExp.length && !soBadge.length;
+    // comparar CONJUNTO não basta: uma paleta com a mesma cor duas vezes não
+    // produz diferença de conjunto nenhuma e passava limpo, enquanto o AMS
+    // recebia um filamento a mais para pintar igual
+    const rep = exp.filter((c, i) => exp.indexOf(c) !== i);
+    const ok = !soExp.length && !soBadge.length && exp.length === badge.length;
     if (!ok) ruins++;
     console.log('  ' + (ok ? 'ok  ' : 'FALHA ') + name.padEnd(24) +
       ' rodapé=' + badge.length + ' exportação=' + exp.length +
+      (rep.length ? '  REPETIDA na paleta: ' + rep.join(',') : '') +
       (soExp.length ? '  só na exportação: ' + soExp.join(',') : '') +
       (soBadge.length ? '  só no rodapé: ' + soBadge.join(',') : ''));
+  }
+  fail += ruins;
+}
+
+// Caixa do hex não é identidade de cor. `reduzCores` reescreve em minúsculo só
+// as camadas que fundiu, então um cfg reduzido fica misto — e `buildContorno`
+// indexava pela string crua, emitindo #d3e3e8 e #D3E3E8 como duas peças. O
+// usuário pedia 4 cores, o rodapé mostrava 4 e o 3MF pedia 5 filamentos, dois
+// deles da mesma cor.
+//
+// A colisão é CONSTRUÍDA, não sorteada: embaralhar a caixa ao acaso quase nunca
+// põe a mesma cor em duas caixas diferentes, e o teste passava com o bug no
+// lugar. Aqui duas cores comprovadamente visíveis são fundidas numa só, e a
+// vítima recebe a caixa oposta — que é exatamente o que a redução produz.
+{
+  let ruins = 0;
+  console.log('\ncaixa do hex misturada × uma peça por cor:');
+  for (const [name, base] of cases) {
+    const pal0 = MC.buildContorno(clone(base), 240, 3).paleta;
+    if (pal0.length < 2) { console.log('  --  ' + name.padEnd(24) + ' (uma cor só, nada a colidir)'); continue; }
+    const alvo = pal0[0].toLowerCase(), vitima = pal0[1].toLowerCase();
+    const cfg = clone(base);
+    const bx = (h) => (typeof h === 'string' && h.toLowerCase() === vitima) ? alvo.toUpperCase() : h;
+    cfg.corBase = bx(cfg.corBase); cfg.corFio = bx(cfg.corFio);
+    cfg.camadas.forEach(c => { c.cor = bx(c.cor); c.cor2 = bx(c.cor2); });
+
+    const pal = MC.buildContorno(cfg, 240, 3).paleta;
+    const distintas = new Set(pal.map(c => c.toLowerCase())).size;
+    const ok = pal.length === distintas;
+    if (!ok) ruins++;
+    const baixa = pal.map(c => c.toLowerCase());
+    console.log('  ' + (ok ? 'ok  ' : 'FALHA ') + name.padEnd(24) +
+      ' ' + pal0.length + ' cores → fundi 2 → peças=' + pal.length + ' distintas=' + distintas +
+      (ok ? '' : '  REPETIDAS: ' + pal.filter((c, i) => baixa.indexOf(c.toLowerCase()) !== i).join(',')));
   }
   fail += ruins;
 }

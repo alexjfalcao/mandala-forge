@@ -378,6 +378,22 @@ mas **conta no alvo**, que é o número de slots do AMS. A suíte confere que as
 `varreCores()` conta são exatamente a paleta de `buildContorno`: sem isso, pedir 4 poderia
 render 5 filamentos no 3MF.
 
+**Caixa do hex não é identidade de cor.** `buildContorno` indexa as peças por
+`corChave(cor)` — minúsculo — porque `#d3e3e8` e `#D3E3E8` são a MESMA cor e emitir uma peça
+para cada pede dois filamentos do AMS para pintar igual. O caminho que produzia isso era
+`reduzCores`, que reescreve em minúsculo só as camadas que fundiu e deixa as intocadas na
+caixa original: pedir 4 cores dava 5 peças em ~43% das mandalas do preset `aleatorio`. As
+`PALETAS` e os presets agora nascem em minúsculo, `normCores(cfg)` normaliza `.json` que vem
+de fora, e a suíte constrói a colisão de propósito (fundir duas cores visíveis numa só,
+trocando a caixa) — embaralhar a caixa ao acaso quase nunca colide e passava com o bug no
+lugar.
+
+⚠️ Sobra um desacordo **de resolução**, não de identidade: a varredura do rodapé é uma grade
+polar 120 × ~720 e a exportação é marching squares em 200–700, então uma região fina pode
+existir para um e não para o outro. Medido em ~2% das mandalas do `aleatorio`, nas duas
+direções (rodapé 4 × exportação 5, e o inverso). Aumentar a resolução da varredura não
+resolve — o desacordo é dos dois lados.
+
 `varreCores()` é a fonte única das cores em uso — badge, quadradinhos do rodapé e remapeamento
 de paleta. Pesa cada amostra pelo raio e só enxerga cor **visível**. `cfg.nome` vira nome de
 arquivo por `nomeArquivo()`. O app abre no preset `aleatorio`. Detalhes na seção 10 do
