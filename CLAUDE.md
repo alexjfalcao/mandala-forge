@@ -46,10 +46,14 @@ GitHub Pages com deploy a partir do `main` dele. **Este repo é a fonte da verda
 cópia no lugar faz a próxima publicação reverter a edição em silêncio.
 
 Isso já aconteceu duas vezes (o cartão Open Graph e o rodapé sem "zero dependências" nasceram
-no repo do site e foram retroportados à mão; convergiu porque alguém lembrou). Daí o
-`publicar.sh`: `--verificar` responde se o publicado está em dia sem escrever nada, e sem
-argumento ele copia — recusando se houver alteração não commitada aqui, para o commit do site
-não apontar para um estado que não existe no histórico.
+no repo do site e foram retroportados à mão; convergiu porque alguém lembrou).
+
+**Quem publica é o `publicar.sh`, e ele mora no repo do site**, não aqui — o destino é de lá,
+e é lá que o caminho da máquina do autor está em casa. Rodado de dentro de
+`alexfalcao.pro.br`, ele puxa daqui: `--verificar` responde se a cópia está em dia sem
+escrever nada, e sem argumento ele copia — recusando se houver alteração não commitada
+**neste** repo, para o commit do site não apontar para um estado que não existe em nenhum
+histórico. A origem é `$MANDALA`, com padrão para `~/Documents/Projetos/Mandala`.
 
 O `LICENSE` viaja junto, como `LICENSE.txt`: a AGPL manda entregar uma cópia da licença
 com o programa, e o programa é servido dali. Vira `.txt` porque sem extensão o GitHub Pages
@@ -80,9 +84,6 @@ o modelo de dados e as armadilhas estão lá, não no código.
 node teste-cloisonne.js       # suíte do cloisonné           (8 casos + fuzz 40× + exportação)
 python3 teste-contorno.py     # suíte da via por contorno     (5 presets, ~12 s)
 open mandala-cloisonne.html   # abrir o app no navegador (é só o arquivo, não há servidor)
-
-./publicar.sh --verificar     # o que está no ar confere com este repo?
-./publicar.sh                 # copiar daqui para alexfalcao.pro.br/mandala/
 
 python3 exportar.py preset:incenso saida.3mf   # exportação por contorno, bordas lisas
 python3 exportar.py minha.json peca.3mf --impressora a1   # h2c (padrão), a1, p1s ou x1c
