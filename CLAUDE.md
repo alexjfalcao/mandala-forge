@@ -193,9 +193,11 @@ Consequências práticas ao mexer:
   extrusor. Nada disso dá erro de leitura: o arquivo abre e falha só no fatiamento
   ("No valid nozzle found", e na interface "Wipe tower generation failed, possibly due to
   empty first layer").
-- **A matriz de purga escapa do `--slice`.** Com o tamanho errado o CLI fatia e devolve
-  `return_code: 0`; só a interface recusa, com "Flush volumes matrix do not match to the
-  correct size!". Conferir o tamanho `bicos × N²` na suíte é o único guarda-corpo.
+- **`return_code: 0` não é critério.** A matriz de purga torta o CLI pega (`-100`, "Flush
+  volumes matrix do not match to the correct size!"), mas o `filament_self_index` errado
+  fatia com `return_code: 0` e deixa o erro só no log — filtre por `could not found
+  extruder_type|No valid nozzle|Flush volumes|unprintable area`. Conferir os tamanhos na
+  suíte continua sendo o guarda-corpo barato.
 - **Quatro impressoras, por delta.** `PERFIL_BAMBU` é o molde do H2C; `PERFIS_MAQUINA` traz
   A1, P1S e X1C como as ~200 chaves que diferem, e `perfilDe(maq)` monta o perfil completo.
   Delta porque as três são **mono-extrusor**: as chaves "por extrusor" e "por variante" mudam

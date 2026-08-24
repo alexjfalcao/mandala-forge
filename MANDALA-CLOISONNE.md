@@ -578,11 +578,25 @@ peça flutuando — toda peça é extrudada de `z=0` e o `--info` confirma `min_
 ⚠️ **A matriz de purga é `bicos × N²`, não `N²`.** O tamanho foi levantado em 13 projetos
 escritos pelo próprio Bambu, e não tem exceção: P1S N=5 (1 bico) → 25; H2C N=5 (2 bicos) → 50;
 H2C N=1 → 2; H2D N=2 → 8; A1 N=2 → 4; mini N=3 → 9; N=6 (1 bico) → 36. São `bicos` blocos N×N
-consecutivos, cada um com diagonal zero. **`--slice` não pega esse erro** — o CLI fatia um
-projeto com a matriz torta e devolve `return_code: 0`; quem recusa é a interface, com
-"Flush volumes matrix do not match to the correct size!" (em pt-BR, "Os volumes de descarga
-não correspondem como tamanho correto!"). Foi por esse buraco que a matriz fixa de 16 entradas
-ficou meses no gerador: batia por acaso com quatro cores e quebrava em cinco ou seis.
+consecutivos, cada um com diagonal zero. O CLI **pega** esse erro: remedido em 23/08/2026 no
+BambuStudio 02.08.02.61 com um disco de 6 cores no H2C, cortando a matriz para 36 (`N²`) e
+para 16 (o 4×4 do molde antigo) onde cabiam 72, o `--slice` devolveu `return_code: -100`,
+`"Failed slicing the model."` e, no log, "Flush volumes matrix do not match to the correct
+size!" (em pt-BR, "Os volumes de descarga não correspondem como tamanho correto!") — a mesma
+frase que a interface mostra. A matriz fixa de 16 entradas ficou meses no gerador porque
+batia por acaso com quatro cores, não porque o CLI a deixasse passar.
+
+⚠️ **O que escapa mesmo do `--slice` é o `filament_self_index`.** Com ele todo `"1"`, o mesmo
+disco de 6 cores fatiou com `return_code: 0`, `"Success."` e gcode escrito — as cinco linhas de
+`could not found extruder_type Direct Drive, ... filament_index 2..6` ficaram só no log. Logo
+**o código de saída não é o critério**: filtre o log por
+
+```
+could not found extruder_type | No valid nozzle | Flush volumes | unprintable area
+```
+
+Ruído benigno: três `[error] Invalid T command (T1001/T65535/T65279)` aparecem também nos
+arquivos bons — vêm do `change_filament_gcode` do próprio Bambu.
 
 ### A torre de purga
 
@@ -708,9 +722,11 @@ D="$HOME/Library/Application Support/BambuStudio"
 "$B" --datadir "$D" --export-3mf volta.3mf --outputdir /caminho/abs/saida /caminho/abs/mandala.3mf
 ```
 
-⚠️ **`--slice` é o único teste que pega perfil torto.** `--info` e `--export-3mf` passam com
-um `project_settings.config` que o fatiador não consegue usar: foi exatamente esse o buraco
-por onde entrou o bug da torre de purga. Espere `"error_string": "Success."` e
+⚠️ **`--slice` é o único teste que pega perfil torto** — e mesmo ele não pega tudo (o
+`filament_self_index` errado fatia com `return_code: 0`; ver a seção do `projetoBambu`).
+`--info` e `--export-3mf` passam com um `project_settings.config` que o fatiador não consegue
+usar: foi exatamente esse o buraco por onde entrou o bug da torre de purga. Espere
+`"error_string": "Success."`, o log limpo e
 `"return_code": 0` no `saida/result.json`, com um `sliced_plates[0].filaments` por cor e
 tempo em `feature_type_times["Prime tower"]`. O `--outputdir` tem que existir, e o nome do
 `--export-3mf` é **relativo** a ele (com caminho absoluto o Bambu concatena os dois e falha).
@@ -824,8 +840,8 @@ e confere, para cada caso:
    `flush_multiplier`/`_fast` com uma entrada por bico, `inherits_group` e
    `different_settings_to_system` com N+2, `extruder_nozzle_stats` com uma entrada por
    extrusor. Errar qualquer uma delas **não** dá erro de leitura: o arquivo abre e falha só
-   no fatiamento — e a matriz de purga falha só na **interface**, não no `--slice`
-   (ver seção 7);
+   no fatiamento — e o `filament_self_index` errado nem isso, fatia com `return_code: 0` e
+   deixa o erro só no log (ver seção 7);
 8. a torre de purga dentro da caixa que **todos** os extrusores alcançam.
 
 No OBJ: `usemtl` em toda face, um material por peça, todo índice no intervalo e todo material
