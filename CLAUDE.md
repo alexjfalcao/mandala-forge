@@ -38,6 +38,17 @@ no PATH: ele procura em `~/.nvm/versions/node/*/bin/node` e aceita a variável `
 `exemplo_mandala.jpg` é a foto de referência que originou o gerador cloisonné (o preset
 `incensário` é a tentativa de reproduzi-la).
 
+### Versão
+
+`MC.VERSAO` no núcleo é a **fonte única**. A tela lê dali
+(`getElementById('ver').textContent = 'v' + MC.VERSAO`) em vez de trazer o número escrito à
+mão, e a suíte confere as duas coisas — o formato e o fato de a tela ler do núcleo — para não
+existirem dois lugares para incrementar. Aparece na linha do crédito, entre o autor e a
+licença, como texto simples: os dois vizinhos são links, e a versão não é.
+
+Fica no núcleo, e não no bloco de UI, porque é o que `teste-cloisonne.js` e `amostrar.js`
+alcançam por `vm`.
+
 ### Licença
 
 **AGPL-3.0.** A escolha veio de o app ser UM arquivo: copiar e hospedar em outro domínio é

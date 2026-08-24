@@ -374,7 +374,7 @@
           <a href="https://makerworld.com/pt/@alexjfalcao" target="_blank" rel="noopener noreferrer">MakerWorld</a>
           <a href="https://cults3d.com/pt/usuarios/alexjfalcao" target="_blank" rel="noopener noreferrer">Cults3D</a>
         </nav>
-        <p class="feito"><span data-i18n="apo.feito">Feito por</span> <a href="https://www.alexfalcao.pro.br" target="_blank" rel="noopener noreferrer">Alex Falcão</a> · <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer" data-i18n-title="apo.lic">AGPL-3.0</a></p>
+        <p class="feito"><span data-i18n="apo.feito">Feito por</span> <a href="https://www.alexfalcao.pro.br" target="_blank" rel="noopener noreferrer">Alex Falcão</a> · <span id="ver" data-i18n-title="apo.ver"></span> · <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer" data-i18n-title="apo.lic">AGPL-3.0</a></p>
       </fieldset>
     </div>
   </aside>
@@ -461,6 +461,10 @@
    esmalte. Sem qualquer dependência de DOM (é testável fora do navegador).
    ========================================================================= */
 var MC = (function () {
+  /* Fonte única da versão. Fica no núcleo, não no bloco de UI, porque é o que a
+     suíte e o `amostrar.js` alcançam — e a tela lê daqui, para não haver dois
+     lugares para incrementar. */
+  var VERSAO = '1.0.0';
   'use strict';
   var TAU = Math.PI * 2, PI = Math.PI;
 
@@ -1869,7 +1873,8 @@ var MC = (function () {
     cobertura: cobertura, malhaRegiao: malhaRegiao, coneMalha: coneMalha, buildContorno: buildContorno,
     dist: dist, perfil: perfil, amostra: amostra, altura: altura, alturaMax: alturaMax,
     solid: solid, alturaNo: alturaNo, MAQUINAS: MAQUINAS, perfilDe: perfilDe, centroMesa: centroMesa, resolution: resolution, resolucaoContorno: resolucaoContorno, buildMesh: buildMesh,
-    to3MF: to3MF, toOBJ: toOBJ, audit: audit, clamp: clamp
+    to3MF: to3MF, toOBJ: toOBJ, audit: audit, clamp: clamp,
+    VERSAO: VERSAO
   };
 })();
 </script>
@@ -2384,6 +2389,7 @@ var MC = (function () {
       'apo.alt': 'Ou, sem gastar nada — baixe e curta meus modelos:',
       'apo.aria2': 'meus modelos para imprimir',
       'apo.feito': 'Feito por', 'apo.lic': 'termos da licença deste programa',
+      'apo.ver': 'versão deste gerador',
 
       'pop.projeto': '<h3>Projeto</h3> <p>O nome batiza os arquivos que você baixa (.3mf, .obj, .png, .json) e vai no título da peça dentro do 3MF.</p>',
       'pop.placa': '<h3>Placa</h3> <p>A base é a espessura da chapa, em milímetros. A escala começa em 0,4 mm, que são duas camadas de 0,2. Abaixo de 1 mm, um disco de 120 mm empena.</p> <p>Ligar <em>base sólida</em> faz a chapa inteira sair na cor da placa, com o desenho colorido só por cima. Isso corta a purga do AMS. Sem ela, cada poça é extrudada desde o plano da mesa e a cor atravessa a peça toda.</p>',
@@ -2491,6 +2497,7 @@ var MC = (function () {
       'apo.alt': 'Or, for free — download and like my models:',
       'apo.aria2': 'my models to print',
       'apo.feito': 'Built by', 'apo.lic': "this program's licence terms",
+      'apo.ver': 'version of this generator',
 
       'pop.projeto': '<h3>Project</h3> <p>The name goes on every file you download (.3mf, .obj, .png, .json) and into the part title inside the 3MF.</p>',
       'pop.placa': '<h3>Plate</h3> <p>The base is the thickness of the plate, in millimetres. The scale starts at 0.4 mm, which is two 0.2 layers. Below 1 mm a 120 mm disc warps.</p> <p>Turning on <em>solid base</em> prints the whole base in the plate colour, with the drawing coloured only on top. That cuts AMS purge. Without it, every pool is extruded from the bed and its colour runs through the entire piece.</p>',
@@ -3448,6 +3455,7 @@ var MC = (function () {
   document.querySelectorAll('[data-lang]').forEach(function (b) {
     b.addEventListener('click', function () { trocaIdioma(b.dataset.lang); });
   });
+  document.getElementById('ver').textContent = 'v' + MC.VERSAO;
   aplicaIdioma();
   schedule();
 })();

@@ -526,6 +526,17 @@ async function checaMaquinas() {
   fail += ruins;
 }
 
+// A versão é uma só, e mora no núcleo: a tela lê MC.VERSAO em vez de trazer o
+// número escrito à mão, senão passam a existir dois lugares para incrementar e
+// um deles fica para trás.
+{
+  const ok = /^\d+\.\d+\.\d+$/.test(String(MC.VERSAO || ''));
+  const naTela = /getElementById\('ver'\)\.textContent = 'v' \+ MC\.VERSAO/.test(html);
+  console.log('\nversão: ' + (ok ? 'ok  ' : 'FALHA ') + 'MC.VERSAO=' + MC.VERSAO +
+    '  ' + (naTela ? 'ok   a tela lê do núcleo' : 'FALHA a tela não lê do núcleo'));
+  if (!ok || !naTela) fail++;
+}
+
 // Caixa do hex não é identidade de cor. `reduzCores` reescreve em minúsculo só
 // as camadas que fundiu, então um cfg reduzido fica misto — e `buildContorno`
 // indexava pela string crua, emitindo #d3e3e8 e #D3E3E8 como duas peças. O
