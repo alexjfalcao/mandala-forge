@@ -19,9 +19,18 @@ ORIGEM="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SITE="${SITE:-$HOME/Documents/Projetos/alexfalcao.pro.br}"
 DESTINO="$SITE/mandala"
 
-# Os três itens publicáveis. O resto do repo — suíte, exportador em Python,
-# documentos de referência — não vai para o site.
-ITENS=(index.html mandala-cloisonne.html img)
+# O que é publicável, como "origem|destino". O resto do repo — suíte, exportador
+# em Python, documentos de referência — não vai para o site.
+#
+# O LICENSE vai junto porque a AGPL manda entregar uma cópia da licença com o
+# programa, e o programa é servido dali. Vira .txt no destino: sem extensão, o
+# GitHub Pages serve como octet-stream e o navegador baixa em vez de mostrar.
+ITENS=(
+  "index.html|index.html"
+  "mandala-cloisonne.html|mandala-cloisonne.html"
+  "img|img"
+  "LICENSE|LICENSE.txt"
+)
 
 VERIFICAR=0
 FORCAR=0
@@ -37,11 +46,12 @@ done
 
 # ---------------------------------------------------------------- verificação
 divergiu=0
-for item in "${ITENS[@]}"; do
-  if diff -rq "$ORIGEM/$item" "$DESTINO/$item" >/dev/null 2>&1; then
-    printf '  =  %s\n' "$item"
+for par in "${ITENS[@]}"; do
+  de="${par%%|*}"; para="${par#*|}"
+  if diff -rq "$ORIGEM/$de" "$DESTINO/$para" >/dev/null 2>&1; then
+    printf '  =  %s\n' "$para"
   else
-    printf '  ≠  %s\n' "$item"
+    printf '  ≠  %s\n' "$para"
     divergiu=1
   fi
 done
@@ -53,8 +63,9 @@ if [ "$VERIFICAR" = 1 ]; then
   fi
   echo
   echo "divergiu — rode sem --verificar para publicar. Diferenças:"
-  for item in "${ITENS[@]}"; do
-    diff -rq "$ORIGEM/$item" "$DESTINO/$item" 2>&1 | sed 's/^/    /' || true
+  for par in "${ITENS[@]}"; do
+    de="${par%%|*}"; para="${par#*|}"
+    diff -rq "$ORIGEM/$de" "$DESTINO/$para" 2>&1 | sed 's/^/    /' || true
   done
   exit 1
 fi
@@ -77,16 +88,17 @@ if [ -n "$(git -C "$ORIGEM" status --porcelain 2>/dev/null)" ] && [ "$FORCAR" = 
 fi
 
 echo
-for item in "${ITENS[@]}"; do
+for par in "${ITENS[@]}"; do
+  de="${par%%|*}"; para="${par#*|}"
   # -R para a pasta img; --delete não existe no cp do macOS, então img/ é
   # apagada antes para que arquivo removido aqui suma lá também.
-  if [ -d "$ORIGEM/$item" ]; then
-    rm -rf "${DESTINO:?}/$item"
-    cp -R "$ORIGEM/$item" "$DESTINO/$item"
+  if [ -d "$ORIGEM/$de" ]; then
+    rm -rf "${DESTINO:?}/$para"
+    cp -R "$ORIGEM/$de" "$DESTINO/$para"
   else
-    cp "$ORIGEM/$item" "$DESTINO/$item"
+    cp "$ORIGEM/$de" "$DESTINO/$para"
   fi
-  printf '  → %s\n' "$item"
+  printf '  → %s\n' "$para"
 done
 
 echo

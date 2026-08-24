@@ -51,7 +51,25 @@ no repo do site e foram retroportados à mão; convergiu porque alguém lembrou)
 argumento ele copia — recusando se houver alteração não commitada aqui, para o commit do site
 não apontar para um estado que não existe no histórico.
 
-⚠️ Este repo **não tem remote**. Ele existe num disco só.
+O `LICENSE` viaja junto, como `LICENSE.txt`: a AGPL manda entregar uma cópia da licença
+com o programa, e o programa é servido dali. Vira `.txt` porque sem extensão o GitHub Pages
+serve como `octet-stream` e o navegador baixa em vez de mostrar.
+
+### Licença
+
+**AGPL-3.0.** A escolha veio de o app ser UM arquivo: copiar e hospedar em outro domínio é
+trivial, e a AGPL é o que obriga quem faz isso a publicar a versão modificada. Os dois HTML
+levam o aviso completo em comentário logo **depois** do `<meta charset>` — não antes, porque
+a declaração de charset precisa cair nos primeiros 1024 bytes e o aviso sozinho tem quase 900.
+
+Na tela, a licença aparece como um link `AGPL-3.0` na linha do crédito (no app, dentro de
+`Apoie o projeto`; na landing, à direita da primeira linha do rodapé). Ele aponta para o texto
+canônico na `gnu.org`, e **não** para o repo: assim funciona servido, funciona local e não
+depende de o repo estar público.
+
+⚠️ Não há build nem minificação: **o HTML servido já é a fonte correspondente completa**, o
+que é o que satisfaz a seção 13 da AGPL. O link `Source:` do cabeçalho é cortesia — mas
+aponta para um repo hoje privado, e precisa passar a resolver quando o app for republicado.
 
 **Leia o `MANDALA-CLOISONNE.md` antes de mexer na geometria** — as fórmulas de cada motivo,
 o modelo de dados e as armadilhas estão lá, não no código.
@@ -330,7 +348,7 @@ estão logo acima, em `.refs`. Duas chaves novas, `rod.apoio` e `rod.doar`, no I
 landing, que é um dicionário próprio e menor, sem relação com o do app.
 
 **A interface é bilíngue; o código não.** `var I18N = { pt: {...}, en: {...} }` no bloco de UI,
-com 179 chaves em cada, e `t(chave, a, b)` interpolando `{0}`/`{1}` (por `split`/`join`, porque
+com 180 chaves em cada, e `t(chave, a, b)` interpolando `{0}`/`{1}` (por `split`/`join`, porque
 uma frase pode repetir o mesmo marcador). O **pt é o fallback**: chave que falte no `en` sai em
 português em vez de sumir.
 
