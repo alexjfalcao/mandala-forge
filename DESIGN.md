@@ -14,6 +14,17 @@ colors:
   signal-ok: "#6ec48b"
   signal-warn: "#e0a458"
   signal-bad: "#e06a5a"
+  well: "#12151c"
+  scroll-thumb: "#33394a"
+  scroll-thumb-hover: "#414962"
+  swatch-hairline: "rgba(255,255,255,.22)"
+  signal-ok-bg: "#152119"
+  signal-ok-line: "#2f4f3c"
+  signal-warn-bg: "#211b12"
+  signal-warn-line: "#4f402a"
+  signal-bad-bg: "#211413"
+  signal-bad-line: "#5a2f2a"
+  signal-bad-wash: "#2a1a18"
 typography:
   display:
     fontFamily: "ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
@@ -27,6 +38,12 @@ typography:
     fontWeight: 700
     lineHeight: 1.1
     letterSpacing: "-0.025em"
+  lede:
+    fontFamily: "ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+    fontSize: "clamp(1rem, 1.8vw, 1.25rem)"
+    fontWeight: 400
+    lineHeight: 1.6
+    letterSpacing: "normal"
   title:
     fontFamily: "ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
     fontSize: "15.5px"
@@ -47,11 +64,15 @@ typography:
     letterSpacing: "0.06em"
     fontFeature: "tabular-nums"
 rounded:
+  hair: "2px"
   xs: "3px"
+  chip: "4px"
   sm: "5px"
+  tab: "6px"
   md: "8px"
   lg: "14px"
   pill: "99px"
+  circle: "50%"
 spacing:
   xs: "6px"
   sm: "10px"
@@ -173,7 +194,8 @@ aparecem quando há o que dizer.
 Os três sinais. Cada um tem um fundo próprio e escuro, nunca o acento:
 - **Verde OK** (`{colors.signal-ok}`): peça fechada, cabe no AMS, fatiou.
 - **Âmbar Aviso** (`{colors.signal-warn}`): passou dos quatro filamentos, parede fina.
-- **Coral Erro** (`{colors.signal-bad}`): não cabe na mesa, ação destrutiva no hover.
+- **Coral Erro** (`{colors.signal-bad}`): não cabe na mesa, e o hover da ação destrutiva, que
+  ganha o banho `{colors.signal-bad-wash}` por trás.
 
 ### Named Rules
 
@@ -200,6 +222,8 @@ tudo que é medida, porque o app inteiro é milímetro.
 ### Hierarchy
 - **Display** (700, `clamp(2.2rem, 5vw, 3.9rem)`, 1.04, `-0.035em`): só o título da landing.
 - **Headline** (700, `clamp(1.6rem, 3.4vw, 2.5rem)`, 1.1, `-0.025em`): título de seção.
+- **Lede** (400, `clamp(1rem, 1.8vw, 1.25rem)`, 1.6): a linha de apoio sob o título do herói,
+  em `ink-muted`. Único degrau entre `body` e `headline`, e só a landing o usa.
 - **Title** (600, 15.5px, `0.04em`, caixa alta): o nome do app no painel. É o único uso de
   caixa alta no sistema.
 - **Body** (400, 15px na landing / 12.5px no app, 1.6): prosa e todo controle. Medida de
@@ -261,9 +285,13 @@ colorido de deslocamento zero é decoração e não entra.
 
 ## Shapes
 
-Cantos suaves e crescentes com o tamanho do container: 3px no botão de passo, 5px em controle
-e botão, 8px em fieldset e popover, 12–16px em cartão de arte. Pílula (99px) só onde a forma
-comunica "etiqueta": badge de estado e pílula de paleta.
+Cantos suaves e crescentes com o tamanho do container: 2–4px em amostra de cor e alvo de
+ícone, 5px em controle e botão, 6px em aba, 8px em fieldset, popover e botão primário da
+landing, 14px em cartão de arte e de galeria. Pílula (99px) só onde a forma comunica
+"etiqueta": badge de estado e pílula de paleta. Círculo (50%) só no `?` da ajuda.
+
+**A Regra da Escada Fechada.** Nove degraus de raio e nenhum a mais. Um valor fora da escada
+é deriva, não decisão: encaixe no degrau vizinho.
 
 Bordas são todas de 1px em `{colors.hairline}`, sem exceção de espessura. Borda lateral
 colorida não existe no sistema.

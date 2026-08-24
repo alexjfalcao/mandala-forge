@@ -55,7 +55,7 @@
 
   .btn{
     display:inline-flex;align-items:center;gap:9px;background:var(--acc);color:var(--on-acc);
-    border:1px solid var(--acc);border-radius:7px;padding:11px 20px;font:inherit;font-weight:600;
+    border:1px solid var(--acc);border-radius:8px;padding:11px 20px;font:inherit;font-weight:600;
     text-decoration:none;cursor:pointer;white-space:nowrap;
     transition:transform .16s var(--e),box-shadow .16s var(--e),filter .16s var(--e);
   }
@@ -86,7 +86,7 @@
     font-weight:700;max-width:14ch;
   }
   .heroi h1 em{font-style:normal;color:var(--acc);display:block}
-  .heroi .lede{color:var(--dim);font-size:clamp(1rem,1.9vw,1.2rem);max-width:56ch;margin:22px 0 0}
+  .heroi .lede{color:var(--dim);font-size:clamp(1rem,1.8vw,1.25rem);max-width:56ch;margin:22px 0 0}
   .acoes{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:30px}
   .selo{color:var(--dim);font-size:var(--fs-sm)}
   .selo b{color:var(--txt);font-weight:600}
@@ -106,7 +106,7 @@
   }
   .tira li:last-child::after{display:none}
   .quadro{
-    display:block;width:100%;background:none;border:1px solid var(--line);border-radius:12px;
+    display:block;width:100%;background:none;border:1px solid var(--line);border-radius:14px;
     padding:0;cursor:pointer;overflow:hidden;color:inherit;text-align:left;font:inherit;
     transition:border-color .2s var(--e),transform .2s var(--e),background .2s var(--e);
   }
@@ -146,13 +146,13 @@
   .passo p{color:var(--dim);max-width:60ch}
   .passo p + p{margin-top:14px}
   .passo .arte-grande{
-    background:var(--sup);border:1px solid var(--line);border-radius:16px;padding:clamp(14px,3vw,34px);
+    background:var(--sup);border:1px solid var(--line);border-radius:14px;padding:clamp(14px,3vw,34px);
     display:grid;place-items:center;box-shadow:0 18px 50px rgba(0,0,0,.35);
   }
 
   /* peças por cor, abertas em leque */
   .leque{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%}
-  .leque figure{margin:0;background:var(--sup2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .leque figure{margin:0;background:var(--sup2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
   .leque img{width:100%}
   .leque figcaption{
     display:flex;align-items:center;gap:6px;padding:6px 8px;font-size:var(--fs-sm);color:var(--dim);
@@ -187,7 +187,7 @@
 
   /* ---------- galeria ---------- */
   .galeria{padding:clamp(60px,8vw,100px) 0;border-top:1px solid var(--line)}
-  .galeria h2{font-size:clamp(1.6rem,3.4vw,2.4rem);letter-spacing:-.025em;font-weight:700;max-width:20ch}
+  .galeria h2{font-size:clamp(1.6rem,3.4vw,2.5rem);letter-spacing:-.025em;font-weight:700;max-width:20ch}
   .galeria .sub{color:var(--dim);margin:14px 0 34px;max-width:62ch}
   .grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:clamp(12px,2vw,22px)}
   .grade figure{margin:0;background:var(--sup);border:1px solid var(--line);border-radius:14px;overflow:hidden}
@@ -196,7 +196,7 @@
 
   /* ---------- ficha ---------- */
   .ficha{padding:clamp(60px,8vw,100px) 0;border-top:1px solid var(--line)}
-  .ficha h2{font-size:clamp(1.6rem,3.4vw,2.4rem);letter-spacing:-.025em;font-weight:700;max-width:20ch}
+  .ficha h2{font-size:clamp(1.6rem,3.4vw,2.5rem);letter-spacing:-.025em;font-weight:700;max-width:20ch}
   .lista{margin:34px 0 0;padding:0;list-style:none;display:grid;gap:0;
          grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
   .lista li{padding:20px 0;border-top:1px solid var(--line)}
@@ -210,10 +210,28 @@
     padding:clamp(56px,8vw,96px) 0;border-top:1px solid var(--line);background:var(--sup);
   }
   .fecho .env{display:flex;flex-wrap:wrap;gap:28px;align-items:center;justify-content:space-between}
-  .fecho h2{font-size:clamp(1.5rem,3vw,2.2rem);letter-spacing:-.025em;font-weight:700;max-width:18ch}
+  .fecho h2{font-size:clamp(1.6rem,3.4vw,2.5rem);letter-spacing:-.025em;font-weight:700;max-width:18ch}
   .fecho p{color:var(--dim);margin:12px 0 0;max-width:46ch}
-  .rodape{border-top:1px solid var(--line);padding:26px 0;color:var(--dim);font-size:var(--fs-sm)}
-  .rodape .env{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between}
+  .rodape{border-top:1px solid var(--line);padding:26px 0 30px;color:var(--dim);font-size:var(--fs-sm)}
+  .rodape .env{display:flex;flex-direction:column;gap:16px}
+  .rodape .linha{display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:space-between;align-items:baseline}
+  .rodape .autor{border-top:1px solid var(--line);padding-top:16px}
+  .rodape .feito{color:var(--dim)}
+  /* Crédito e referências são navegação, não ação: ficam neutros e só ganham o
+     acento no sublinhado do hover. A regra do cromo mudo vale aqui também. */
+  .rodape a{
+    color:var(--txt);text-decoration:none;
+    border-bottom:1px solid transparent;padding-bottom:1px;
+    transition:border-color .16s var(--e),color .16s var(--e);
+  }
+  .rodape a:hover{border-bottom-color:var(--acc2)}
+  .rodape a b{font-weight:400;color:var(--dim)}
+  .rodape a:hover b{color:var(--txt)}
+  .refs{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:flex-end}
+  @media (max-width:640px){
+    .rodape .linha{flex-direction:column;gap:10px}
+    .refs{justify-content:flex-start}
+  }
 
   @media (max-width:860px){
     .heroi .env{grid-template-columns:1fr}
@@ -270,7 +288,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <section class="heroi">
     <div class="env">
       <div class="dizeres">
-      <h1><span data-i18n="heroi.t1">Você desenha a mandala.</span><em data-i18n="heroi.t2">A impressora esmalta.</em></h1>
+      <h1><span data-i18n="heroi.t1">Você desenha a mandala.</span><em data-i18n="heroi.t2">A impressora pinta.</em></h1>
       <p class="lede" data-i18n="heroi.lede">Filete em alto-relevo represando poças de esmalte, no navegador. Sai um 3MF que o Bambu Studio abre com cada cor já no extrusor certo — sem diálogo de importação, sem acertar nada à mão.</p>
       <div class="acoes">
         <a class="btn" id="cta-heroi" href="mandala-cloisonne.html">
@@ -424,8 +442,23 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 <footer class="rodape">
   <div class="env">
-    <span data-i18n="rod.a">Mandala Forge · gerador de mandala em filete e esmalte</span>
-    <span data-i18n="rod.b">Um arquivo HTML, zero dependências.</span>
+    <div class="linha">
+      <span data-i18n="rod.a">Mandala Forge · gerador de mandala em filete e cores</span>
+      <span data-i18n="rod.b">Um arquivo HTML, zero dependências.</span>
+    </div>
+    <div class="linha autor">
+      <span class="feito">
+        <span data-i18n="rod.feito">Feito por</span>
+        <a href="https://www.alexfalcao.pro.br" target="_blank" rel="noopener noreferrer">Alex Falcão</a>
+      </span>
+      <nav class="refs" data-i18n-aria="rod.refs">
+        <a href="https://makerworld.com/pt/@alexjfalcao" target="_blank" rel="noopener noreferrer">MakerWorld <b>@alexjfalcao</b></a>
+        <a href="https://cults3d.com/pt/usuarios/alexjfalcao" target="_blank" rel="noopener noreferrer">Cults3D <b>/alexjfalcao</b></a>
+        <a href="https://github.com/alexjfalcao" target="_blank" rel="noopener noreferrer">GitHub <b>/alexjfalcao</b></a>
+        <a href="https://www.linkedin.com/in/alexjfalcao/" target="_blank" rel="noopener noreferrer">LinkedIn <b>/alexjfalcao</b></a>
+        <a href="https://instagram.com/alexjfalcao" target="_blank" rel="noopener noreferrer">Instagram <b>@alexjfalcao</b></a>
+      </nav>
+    </div>
   </div>
 </footer>
 
@@ -455,7 +488,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       'doc.titulo': 'Mandala Forge — mandala em relevo que imprime colorida',
       'idioma.pt': 'Página em português', 'idioma.en': 'Switch page to English',
       'cta.curto': 'Abrir o gerador', 'cta.longo': 'Abrir o gerador',
-      'heroi.t1': 'Você desenha a mandala.', 'heroi.t2': 'A impressora esmalta.',
+      'heroi.t1': 'Você desenha a mandala.', 'heroi.t2': 'A impressora pinta.',
       'heroi.lede': 'Filete em alto-relevo represando poças de esmalte, no navegador. Sai um 3MF que o Bambu Studio abre com cada cor já no extrusor certo, sem diálogo de importação e sem acertar nada à mão.',
       'heroi.selo': 'Roda no navegador. Nada para instalar, nada para baixar.',
       'tira.1': 'Traço', 'tira.2': 'Filete', 'tira.3': 'Poças', 'tira.4': 'Peças', 'tira.5': 'Fatiado',
@@ -493,14 +526,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       'f6.h': 'Desfaz de verdade', 'f6.p': '⌘Z e ⇧⌘Z valem para tudo: apagar camada, trocar de paleta, reduzir cores. Zoom e panorâmica nas três vistas.',
       'fec.h': 'Sua primeira mandala está a um clique',
       'fec.p': 'Abre no navegador, já com um desenho pronto para você mexer. Nada para instalar, nada para cadastrar.',
-      'rod.a': 'Mandala Forge · gerador de mandala em filete e esmalte',
-      'rod.b': 'Um arquivo HTML, zero dependências.'
+      'rod.a': 'Mandala Forge · gerador de mandala em filete e cores',
+      'rod.b': 'Um arquivo HTML, zero dependências.',
+      'rod.feito': 'Feito por', 'rod.refs': 'perfis do autor'
     },
     en: {
       'doc.titulo': 'Mandala Forge — relief mandalas that print in colour',
       'idioma.pt': 'Mudar a página para português', 'idioma.en': 'Page in English',
       'cta.curto': 'Open the generator', 'cta.longo': 'Open the generator',
-      'heroi.t1': 'You draw the mandala.', 'heroi.t2': 'The printer enamels it.',
+      'heroi.t1': 'You draw the mandala.', 'heroi.t2': 'The printer prints it.',
       'heroi.lede': 'Raised wire damming pools of enamel, in the browser. Out comes a 3MF that Bambu Studio opens with every colour already on the right extruder, with no import dialog and nothing to fix by hand.',
       'heroi.selo': 'Runs in the browser. Nothing to install, nothing to download.',
       'tira.1': 'Line', 'tira.2': 'Wire', 'tira.3': 'Pools', 'tira.4': 'Parts', 'tira.5': 'Sliced',
@@ -539,7 +573,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       'fec.h': 'Your first mandala is one click away',
       'fec.p': 'It opens in the browser with a drawing already on screen for you to push around. Nothing to install, no sign-up.',
       'rod.a': 'Mandala Forge · cloisonné mandala generator',
-      'rod.b': 'One HTML file, zero dependencies.'
+      'rod.b': 'One HTML file, zero dependencies.',
+      'rod.feito': 'Built by', 'rod.refs': "the author's profiles"
     }
   };
 

@@ -194,6 +194,10 @@
         "displayName": "Headline",
         "purpose": "Título de seção na landing."
       },
+      "lede": {
+        "displayName": "Lede",
+        "purpose": "Linha de apoio sob o título do herói. Único degrau entre body e headline; só a landing usa."
+      },
       "title": {
         "displayName": "Title",
         "purpose": "O nome do app no painel. Único uso de caixa alta do sistema."
