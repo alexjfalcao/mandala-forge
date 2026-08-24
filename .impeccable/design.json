@@ -1,0 +1,408 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-24T00:05:32.221Z",
+  "title": "Design System: Mandala Forge",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Fundo",
+        "canonical": "oklch(17.8% 0.0108 268.1)",
+        "tonalRamp": [
+          "oklch(15.0% 0.0108 268.1)",
+          "oklch(26.4% 0.0108 268.1)",
+          "oklch(37.9% 0.0108 268.1)",
+          "oklch(49.3% 0.0108 268.1)",
+          "oklch(60.7% 0.0108 268.1)",
+          "oklch(72.1% 0.0108 268.1)",
+          "oklch(83.6% 0.0108 268.1)",
+          "oklch(95.0% 0.0108 268.1)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Superfície",
+        "canonical": "oklch(21.8% 0.0164 268.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.0164 268.9)",
+          "oklch(26.4% 0.0164 268.9)",
+          "oklch(37.9% 0.0164 268.9)",
+          "oklch(49.3% 0.0164 268.9)",
+          "oklch(60.7% 0.0164 268.9)",
+          "oklch(72.1% 0.0164 268.9)",
+          "oklch(83.6% 0.0164 268.9)",
+          "oklch(95.0% 0.0164 268.9)"
+        ]
+      },
+      "surface-raised": {
+        "role": "neutral",
+        "displayName": "Superfície Elevada",
+        "canonical": "oklch(25.2% 0.0199 267.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.0199 267.9)",
+          "oklch(26.4% 0.0199 267.9)",
+          "oklch(37.9% 0.0199 267.9)",
+          "oklch(49.3% 0.0199 267.9)",
+          "oklch(60.7% 0.0199 267.9)",
+          "oklch(72.1% 0.0199 267.9)",
+          "oklch(83.6% 0.0199 267.9)",
+          "oklch(95.0% 0.0199 267.9)"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Fio de Cabelo",
+        "canonical": "oklch(30.6% 0.0245 268.5)",
+        "tonalRamp": [
+          "oklch(15.0% 0.0245 268.5)",
+          "oklch(26.4% 0.0245 268.5)",
+          "oklch(37.9% 0.0245 268.5)",
+          "oklch(49.3% 0.0245 268.5)",
+          "oklch(60.7% 0.0245 268.5)",
+          "oklch(72.1% 0.0245 268.5)",
+          "oklch(83.6% 0.0245 268.5)",
+          "oklch(95.0% 0.0245 268.5)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Tinta",
+        "canonical": "oklch(93.4% 0.0100 267.4)",
+        "tonalRamp": [
+          "oklch(15.0% 0.0100 267.4)",
+          "oklch(26.4% 0.0100 267.4)",
+          "oklch(37.9% 0.0100 267.4)",
+          "oklch(49.3% 0.0100 267.4)",
+          "oklch(60.7% 0.0100 267.4)",
+          "oklch(72.1% 0.0100 267.4)",
+          "oklch(83.6% 0.0100 267.4)",
+          "oklch(95.0% 0.0100 267.4)"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Tinta Apagada",
+        "canonical": "oklch(70.6% 0.0292 267.4)",
+        "tonalRamp": [
+          "oklch(15.0% 0.0292 267.4)",
+          "oklch(26.4% 0.0292 267.4)",
+          "oklch(37.9% 0.0292 267.4)",
+          "oklch(49.3% 0.0292 267.4)",
+          "oklch(60.7% 0.0292 267.4)",
+          "oklch(72.1% 0.0292 267.4)",
+          "oklch(83.6% 0.0292 267.4)",
+          "oklch(95.0% 0.0292 267.4)"
+        ]
+      },
+      "champagne": {
+        "role": "primary",
+        "displayName": "Champanhe",
+        "canonical": "oklch(82.0% 0.0444 83.2)",
+        "tonalRamp": [
+          "oklch(15.0% 0.0444 83.2)",
+          "oklch(26.4% 0.0444 83.2)",
+          "oklch(37.9% 0.0444 83.2)",
+          "oklch(49.3% 0.0444 83.2)",
+          "oklch(60.7% 0.0444 83.2)",
+          "oklch(72.1% 0.0444 83.2)",
+          "oklch(83.6% 0.0444 83.2)",
+          "oklch(95.0% 0.0444 83.2)"
+        ]
+      },
+      "champagne-deep": {
+        "role": "primary",
+        "displayName": "Champanhe Fundo",
+        "canonical": "oklch(72.1% 0.0300 86.7)",
+        "tonalRamp": [
+          "oklch(15.0% 0.0300 86.7)",
+          "oklch(26.4% 0.0300 86.7)",
+          "oklch(37.9% 0.0300 86.7)",
+          "oklch(49.3% 0.0300 86.7)",
+          "oklch(60.7% 0.0300 86.7)",
+          "oklch(72.1% 0.0300 86.7)",
+          "oklch(83.6% 0.0300 86.7)",
+          "oklch(95.0% 0.0300 86.7)"
+        ]
+      },
+      "on-champagne": {
+        "role": "primary",
+        "displayName": "Tinta Sobre Champanhe",
+        "canonical": "oklch(19.2% 0.0159 89.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.0159 89.9)",
+          "oklch(26.4% 0.0159 89.9)",
+          "oklch(37.9% 0.0159 89.9)",
+          "oklch(49.3% 0.0159 89.9)",
+          "oklch(60.7% 0.0159 89.9)",
+          "oklch(72.1% 0.0159 89.9)",
+          "oklch(83.6% 0.0159 89.9)",
+          "oklch(95.0% 0.0159 89.9)"
+        ]
+      },
+      "signal-ok": {
+        "role": "tertiary",
+        "displayName": "Verde OK",
+        "canonical": "oklch(75.1% 0.1180 153.6)",
+        "tonalRamp": [
+          "oklch(15.0% 0.1180 153.6)",
+          "oklch(26.4% 0.1180 153.6)",
+          "oklch(37.9% 0.1180 153.6)",
+          "oklch(49.3% 0.1180 153.6)",
+          "oklch(60.7% 0.1180 153.6)",
+          "oklch(72.1% 0.1180 153.6)",
+          "oklch(83.6% 0.1180 153.6)",
+          "oklch(95.0% 0.1180 153.6)"
+        ]
+      },
+      "signal-warn": {
+        "role": "tertiary",
+        "displayName": "Âmbar Aviso",
+        "canonical": "oklch(76.1% 0.1171 70.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.1171 70.9)",
+          "oklch(26.4% 0.1171 70.9)",
+          "oklch(37.9% 0.1171 70.9)",
+          "oklch(49.3% 0.1171 70.9)",
+          "oklch(60.7% 0.1171 70.9)",
+          "oklch(72.1% 0.1171 70.9)",
+          "oklch(83.6% 0.1171 70.9)",
+          "oklch(95.0% 0.1171 70.9)"
+        ]
+      },
+      "signal-bad": {
+        "role": "tertiary",
+        "displayName": "Coral Erro",
+        "canonical": "oklch(66.3% 0.1506 29.5)",
+        "tonalRamp": [
+          "oklch(15.0% 0.1506 29.5)",
+          "oklch(26.4% 0.1506 29.5)",
+          "oklch(37.9% 0.1506 29.5)",
+          "oklch(49.3% 0.1506 29.5)",
+          "oklch(60.7% 0.1506 29.5)",
+          "oklch(72.1% 0.1506 29.5)",
+          "oklch(83.6% 0.1506 29.5)",
+          "oklch(95.0% 0.1506 29.5)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Só o título da landing page. Não aparece no app."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Título de seção na landing."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "O nome do app no painel. Único uso de caixa alta do sistema."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Prosa e todo controle. 60–65ch de medida."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Rótulo, legenda, badge e valor numérico, com numerais tabulares."
+      }
+    },
+    "shadows": [
+      {
+        "name": "plate",
+        "value": "0 18px 50px rgba(0,0,0,.35)",
+        "purpose": "Cartão de arte da landing, em repouso."
+      },
+      {
+        "name": "floating",
+        "value": "0 14px 36px rgba(0,0,0,.55)",
+        "purpose": "Popover de ajuda, na top layer."
+      },
+      {
+        "name": "toast",
+        "value": "0 8px 24px rgba(0,0,0,.5)",
+        "purpose": "Confirmação transitória do desfazer."
+      },
+      {
+        "name": "lift",
+        "value": "0 6px 18px rgba(0,0,0,.45)",
+        "purpose": "Só no hover do botão primário, junto de translateY(-1px)."
+      },
+      {
+        "name": "halo",
+        "value": "drop-shadow(0 26px 60px rgba(0,0,0,.55))",
+        "purpose": "A mandala do herói, que é PNG transparente."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(.16,1,.3,1)",
+        "purpose": "Easing único do sistema. Sem bounce, sem elastic."
+      },
+      {
+        "name": "dur-state",
+        "value": "160ms",
+        "purpose": "Transição de estado: hover, foco, ativo."
+      },
+      {
+        "name": "dur-reveal",
+        "value": "200ms",
+        "purpose": "Quadro da tira mudando de ativo."
+      },
+      {
+        "name": "dur-toast",
+        "value": "1600ms",
+        "purpose": "Quanto o toast do desfazer fica na tela."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "560px"
+      },
+      {
+        "name": "md",
+        "value": "860px"
+      },
+      {
+        "name": "lg",
+        "value": "1180px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Única ação primária de cada tela. Champanhe sólido.",
+      "html": "<button class=\"ds-btn-primary\">Abrir o gerador</button>",
+      "css": ".ds-btn-primary{background:#d2c2a4;color:#17140c;border:1px solid #d2c2a4;border-radius:5px;padding:11px 20px;font:600 15px/1.6 ui-sans-serif,-apple-system,sans-serif;cursor:pointer;transition:transform .16s cubic-bezier(.16,1,.3,1),box-shadow .16s cubic-bezier(.16,1,.3,1),filter .16s cubic-bezier(.16,1,.3,1)}.ds-btn-primary:hover{filter:brightness(1.06);transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.45)}.ds-btn-primary:focus-visible{outline:2px solid #ada490;outline-offset:3px}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Ação secundária. Só a borda acende no hover; sem brilho e sem lift.",
+      "html": "<button class=\"ds-btn-ghost\">Salvar .json</button>",
+      "css": ".ds-btn-ghost{background:#12151c;color:#e6e9f0;border:1px solid #2a2f3c;border-radius:5px;padding:11px 20px;font:400 15px/1.6 ui-sans-serif,-apple-system,sans-serif;cursor:pointer;transition:border-color .16s cubic-bezier(.16,1,.3,1)}.ds-btn-ghost:hover{border-color:#ada490}.ds-btn-ghost:focus-visible{outline:2px solid #ada490;outline-offset:3px}"
+    },
+    {
+      "name": "Control Row",
+      "kind": "custom",
+      "refersTo": "control-row",
+      "description": "A linha do painel: rótulo, botões de passo, slider e valor tabular.",
+      "html": "<div class=\"ds-row\"><label>Diâmetro</label><button class=\"ds-step\">−</button><input type=\"range\" min=\"50\" max=\"300\" value=\"120\"><button class=\"ds-step\">+</button><span class=\"ds-num\">120 mm</span></div>",
+      "css": ".ds-row{display:flex;align-items:center;gap:6px;font:400 12.5px/1.45 ui-sans-serif,-apple-system,sans-serif;color:#e6e9f0;accent-color:#d2c2a4}.ds-row label{flex:0 0 86px;color:#98a0b3;font-size:11px}.ds-row input[type=range]{flex:1;min-width:0;height:18px}.ds-step{flex:0 0 18px;width:18px;height:18px;padding:0;background:#12151c;border:1px solid #2a2f3c;color:#98a0b3;border-radius:3px;font:inherit;cursor:pointer}.ds-step:hover{color:#e6e9f0;border-color:#d2c2a4}.ds-num{flex:0 0 54px;text-align:right;font-variant-numeric:tabular-nums;font-size:11px}"
+    },
+    {
+      "name": "State Badge",
+      "kind": "chip",
+      "refersTo": "badge-ok",
+      "description": "Estado da peça no rodapé. Some por completo quando não há o que dizer.",
+      "html": "<span class=\"ds-badge ds-badge-ok\">1 peça</span> <span class=\"ds-badge ds-badge-warn\">6 cores</span> <span class=\"ds-badge ds-badge-bad\">não cabe na mesa</span>",
+      "css": ".ds-badge{display:inline-block;padding:2px 8px;border-radius:99px;font:400 11px/1.6 ui-sans-serif,-apple-system,sans-serif;border:1px solid}.ds-badge:empty{display:none}.ds-badge-ok{color:#6ec48b;border-color:#2f4f3c;background:#152119}.ds-badge-warn{color:#e0a458;border-color:#4f402a;background:#211b12}.ds-badge-bad{color:#e06a5a;border-color:#5a2f2a;background:#211413}"
+    },
+    {
+      "name": "Help Popover",
+      "kind": "custom",
+      "refersTo": "popover",
+      "description": "O ? no legend de cada seção. Popover nativo, nunca position:absolute.",
+      "html": "<fieldset class=\"ds-fs\"><legend>Placa <button class=\"ds-ajuda\" aria-label=\"ajuda\">?</button></legend><div class=\"ds-pop\"><h3>Placa</h3><p>A base é a espessura da chapa, em milímetros.</p></div></fieldset>",
+      "css": ".ds-fs{border:1px solid #2a2f3c;border-radius:8px;padding:8px 10px 10px;background:#1e222c;min-width:0}.ds-fs legend{font:400 11px/1.3 ui-sans-serif,-apple-system,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#98a0b3;padding:0 5px}.ds-ajuda{width:16px;height:16px;padding:0;margin-left:3px;vertical-align:-3px;background:none;border:1px solid #2a2f3c;color:#98a0b3;border-radius:50%;font:inherit;line-height:1;cursor:pointer}.ds-ajuda:hover{color:#e6e9f0;border-color:#ada490}.ds-pop{margin-top:10px;width:min(340px,100%);background:#1e222c;border:1px solid #2a2f3c;border-radius:8px;padding:12px 14px;box-shadow:0 14px 36px rgba(0,0,0,.55);font:400 11px/1.55 ui-sans-serif,-apple-system,sans-serif}.ds-pop h3{margin:0 0 7px;font-size:12.5px;font-weight:600;color:#e6e9f0}.ds-pop p{margin:0;color:#98a0b3}"
+    },
+    {
+      "name": "Language Flags",
+      "kind": "nav",
+      "refersTo": "icon-button",
+      "description": "Troca de idioma. SVG desenhado, nunca emoji de bandeira.",
+      "html": "<span class=\"ds-idiomas\"><button aria-pressed=\"true\"><svg viewBox=\"0 0 28 20\"><rect width=\"28\" height=\"20\" fill=\"#009b3a\"/><path d=\"M14 2.6 25.6 10 14 17.4 2.4 10Z\" fill=\"#fedf00\"/><circle cx=\"14\" cy=\"10\" r=\"4.4\" fill=\"#002776\"/></svg></button><button aria-pressed=\"false\"><svg viewBox=\"0 0 28 20\"><rect width=\"28\" height=\"20\" fill=\"#f4f4f6\"/><g fill=\"#b22234\"><rect width=\"28\" height=\"1.54\"/><rect y=\"3.08\" width=\"28\" height=\"1.54\"/><rect y=\"6.15\" width=\"28\" height=\"1.54\"/><rect y=\"9.23\" width=\"28\" height=\"1.54\"/><rect y=\"12.31\" width=\"28\" height=\"1.54\"/><rect y=\"15.38\" width=\"28\" height=\"1.54\"/><rect y=\"18.46\" width=\"28\" height=\"1.54\"/></g><rect width=\"12.4\" height=\"10.77\" fill=\"#3c3b6e\"/></svg></button></span>",
+      "css": ".ds-idiomas{display:flex;gap:5px}.ds-idiomas button{width:26px;height:19px;padding:0;background:none;border:1px solid #2a2f3c;border-radius:3px;cursor:pointer;line-height:0;overflow:hidden;opacity:.45;transition:opacity .16s cubic-bezier(.16,1,.3,1),border-color .16s}.ds-idiomas button svg{width:100%;height:100%;display:block}.ds-idiomas button:hover{opacity:.85}.ds-idiomas button[aria-pressed=true]{opacity:1;border-color:#d2c2a4}"
+    },
+    {
+      "name": "Layer Card",
+      "kind": "card",
+      "refersTo": "control-row",
+      "description": "Card de camada do app. Alvos de 24px e o destrutivo separado por margem.",
+      "html": "<div class=\"ds-cam\"><button class=\"ds-chev\" aria-expanded=\"false\"><span>▶</span></button><span class=\"ds-sw\" style=\"background:#e0705a\"></span><span class=\"ds-nome\">Folha</span><span class=\"ds-meta\">18×</span><button class=\"ds-icon\">▲</button><button class=\"ds-icon\">▼</button><button class=\"ds-icon\">⧉</button><button class=\"ds-icon ds-perigo\">×</button><input type=\"checkbox\" checked></div>",
+      "css": ".ds-cam{display:flex;align-items:center;gap:6px;padding:3px 6px 3px 2px;background:#1b1f29;border:1px solid #2a2f3c;border-radius:8px;font:400 12.5px/1.45 ui-sans-serif,-apple-system,sans-serif;color:#e6e9f0;accent-color:#d2c2a4}.ds-chev,.ds-icon{flex:0 0 24px;width:24px;height:24px;padding:0;background:none;border:none;color:#98a0b3;cursor:pointer;border-radius:4px;font:inherit;line-height:1}.ds-chev:hover,.ds-icon:hover{background:#252a36;color:#e6e9f0}.ds-perigo{margin-left:6px}.ds-perigo:hover{color:#e06a5a;background:#2a1a18}.ds-sw{width:11px;height:11px;border-radius:3px;flex:0 0 11px;border:1px solid rgba(255,255,255,.25)}.ds-nome{flex:1}.ds-meta{color:#98a0b3;font-size:11px;font-variant-numeric:tabular-nums}"
+    }
+  ],
+  "narrative": {
+    "northStar": "A Vitrine Escura",
+    "overview": "Uma caixa de museu, não um painel de software. O fundo é escuro e dessaturado porque recua para o objeto ler; as ferragens são de metal envelhecido; e a única coisa saturada na tela é a peça sob a luz.\n\nIsso resolve a tensão central do projeto: o conteúdo é uma mandala colorida, gerada pelo usuário, e a cor dela muda a cada clique numa paleta. Um cromo com cor própria brigaria com ela toda vez. Por isso o acento é champanhe de crômática baixa, e por isso os neutros ficam frios: o que faz a interface parecer cara é a tensão de temperatura entre o acento quente e o quase-preto frio, não a saturação.\n\nA densidade é honesta. O app é um painel de ferramenta com muitos parâmetros e não finge ser outra coisa. A landing herda o mesmo mundo sem inventar nada, e ganha escala em vez de ganhar ornamento. Não há webfont em lugar nenhum.",
+    "keyCharacteristics": [
+      "Fundo quase-preto frio; a cor vem do conteúdo, nunca do cromo",
+      "Um acento só, metálico e de crômática baixa, para ação e seleção",
+      "Três degraus de tipo no app, cinco na landing; uma família só, do sistema",
+      "Contraste AA como piso, medido em pares renderizados",
+      "Superfícies do navegador (seleção, cursor, barra de rolagem, anel de foco) tiradas da paleta"
+    ],
+    "rules": [
+      {
+        "name": "A Regra do Cromo Mudo",
+        "body": "O acento cobre menos de 5% de qualquer tela. Se um elemento não é ação, seleção ou estado, ele é neutro. A cor da tela é a peça do usuário.",
+        "section": "colors"
+      },
+      {
+        "name": "A Regra da Temperatura",
+        "body": "O acento é quente, os neutros são frios, e nenhum dos dois se move em direção ao outro. Não tinte os neutros para o matiz do acento; a tensão é o efeito.",
+        "section": "colors"
+      },
+      {
+        "name": "A Regra do Âmbar Reservado",
+        "body": "signal-warn é âmbar e o acento é champanhe. Nunca escolha um acento amarelo-alaranjado: ação primária e aviso ficariam da mesma cor.",
+        "section": "colors"
+      },
+      {
+        "name": "A Regra dos Três Degraus",
+        "body": "O painel do app usa exatamente três tamanhos (11 / 12,5 / 15,5). Um quarto degrau precisa de justificativa escrita.",
+        "section": "typography"
+      },
+      {
+        "name": "A Regra do Reset de Controle",
+        "body": "input, button, select, textarea { font-size: inherit } é obrigatório. Sem isso os controles caem no 13,333px do agente de usuário.",
+        "section": "typography"
+      },
+      {
+        "name": "A Regra do min-width zero",
+        "body": "Todo fieldset e todo item de flex que contenha um input[type=range] precisa de min-width: 0, senão a largura intrínseca do slider estoura o painel.",
+        "section": "layout"
+      },
+      {
+        "name": "A Regra da Sombra com Corpo",
+        "body": "Toda sombra tem deslocamento vertical e blur largo. Halo colorido de deslocamento zero é decoração e não entra.",
+        "section": "elevation"
+      },
+      {
+        "name": "A Regra do Popover Nativo",
+        "body": "Ajuda nunca usa position: absolute: o painel é overflow-y: auto e recortaria. O popover nativo vai para a top layer e traz Esc e clique-fora de graça.",
+        "section": "components"
+      },
+      {
+        "name": "A Regra da Bandeira Desenhada",
+        "body": "Nunca emoji de bandeira. As bandeiras não renderizam no Windows, onde o Chrome cai para as letras BR e US.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do deixar a cor da tela vir do conteúdo. O acento cobre menos de 5% de qualquer viewport.",
+      "Do medir contraste em pares renderizados, não no CSS. O piso é 4,5:1 para texto e 3:1 para controle.",
+      "Do tirar as superfícies do navegador da paleta: accent-color no html, ::selection, caret-color, barra de rolagem e :focus-visible.",
+      "Do usar font-variant-numeric: tabular-nums em toda medida, valor e tabela.",
+      "Do pôr min-width: 0 em todo container de flex que abrigue um input[type=range].",
+      "Do dar 24px de alvo aos controles de linha de camada, com o destrutivo separado por margem.",
+      "Do respeitar prefers-reduced-motion em toda transição."
+    ],
+    "donts": [
+      "Don't tintar os neutros na direção do acento. A tensão quente/frio é o efeito.",
+      "Don't escolher acento amarelo-alaranjado: colidiria com o âmbar do signal-warn.",
+      "Don't pôr prosa explicativa fixa no painel. Se depende do valor de um campo, é inline; se explica o que o campo faz, vai para o ?.",
+      "Don't usar outline: none sem pôr um anel de foco no lugar.",
+      "Don't acrescentar webfont, CDN ou qualquer dependência externa.",
+      "Don't usar emoji como sistema de ícone. Ícone é SVG desenhado.",
+      "Don't inventar prova: toda imagem publicada tem que ser saída real do gerador."
+    ]
+  }
+}
