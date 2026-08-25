@@ -36,9 +36,27 @@ gerado no Bambu Studio:
 - **torre de purga no prato** ao fatiar — ou seja, há troca de ferramenta real. As cores
   imprimem, não são só desenho de tela.
 
-O 3MF chega como **um objeto só** — o union implícito acontece mesmo. Mas o pipeline do PMM
-entrega a cor de um jeito que o Bambu Studio entende, e para este caso de uso isso basta: a
-pessoa escolhe as cores no customizador e não precisa reatribuir nada.
+O 3MF chega como **um objeto só** — o union implícito acontece mesmo. O que o PMM faz é
+converter o `color()` do OpenSCAD em **dados de pintura por triângulo**, o mesmo formato que a
+ferramenta de pintura do Bambu Studio grava.
+
+Dissecado no `ParametricModelMaker.3mf` baixado do PMM: é um **projeto do Bambu** (16 entradas,
+com `plate_1.json` e miniaturas), com `paint_color` em 45.298 dos 45.299 triângulos, quatro
+valores distintos, e as quatro cores escolhidas em `filament_colour` no `project_settings`.
+`model_settings` traz **um objeto, uma parte, extrusor 1** — e nenhum `basematerials`.
+
+Ou seja, existe um **terceiro caminho** para cor num 3MF, além dos dois que este repo já
+conhecia:
+
+| | resultado |
+|---|---|
+| `basematerials` | fatiador ignora (medido, está no `CLAUDE.md`) |
+| peças + `model_settings` + `project_settings` | funciona — é o que o gerador faz |
+| **`paint_color` por triângulo, um objeto só** | **funciona — é o que o PMM produz** |
+
+Isso explica tudo o que se observa: quatro filamentos, torre de purga, "um único modelo", e a
+impossibilidade de reatribuir filamento por região — porque é pintura, não peça. Para este caso
+de uso basta: a pessoa escolhe as cores no customizador e não precisa remapear nada.
 
 ⚠️ Consequência prática: **não dá para reatribuir filamento por região** no Studio, porque é
 um objeto só. Quem quiser outras cores muda no customizador e gera de novo — que é justamente

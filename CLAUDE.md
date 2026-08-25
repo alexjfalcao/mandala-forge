@@ -54,9 +54,17 @@ O que sabemos do PMM, medido e não suposto (detalhes em `openscad/README.md`):
 - **`lazy-union` é o que faz cor virar peça.** Sem ela o OpenSCAD funde o topo num objeto só e
   grava cor em `basematerials`, por triângulo. A flag não existe no PMM — mas o pipeline dele
   entrega a cor de um jeito que o Bambu Studio entende, com torre de purga e tudo. Medido.
-- ⚠️ Isso **não contradiz** o achado de que "fatiadores ignoram `basematerials`". Aquele foi
-  medido em 3MF **de projeto Bambu** escrito por este repo, onde o `model_settings.config`
-  manda. São caminhos diferentes; os dois achados convivem.
+- **O PMM produz um TERCEIRO caminho de cor**, dissecando o 3MF que ele devolve: um objeto
+  só, sem `basematerials`, com `paint_color` por triângulo — o mesmo formato da ferramenta de
+  pintura do Bambu Studio — e as cores em `filament_colour`. Some, portanto, a contradição
+  aparente com o "fatiadores ignoram `basematerials`" registrado acima: são três caminhos
+  distintos, e só o do meio é o que este repo escreve.
+
+    | | resultado |
+    |---|---|
+    | `basematerials` | fatiador ignora |
+    | peças + os dois configs | funciona — é o que `to3MF` faz |
+    | `paint_color` por triângulo | funciona — é o que o PMM produz |
 - **Duas cores não podem dividir volume** — é a invariante, e `openscad/teste-cores.sh` a
   checa. O critério é volume com tolerância de 1e-3 mm³, não "está vazio": faces coincidentes
   devolvem lascas de 1e-8 mm³ e exigir vazio reprova geometria correta.
