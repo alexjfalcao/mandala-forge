@@ -74,7 +74,23 @@ e os presets estão afinados para a simetria deles: solto, o lótus em 24 vira t
 
 ⚠️ **O furo de pendurar mora no meio da borda.** Na primeira versão ficava em 0.90 R com
 diâmetro fixo e caía **sempre** em cima do desenho — os motivos vão a 0.90–0.95 do raio nos
-quatro presets. Com `borda` menor que uns 3 mm acima do `furo_d`, ele volta a morder.
+quatro presets.
+
+**O desenho pode ir até a borda, e o furo pode encostar nele. É de propósito.** A borda é o
+ajuste; quem quiser o furo limpo aumenta. O padrão é 2 mm, que deixa o desenho cheio.
+
+A conta, para referência — o furo precisa de ~1,2 mm de material do lado de fora, e isso é
+absoluto, não escala com a peça. Então quanto menor a peça, mais borda ele pede. O pior caso é
+sempre a talavera, que vai a 0.95 do raio:
+
+| | borda 2 | borda 3 |
+|---|---|---|
+| Ø 40 | colide 1,8 mm | colide 0,8 mm |
+| Ø 60 | colide 1,3 mm | colide 0,3 mm |
+| Ø 100 | colide 0,3 mm | limpo, 0,6 mm |
+| Ø 150 | limpo, 1,0 mm | limpo, 1,9 mm |
+
+Nada disso é silencioso: o preview do PMM mostra antes de a pessoa baixar.
 
 As sete formas do gerador viraram polígono/círculo exatos; o filete é `offset()`. A pintura
 por camadas ("a de cima cobre a de baixo") vira "subtraia tudo que vem depois".

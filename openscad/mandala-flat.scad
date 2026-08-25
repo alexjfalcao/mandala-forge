@@ -27,8 +27,8 @@
 desenho = 1;      // [1:Lótus, 2:Talavera, 3:Renda, 4:Sol]
 // Diâmetro da peça, em mm
 diametro = 100;   // [40:150]
-// Borda lisa em volta, em mm — é onde o furo de pendurar cabe sem tampar o desenho
-borda = 7;        // [0:10]
+// Borda lisa em volta, em mm — aumente se o furo estiver tocando o desenho
+borda = 2;        // [0:10]
 // Espessura da peça, em mm
 espessura = 3;    // [2:0.5:6]
 // Mais ou menos repetições em volta, a partir da simetria do desenho
