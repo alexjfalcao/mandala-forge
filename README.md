@@ -49,6 +49,11 @@ classic "the colours came out swapped".
 Real numbers, from the `lotus` preset sliced in the Bambu Studio CLI on an H2C with a 0.4
 nozzle: 6 filaments, 989,888 triangles, 52.1 g, 253 minutes.
 
+The rules for writing that file — both configs, the sizing traps, the metadata the slicer
+checks before it will honour any of it — are packaged separately as a Claude Code skill, for
+building colour-correct 3MFs from any geometry and not just mandalas:
+[bambu-3mf-skill](https://github.com/alexjfalcao/bambu-3mf-skill).
+
 ## Running it
 
 ```bash
