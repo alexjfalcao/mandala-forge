@@ -26,22 +26,27 @@ Agrupar por cor no topo (`color(c) for(...)` em vez de trocar de cor dentro do l
 resolve sozinho** — foi a primeira hipótese e ela caiu no teste acima. É necessária, mas não
 suficiente: sem `lazy-union` o topo funde do mesmo jeito.
 
-## A pergunta que sobra
+## A resposta: funciona no PMM
 
-A flag **não está disponível no Parametric Model Maker**. Mas o PMM tem pipeline próprio de
-3MF e anuncia multicolor desde a v0.9.0, dizendo que o Bambu Studio mostra cada cor como um
-filamento em *Project Filaments*.
+Medido em 25/08/2026, subindo o `spike-cor.scad` no Parametric Model Maker e abrindo o 3MF
+gerado no Bambu Studio:
 
-Então falta medir no PMM, e só lá:
+- **3 filamentos** em *Project Filaments*, nas três cores declaradas;
+- as cores caem nas **regiões certas** (placa vermelha, pétalas amarelas, pontos laranja);
+- **torre de purga no prato** ao fatiar — ou seja, há troca de ferramenta real. As cores
+  imprimem, não são só desenho de tela.
 
-1. O 3MF gerado tem **vários `<object>`** ou **um só com `basematerials`**?
-2. As cores aparecem certas ao abrir no Bambu Studio?
-3. Dá para **reatribuir** o filamento de cada região?
+O 3MF chega como **um objeto só** — o union implícito acontece mesmo. Mas o pipeline do PMM
+entrega a cor de um jeito que o Bambu Studio entende, e para este caso de uso isso basta: a
+pessoa escolhe as cores no customizador e não precisa reatribuir nada.
 
-⚠️ Cuidado ao interpretar: (2) e (3) são perguntas diferentes. Se as cores saírem certas mas
-não puderem ser reatribuídas, **isso pode bastar** para o nosso caso — a pessoa já escolheu as
-cores no customizador e não precisa remapear nada. O relato de falha que existe na comunidade
-é sobre reatribuição, não sobre impressão.
+⚠️ Consequência prática: **não dá para reatribuir filamento por região** no Studio, porque é
+um objeto só. Quem quiser outras cores muda no customizador e gera de novo — que é justamente
+o fluxo que o modelo propõe.
+
+⚠️ Não confunda com o achado do `CLAUDE.md` ("fatiadores ignoram `basematerials`"). Aquele foi
+medido em 3MF **de projeto Bambu** escrito por este repo, onde o `model_settings.config` manda.
+Aqui o arquivo vem do PMM e o caminho é outro. Os dois achados convivem.
 
 ## Reproduzir
 
