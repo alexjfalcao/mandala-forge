@@ -105,6 +105,11 @@ in every configuration.
 | `exportar.py` · `amostrar.js` | Command-line export path |
 | `teste-cloisonne.js` · `teste-contorno.py` | The two suites |
 
+There is also a **flat OpenSCAD version** in `openscad/`, built for MakerWorld's Parametric
+Model Maker: four fixed designs, no relief, colours picked in the customiser. It shares no code
+with the core — OpenSCAD is CSG, the generator is signed distance — and it is deliberately the
+simpler sibling. See `openscad/README.md`.
+
 Read `MANDALA-CLOISONNE.md` before touching the geometry — the formulas and the traps live
 there, not in the code.
 

@@ -117,3 +117,12 @@ coincidentes e o CGAL devolve lascas de ~1e-8 mm³: exigir vazio reprova geometr
 limiar é 1e-3 mm³. Com o bug reintroduzido, as sobreposições vão a 588–1062 mm³ — sete ordens
 de grandeza acima do ruído, então o limiar não é chute.
 
+## Licença
+
+O `.scad` é **AGPL-3.0**, como o resto deste repo — o aviso está no topo do arquivo.
+
+⚠️ **A licença do script não é a do modelo.** As mandalas que ele gera são de quem gera, e o
+modelo publicado na MakerWorld fica sob **CC BY-NC-SA**, como o outro. A AGPL cobre o código,
+não a saída dele. A descrição na MakerWorld precisa dizer isso em uma linha, senão quem baixar
+não tem como saber sob que regra está.
+

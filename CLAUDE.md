@@ -38,6 +38,29 @@ no PATH: ele procura em `~/.nvm/versions/node/*/bin/node` e aceita a variável `
 `exemplo_mandala.jpg` é a foto de referência que originou o gerador cloisonné (o preset
 `incensário` é a tentativa de reproduzi-la).
 
+### A via OpenSCAD
+
+`openscad/mandala-flat.scad` é uma **terceira implementação**, para o Parametric Model Maker da
+MakerWorld: quatro desenhos fixos, chapados, com as cores escolhidas na tela de customização.
+
+⚠️ **Ela não compartilha uma linha com o núcleo, e não deve passar a compartilhar.** O núcleo
+decide forma por distância assinada e exporta por curvas de nível; OpenSCAD é CSG. As sete
+formas foram **reescritas** como polígono/círculo exatos — o SDF nunca foi necessário para as
+regiões, só para o filete, que ali é `offset()`. Quem tentar unificar as duas vai reintroduzir
+o campo de distância dentro do CSG, que é o pior dos dois mundos.
+
+O que sabemos do PMM, medido e não suposto (detalhes em `openscad/README.md`):
+
+- **`lazy-union` é o que faz cor virar peça.** Sem ela o OpenSCAD funde o topo num objeto só e
+  grava cor em `basematerials`, por triângulo. A flag não existe no PMM — mas o pipeline dele
+  entrega a cor de um jeito que o Bambu Studio entende, com torre de purga e tudo. Medido.
+- ⚠️ Isso **não contradiz** o achado de que "fatiadores ignoram `basematerials`". Aquele foi
+  medido em 3MF **de projeto Bambu** escrito por este repo, onde o `model_settings.config`
+  manda. São caminhos diferentes; os dois achados convivem.
+- **Duas cores não podem dividir volume** — é a invariante, e `openscad/teste-cores.sh` a
+  checa. O critério é volume com tolerância de 1e-3 mm³, não "está vazio": faces coincidentes
+  devolvem lascas de 1e-8 mm³ e exigir vazio reprova geometria correta.
+
 ### Versão
 
 `MC.VERSAO` no núcleo é a **fonte única**. A tela lê dali

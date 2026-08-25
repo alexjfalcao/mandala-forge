@@ -1,4 +1,17 @@
 /* =========================================================================
+   Mandala Forge — mandala chapada, para o Parametric Model Maker
+   Copyright (C) 2026  Alex Esteves Jaccoud Falcão
+
+   Este programa é software livre sob a GNU Affero General Public License,
+   versão 3 ou posterior. Distribuído na esperança de ser útil, mas SEM
+   QUALQUER GARANTIA. Veja <https://www.gnu.org/licenses/>.
+
+   Fonte: https://github.com/alexjfalcao/mandala-forge
+
+   ⚠️ A LICENÇA DO SCRIPT NÃO É A DO MODELO. Este .scad é AGPL-3.0. As mandalas
+   que ele gera são suas, e o modelo publicado na MakerWorld está sob
+   CC BY-NC-SA — a AGPL cobre o código, não a saída dele.
+   -------------------------------------------------------------------------
    MANDALA CHAPADA — versão OpenSCAD do Mandala Forge, para o Parametric
    Model Maker da MakerWorld.
 
