@@ -58,3 +58,34 @@ openscad --enable=lazy-union -o /tmp/b.3mf openscad/spike-cor.scad
 ```
 
 Render local: **0,034 s**. Tempo não é o gargalo aqui — a cor é.
+
+## O gerador
+
+`mandala-flat.scad` — quatro desenhos (lótus, talavera, renda, sol), diâmetro de 40 a 150 mm,
+furo no topo/no centro/nenhum, quatro cores em seletor. Rende em 0,3 a 0,5 s por desenho.
+
+As sete formas do gerador viraram polígono/círculo exatos; o filete é `offset()`. A pintura
+por camadas ("a de cima cobre a de baixo") vira "subtraia tudo que vem depois".
+
+**Filete por camada, não global.** Com largura fixa, `offset(-fio)` engolia o miolo dos motivos
+pequenos. Aqui o filete nunca passa de 40% da meia-espessura do motivo, com piso de 0,45 mm —
+a menor linha que um bico de 0,4 imprime.
+
+Fora, com motivo: cone (é relevo), preenchimento `contornos` (offsets aninhados, risco de
+timeout) e o modo vazado do `renda`, que sai com fundo.
+
+## Teste
+
+```bash
+bash openscad/teste-cores.sh     # 4 desenhos × 6 pares de cores
+```
+
+**Duas cores não podem dividir volume.** Foi a invariante quebrada uma vez: as nervuras
+existiam mas ficavam enterradas dentro da poça — dois sólidos de cores diferentes no mesmo
+espaço. Sumia na tela e sairia um 3MF com sobreposição.
+
+⚠️ O critério é **volume com tolerância**, não "está vazio". As regiões se tocam por faces
+coincidentes e o CGAL devolve lascas de ~1e-8 mm³: exigir vazio reprova geometria correta. O
+limiar é 1e-3 mm³. Com o bug reintroduzido, as sobreposições vão a 588–1062 mm³ — sete ordens
+de grandeza acima do ruído, então o limiar não é chute.
+
