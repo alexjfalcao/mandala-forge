@@ -27,8 +27,18 @@
 desenho = 1;      // [1:Lótus, 2:Talavera, 3:Renda, 4:Sol]
 // Diâmetro da peça, em mm
 diametro = 100;   // [40:150]
-// Furo
+// Borda lisa em volta, em mm — é onde o furo de pendurar cabe sem tampar o desenho
+borda = 7;        // [0:10]
+// Espessura da peça, em mm
+espessura = 3;    // [2:0.5:6]
+// Mais ou menos repetições em volta, a partir da simetria do desenho
+repeticoes = 0;   // [-4:4]
+
+/* [Furo] */
+// Onde
 furo = 1;         // [0:Sem furo, 1:No topo (chaveiro), 2:No centro]
+// Diâmetro do furo, em mm
+furo_d = 3.5;     // [2.5:0.5:6]
 
 /* [Cores] */
 cor_fundo = "#b02318";   // color
@@ -37,9 +47,13 @@ cor_poca1 = "#e8833a";   // color
 cor_poca2 = "#7a1f16";   // color
 
 /* [Hidden] */
-H   = 3.0;                       // espessura, fixa: peça chapada
-R   = diametro / 2;
-FIO = max(0.8, R * 0.018);       // largura do filete, acompanha o tamanho
+H   = espessura;
+R   = diametro / 2;              // raio da PEÇA
+// Raio do DESENHO. A borda não recorta os motivos: ela encolhe o desenho, para
+// cada mandala manter as próprias proporções dentro da moldura. Recortar
+// cortaria a ponta das pétalas na moldura, o que muda o desenho.
+Rd  = max(R * 0.35, R - borda);
+FIO = max(0.8, Rd * 0.018);      // largura do filete, acompanha o desenho
 NP  = 44;                        // pontos por lado nos motivos de perfil
 EPS = 0.01;
 
@@ -86,7 +100,10 @@ SOL = [ 18, [
 ]];
 
 DES  = desenho == 1 ? LOTUS : desenho == 2 ? TALAVERA : desenho == 3 ? RENDA : SOL;
-SYM  = DES[0];
+// Repetições relativas, não absolutas: a largura de cada motivo é calculada a
+// partir de `n`, e os presets estão afinados para a simetria deles. Solto, o
+// lótus em 24 vira teia e a renda em 6 vira quatro riscos perdidos.
+SYM  = max(4, DES[0] + repeticoes);
 CAMS = DES[1];
 
 // ---------------------------------------------------------------- perfis
@@ -116,7 +133,7 @@ function w_de(mot, t, b, p) =
 // contorno paramétrico: |lat| < hw*w(t), com lat medido como arco
 module m_perfil(mot, n, r0, r1, larg, base, ponta) {
   mid = (r0 + r1) / 2;
-  hw  = max(0.004 * R, larg * PI * mid / n);
+  hw  = max(0.004 * Rd, larg * PI * mid / n);
   pts = concat(
     [ for (k = [0 : NP])
         let (t = k / NP, r = r0 + t * (r1 - r0), w = w_de(mot, t, base, ponta),
@@ -170,9 +187,9 @@ module m_ponto(n, r0, r1, larg) {
 // meia-espessura do motivo: o menor entre metade da faixa radial e a
 // meia-largura lateral. É o que limita o quanto de filete cabe.
 function meia_de(c) =
-  let (r0 = c[2] * R, r1 = c[3] * R, n = max(1, round(SYM * c[1])),
+  let (r0 = c[2] * Rd, r1 = c[3] * Rd, n = max(1, round(SYM * c[1])),
        mid = (r0 + r1) / 2,
-       hw = max(0.004 * R, c[4] * PI * mid / n))
+       hw = max(0.004 * Rd, c[4] * PI * mid / n))
   min((r1 - r0) / 2, hw);
 
 // Filete por camada, não global. Com FIO fixo, `offset(-FIO)` engolia o miolo
@@ -184,7 +201,7 @@ function fio_de(c) = max(0.45, min(FIO, 0.40 * meia_de(c)));
 
 // a região 2D de UMA repetição da camada, já no eixo x+
 module regiao_1(c) {
-  mot = c[0]; r0 = c[2] * R; r1 = c[3] * R; larg = c[4];
+  mot = c[0]; r0 = c[2] * Rd; r1 = c[3] * Rd; larg = c[4];
   n = max(1, round(SYM * c[1]));
   if      (mot == "arco")  m_arco(n, r0, r1, larg);
   else if (mot == "ponto") m_ponto(n, r0, r1, larg);
@@ -207,10 +224,10 @@ module regiao(c) {
 NERV_W = max(0.8, FIO);
 
 module nervura_1(c, k, L) {
-  r0 = c[2] * R; r1 = c[3] * R; len = r1 - r0;
+  r0 = c[2] * Rd; r1 = c[3] * Rd; len = r1 - r0;
   n = max(1, round(SYM * c[1]));
   mid = (r0 + r1) / 2;
-  hw = max(0.004 * R, c[4] * PI * mid / n);
+  hw = max(0.004 * Rd, c[4] * PI * mid / n);
   incl = c[10];
   t0 = k / (L + 1);
   M = 22;
@@ -276,9 +293,17 @@ module fio_visivel(i) {
 module tudo() { for (i = [0 : len(CAMS) - 1]) regiao(CAMS[i]); }
 
 // ---------------------------------------------------------------- furos
+// O furo de pendurar mora no MEIO da borda. Na primeira versão ele ficava em
+// 0.90 R com diâmetro fixo, o que caía sempre em cima do desenho: os motivos vão
+// a 0.90–0.95 do raio nos quatro presets.
+// ⚠️ Com `borda` pequena demais para o `furo_d` escolhido, ele volta a morder o
+// desenho — a borda precisa de uns 3 mm a mais que o furo para ficar limpa.
 module furos() {
-  if (furo == 2) translate([0, 0, -EPS]) cylinder(h = H + 2 * EPS, d = max(3, R * 0.10), $fn = 48);
-  if (furo == 1) translate([0, R * 0.90, -EPS]) cylinder(h = H + 2 * EPS, d = max(3, R * 0.07), $fn = 40);
+  if (furo == 2)
+    translate([0, 0, -EPS]) cylinder(h = H + 2 * EPS, d = furo_d, $fn = 48);
+  if (furo == 1)
+    translate([0, R - max(borda / 2, furo_d / 2 + 1.2), -EPS])
+      cylinder(h = H + 2 * EPS, d = furo_d, $fn = 40);
 }
 
 // ---------------------------------------------------------------- peça

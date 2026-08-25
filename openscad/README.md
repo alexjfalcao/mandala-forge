@@ -61,8 +61,20 @@ Render local: **0,034 s**. Tempo não é o gargalo aqui — a cor é.
 
 ## O gerador
 
-`mandala-flat.scad` — quatro desenhos (lótus, talavera, renda, sol), diâmetro de 40 a 150 mm,
-furo no topo/no centro/nenhum, quatro cores em seletor. Rende em 0,3 a 0,5 s por desenho.
+`mandala-flat.scad` — quatro desenhos (lótus, talavera, renda, sol), diâmetro, borda,
+espessura, repetições, furo e as quatro cores. Rende em 0,3 a 0,5 s por desenho.
+
+**A borda encolhe o desenho, não o recorta.** Recortar cortaria a ponta das pétalas na
+moldura; encolhendo, cada mandala mantém as próprias proporções. Daí `Rd = R - borda` ser o
+raio do desenho, e `R` só a peça.
+
+**As repetições são relativas (−4 a +4), não absolutas.** A largura de cada motivo sai de `n`,
+e os presets estão afinados para a simetria deles: solto, o lótus em 24 vira teia e a renda em
+6 vira quatro riscos perdidos.
+
+⚠️ **O furo de pendurar mora no meio da borda.** Na primeira versão ficava em 0.90 R com
+diâmetro fixo e caía **sempre** em cima do desenho — os motivos vão a 0.90–0.95 do raio nos
+quatro presets. Com `borda` menor que uns 3 mm acima do `furo_d`, ele volta a morder.
 
 As sete formas do gerador viraram polígono/círculo exatos; o filete é `offset()`. A pintura
 por camadas ("a de cima cobre a de baixo") vira "subtraia tudo que vem depois".
