@@ -94,7 +94,7 @@ depende de o repo estar público.
 
 ⚠️ Não há build nem minificação: **o HTML servido já é a fonte correspondente completa**, o
 que é o que satisfaz a seção 13 da AGPL. O link `Source:` do cabeçalho é cortesia, e aponta
-para este repo — enquanto ele for privado, o link não resolve para ninguém.
+para este repo, que é público.
 
 **Leia o `MANDALA-CLOISONNE.md` antes de mexer na geometria** — as fórmulas de cada motivo,
 o modelo de dados e as armadilhas estão lá, não no código.
